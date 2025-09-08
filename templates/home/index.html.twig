@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>{% block title %}M@ieutIC{% endblock %}</title>
+        <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22><text y=%221.2em%22 font-size=%2296%22>⚫️</text><text y=%221.3em%22 x=%220.2em%22 font-size=%2276%22 fill=%22%23fff%22>sf</text></svg>">
+        {% block stylesheets %}
+            <link rel="stylesheet" href="{{ asset('styles/app.css') }}">
+        {% endblock %}
+    </head>
+    <body>
+        {% block body %}
+        {{ render(controller('App\\Controller\\NavbarController::navbar')) }}
+
+        <div id="popup-notification" class="fixed top-32 right-5 bg-red-200 text-gray-700 max-w-80 px-6 py-4 rounded-lg shadow-lg flex items-start z-50 transition-opacity duration-500 overflow-hidden">
+            <span class="mr-4"><b>Important : </b>Ce site est toujours en développement, certaines fonctionalitées ne sont donc pas encore disponibles.<br>
+                Si vous rencontrez des bugs ou des problèmes, n'hésitez pas à nous contacter à l'adresse suivante : maieuticprojet@proton.me</span>
+            <button onclick="closePopup()" class="ml-auto text-gray-700 font-bold text-xl leading-none hover:text-black">&times;</button>
+            <div id="popup-progress" style="position:absolute; left:0; bottom:0; height:4px; background:#f87171; width:100%; transition:width 0.1s linear;"></div>
+        </div>
+
+        <div class="flex-1 flex flex-col items-center max-w-7xl mx-auto my-10">
+            <h1 class="mt-6 text-center text-4xl font-black text-gray-900 tracking-tight">MaieutIC</h1>
+            <p class="mt-2 text-center text-gray-600">La plateforme facilitant l’échange entre doctorants !</p>
+            <ul class="flex flex-wrap justify-center my-5">
+                {% if app.user%}
+                    <li>
+                        <a href="{{ path('app_profile_show', {'username' : app.user.username}) }}" class="relative block group">
+                            <img src="{{ asset('images/bureau.jpg') }}" alt="bureau" class="max-h-64 m-3 rounded-lg shadow-xl shadow-black/40 brightness-50 transition-all duration-200 group-hover:brightness-100"/>
+                            <div class="absolute bottom-5 left-9 text-white transition-opacity duration-200 group-hover:opacity-0">
+                                <div class="text-xl font-bold">Bureau</div>
+                                <div>Profil</div>
+                            </div>
+                        </a>
+                    </li>
+                {% else %}
+                    <li>
+                        <a href="{{ path('app_login') }}" class="relative block group">
+                            <img src="{{ asset('images/bureau.jpg') }}" alt="bureau" class="max-h-64 m-3 rounded-lg shadow-xl shadow-black/40 brightness-50 transition-all duration-200 group-hover:brightness-100"/>
+                            <div class="absolute bottom-5 left-9 text-white transition-opacity duration-200 group-hover:opacity-0">
+                                <div class="text-xl font-bold">Bureau</div>
+                                <div>Profil</div>
+                            </div>
+                        </a>
+                    </li>
+                {% endif %}
+                <li>
+                    <a href="/forums/General" class="relative block group">
+                        <img src="{{ asset('images/salon.jpg') }}" alt="salon" class="max-h-64 m-3 rounded-lg shadow-xl shadow-black/40 brightness-50 transition-all duration-200 group-hover:brightness-100"/>
+                        <div class="absolute bottom-5 left-9 text-white transition-opacity duration-200 group-hover:opacity-0">
+                            <div class="text-xl font-bold">Salon</div>
+                            <div>Forums</div>
+                        </div>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ path('app_maps') }}" class="relative block group">
+                        <img src="{{ asset('images/salle_a_manger.png') }}" alt="salle à manger" class="max-h-64 m-3 rounded-lg shadow-xl shadow-black/40 brightness-50 transition-all duration-200 group-hover:brightness-100"/>
+                        <div class="absolute bottom-5 left-9 text-white transition-opacity duration-200 group-hover:opacity-0">
+                            <div class="text-xl font-bold">Salle à manger</div>
+                            <div>Cartes de concepts et liens</div>
+                        </div>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ path('app_library') }}" class="relative block group">
+                        <img src="{{ asset('images/bibliotèque.jpg') }}" alt="bibliotèque" class="max-h-64 m-3 rounded-lg shadow-xl shadow-black/40  brightness-50 transition-all duration-200 group-hover:brightness-100"/>
+                        <div class="absolute bottom-5 left-9 text-white transition-opacity duration-200 group-hover:opacity-0">
+                            <div class="text-xl font-bold">Bibliothèque</div>
+                            <div>Auteurs et oeuvres</div>
+                        </div>
+                    </a>
+                </li>
+                <li>
+                    <a href="/methodology" class="relative block group">
+                        <img src="{{ asset('images/cuisine.jpg') }}" alt="cuisine" class="max-h-64 m-3 rounded-lg shadow-xl shadow-black/40  brightness-50 transition-all duration-200 group-hover:brightness-100"/>
+                        <div class="absolute bottom-5 left-9 text-white transition-opacity duration-200 group-hover:opacity-0">
+                            <div class="text-xl font-bold">Cuisine</div>
+                            <div>Partie méthodologie</div>
+                        </div>
+                    </a>
+                </li>
+                <li>
+                    <a href="/chill" class="relative block group">
+                        <img src="{{ asset('images/détente.jpeg') }}" alt="salle à manger" class="max-h-64 m-3 rounded-lg shadow-xl shadow-black/40 brightness-50 transition-all duration-200 group-hover:brightness-100"/>
+                        <div class="absolute bottom-5 left-9 text-white transition-opacity duration-200 group-hover:opacity-0">
+                            <div class="text-xl font-bold">Détente</div>
+                            <div>Gestion du stress, sophrologie</div>
+                        </div>
+                    </a>
+                </li>
+                <li>
+                    <a href="/administrative" class="relative block group">
+                        <img src="{{ asset('images/administratif.png') }}" alt="administratif" class="max-h-64 m-3 rounded-lg shadow-xl shadow-black/40 brightness-50 transition-all duration-200 group-hover:brightness-100"/>
+                            <div class="absolute bottom-5 left-9 text-white transition-opacity duration-200 group-hover:opacity-0">
+                            <div class="text-xl font-bold">Administratif</div>
+                        </div>
+                    </a>
+                </li>
+                {% if app.user%}
+                    <li>
+                        <a href="{{ path('app_chat_global') }}" class="relative block group">
+                            <img src="{{ asset('images/discussion.jpg') }}" alt="discussion" class="max-h-64 m-3 rounded-lg shadow-xl shadow-black/40 brightness-50 transition-all duration-200 group-hover:brightness-100"/>
+                            <div class="absolute bottom-5 left-9 text-white transition-opacity duration-200 group-hover:opacity-0">
+                                <div class="text-xl font-bold">Discussions</div>
+                                <div>Messagerie</div>
+                            </div>
+                        </a>
+                    </li>
+                {% else %}
+                    <li>
+                        <a href="{{ path('app_login') }}" class="relative block group">
+                            <img src="{{ asset('images/discussion.jpg') }}" alt="discussion" class="max-h-64 m-3 rounded-lg shadow-xl shadow-black/40 brightness-50 transition-all duration-200 group-hover:brightness-100"/>
+                            <div class="absolute bottom-5 left-9 text-white transition-opacity duration-200 group-hover:opacity-0">
+                                <div class="text-xl font-bold">Discussions</div>
+                                <div>Messagerie</div>
+                            </div>
+                        </a>
+                    </li>
+                {% endif %}
+                {% if app.user and app.user.usertype == 1 %}
+                <li>
+                    <a href="{{ path('app_admin_interface') }}" class="relative block group">
+                        <img src="{{ asset('images/administration.jpg') }}" alt="interface administrateur" class="max-h-64 m-3 rounded-lg shadow-xl shadow-black/40 brightness-50 transition-all duration-200 group-hover:brightness-100"/>
+                        <div class="absolute bottom-5 left-9 text-white transition-opacity duration-200 group-hover:opacity-0">
+                            <div class="text-xl font-bold">Interface Administrateur</div>
+                            <div>Gestion administrative</div>
+                        </div>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+        {{ render(controller('App\\Controller\\FooterController::footer')) }}
+        {% endblock %}
+    </body>
+    <script>
+        const popupDuration = 10000;
+        let popupStart = Date.now();
+        let popupInterval;
+
+        function closePopup() {
+            const popup = document.getElementById('popup-notification');
+            popup.style.opacity = 0;
+            clearInterval(popupInterval);
+            setTimeout(() => popup.style.display = 'none', 500);
+        }
+
+        function animateProgressBar() {
+            const progress = document.getElementById('popup-progress');
+            const elapsed = Date.now() - popupStart;
+            const percent = Math.max(0, 100 - (elapsed / popupDuration) * 100);
+            progress.style.width = percent + '%';
+            if (percent <= 0) clearInterval(popupInterval);
+        }
+
+        popupInterval = setInterval(animateProgressBar, 50);
+        setTimeout(closePopup, popupDuration);
+    </script>
+</html>

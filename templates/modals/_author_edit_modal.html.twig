@@ -1,0 +1,185 @@
+{% if is_granted('IS_AUTHENTICATED_FULLY') %}
+<div id="author-edit-modal" class="fixed inset-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center z-[1000] hidden">
+    <div class="bg-white/95 text-gray-700 p-5 rounded-lg w-[90%] max-w-[500px] shadow-lg relative">
+        <span class="absolute top-2 right-2 text-2xl cursor-pointer" onclick="closeAuthorEditModal()">&times;</span>
+        <h2 class="text-xl font-bold mb-4">Modifier un auteur</h2>
+        {{ form_start(form, {'attr': {'id': 'author-edit-form', 'class': 'space-y-4'}, 'action': path('app_author_edit', {'id': 1})}) }}
+            <div class="mb-4">
+                {{ form_label(form.name) }}
+                {{ form_widget(form.name, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2', 'multiple': false}}) }}
+                <span class="text-red-500">{{ form_errors(form.name) }}</span>
+            </div>
+
+            <div class="mb-4">
+                {{ form_label(form.birthYear) }}
+                {{ form_widget(form.birthYear, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2', 'multiple': false}}) }}
+                <span class="text-red-500">{{ form_errors(form.birthYear) }}</span>
+            </div>
+
+            <div class="mb-4">
+                {{ form_label(form.deathYear) }}
+                {{ form_widget(form.deathYear, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2', 'multiple': false}}) }}
+                <span class="text-red-500">{{ form_errors(form.deathYear) }}</span>
+            </div>
+            
+            <div class="mb-4">
+                {{ form_label(form.nationality) }}
+                {{ form_widget(form.nationality, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2'}}) }}
+                <span class="text-red-500">{{ form_errors(form.nationality) }}</span>
+            </div>
+
+            <div class="mb-4">
+                {{ form_label(form.link) }}
+                {{ form_widget(form.link, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2', 'multiple': false}}) }}
+                <span class="text-red-500">{{ form_errors(form.link) }}</span>
+            </div>
+
+            <div class="mb-4">
+                {{ form_label(form.tags) }}
+                <div class="relative w-full">
+                    <input id="author-edit-tag-search" type="text" placeholder="Rechercher un mot-clé..." class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400" autocomplete="off">
+                    <div id="author-edit-tag-suggestions" class="absolute left-0 right-0 bg-white border border-gray-200 rounded shadow z-10 mt-1 hidden"></div>
+                </div>
+                <div id="author-edit-active-tags" class="flex flex-wrap gap-2 mt-2"></div>
+                <div style="display: none;"> {# // to hide the original tags field #}
+                    {{ form_widget(form.tags) }}
+                </div>
+                <span class="text-red-500">{{ form_errors(form.tags) }}</span>
+            </div>
+            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Enregistrer</button>
+        {{ form_end(form) }}
+    </div>
+</div>
+
+<script>
+function debounce(fn, delay) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fn.apply(this, args), delay);
+    };
+}
+
+// Utiliser window pour tout rendre global et éviter les collisions
+if (typeof window.authorEditModalInitialized === 'undefined') {
+    window.authorEditSelectedTags = [];
+    window.authorEditModalInitialized = true;
+
+    window.setupAuthorEditTagSearch = function() {
+        const input = document.getElementById('author-edit-tag-search');
+        const suggestions = document.getElementById('author-edit-tag-suggestions');
+        const activeTags = document.getElementById('author-edit-active-tags');
+
+        input.value = '';
+        suggestions.innerHTML = '';
+        suggestions.classList.add('hidden');
+
+        input.oninput = debounce(function() {
+            fetchTags(this.value.trim());
+        }, 200);
+
+        input.onfocus = function() {
+            fetchTags('');
+        };
+
+        function fetchTags(query) {
+            fetch('{{ path('app_tag_search') }}?q=' + encodeURIComponent(query))
+                .then(r => r.json())
+                .then(tags => {
+                    suggestions.innerHTML = '';
+                    tags.forEach(tag => {
+                        if (window.authorEditSelectedTags.find(t => t.id == tag.id)) return;
+                        const div = document.createElement('div');
+                        div.className = 'px-4 py-2 hover:bg-blue-100 cursor-pointer';
+                        div.textContent = tag.name;
+                        div.onclick = () => {
+                            window.authorEditSelectedTags.push({id: tag.id, name: tag.name});
+                            window.renderAuthorEditActiveTags();
+                            suggestions.innerHTML = '';
+                            suggestions.classList.add('hidden');
+                            input.value = '';
+                        };
+                        suggestions.appendChild(div);
+                    });
+                    if (tags.length > 0) {
+                        suggestions.classList.remove('hidden');
+                    } else {
+                        suggestions.classList.add('hidden');
+                    }
+                });
+        }
+
+        window.renderAuthorEditActiveTags = function() {
+            activeTags.innerHTML = '';
+            window.authorEditSelectedTags.forEach(tag => {
+                const span = document.createElement('span');
+                span.className = 'bg-indigo-100 text-indigo-800 text-sm font-medium px-3 py-1 rounded-full flex items-center gap-1';
+                span.innerHTML = `
+                    ${tag.name}
+                    <button type="button" class="remove-tag text-indigo-600 font-bold hover:text-red-500" data-tag-id="${tag.id}">&times;</button>
+                `;
+                const hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.name = 'author[tags][]';
+                hidden.value = tag.id;
+                span.appendChild(hidden);
+                span.querySelector('.remove-tag').onclick = () => {
+                    window.authorEditSelectedTags = window.authorEditSelectedTags.filter(t => t.id != tag.id);
+                    window.renderAuthorEditActiveTags();
+                };
+                activeTags.appendChild(span);
+            });
+        };
+
+        document.addEventListener('click', function(e) {
+            if (!input.contains(e.target) && !suggestions.contains(e.target)) {
+                suggestions.classList.add('hidden');
+            }
+        });
+
+        document.getElementById('author-edit-form').addEventListener('submit', function() {
+            // nothing needed, hidden inputs are already in place
+        });
+    };
+
+    window.openAuthorEditModal = function(id) {
+        const form = document.getElementById('author-edit-form');
+        const editUrl = `{{ path('app_author_edit', {'id': 'PLACEHOLDER'}) }}`.replace('PLACEHOLDER', id);
+        form.action = editUrl;
+
+        fetch(`/library/author/data/${id}`)
+            .then(response => response.json())
+            .then(data => {
+                form.querySelector('[name$="[name]"]').value = data.name ?? '';
+                form.querySelector('[name$="[birthYear]"]').value = data.birthYear ?? '';
+                form.querySelector('[name$="[deathYear]"]').value = data.deathYear ?? '';
+                form.querySelector('[name$="[nationality]"]').value = data.nationality ?? '';
+                form.querySelector('[name$="[link]"]').value = data.link ?? '';
+                // Vérifier si le champ image existe
+                const imageInput = form.querySelector('[name$="[image]"]');
+                if (imageInput) imageInput.value = data.image ?? '';
+
+                window.authorEditSelectedTags = [];
+                if (data.tags) {
+                    data.tags.forEach(tag => {
+                        window.authorEditSelectedTags.push({id: tag.id, name: tag.name});
+                    });
+                }
+
+                window.setupAuthorEditTagSearch();
+                window.renderAuthorEditActiveTags();
+                // Afficher le modal
+                document.getElementById('author-edit-modal').classList.remove('hidden');
+            });
+    };
+
+    window.closeAuthorEditModal = function() {
+        document.getElementById('author-edit-modal').classList.add('hidden');
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        window.setupAuthorEditTagSearch();
+    });
+}
+</script>
+{% endif %}

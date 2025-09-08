@@ -1,0 +1,127 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Gestion des Tags{% endblock %}
+
+{% block body %}
+{{ render(controller('App\\Controller\\NavbarController::navbar')) }}
+<div class="flex-1">
+    <div class="bg-white/45 text-gray-700 backdrop-blur-sm shadow-xl mx-auto my-5 p-4 rounded-lg max-w-lg">
+        <h1 class="text-2xl font-bold mb-4">Gestion des Tags</h1>
+
+        <div class="flex flex-row items-center justify-between mb-4">
+            <!-- Barre de recherche -->
+            <form method="get" class="flex">
+                <input type="text" id="search-bar" name="search" placeholder="Rechercher un tag" value="{{ app.request.query.get('search') }}" class="w-full p-2 border border-gray-300 rounded max-w-md">
+            </form>
+
+            <!-- Bouton pour ouvrir le modal de création -->
+            <button class="text-white bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-indigo-500 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800" onclick="openCreateModal()">Ajouter un nouveau tag</button>
+        </div>
+
+        <!-- Modal pour la création -->
+        <div id="create-modal" class="modal hidden">
+            <div class="modal-content">
+                {{ form_start(tagForm, {'attr': {'class': 'my-4'}, 'action': path('app_admin_tag_add')}) }}
+                    {{ form_label(tagForm.name, 'Ajouter un nouveau tag', {'label_attr': {'class': 'text-xl font-bold'}}) }}
+                    {{ form_widget(tagForm.name, {'attr': {'class': 'w-full p-2 border border-gray-300 rounded my-2'}}) }}
+                    <div class="flex flex-row items-center">
+                        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mr-4">Ajouter</button>
+                        <span class="close text-gray-700 hover:text-blue-600 font-medium" onclick="closeCreateModal()">Annuler</span>
+                    </div>
+                {{ form_end(tagForm) }}
+            </div>
+        </div>
+
+        <!-- Liste des tags -->
+        <div id="tags-container" class="flex flex-col w-auto mb-4">
+            <div class="flex flex-row justify-between text-sm max-w-xl px-4">
+                <p>Nom</p>
+                <p>Action</p>
+            </div>
+            {% if tags|length > 0 %}
+            {% for tag in tags %}
+                <div class="bg-white hover:bg-blue-50 rounded-lg mb-1 flex flex-col justify-between" id="tag-{{ tag.id }}">
+                    <div class="flex flex-row justify-between">
+                        <p class="px-4 py-2">{{ tag.name }}</p>
+                        <div class="px-4 py-2">
+                            <button class="text-blue-500 hover:underline" onclick="openEditForm({{ tag.id }}, '{{ tag.name }}')">Modifier {{ tag.id }}</button>
+                            <a href="{{ path('app_admin_tag_delete', {'id': tag.id}) }}" class="text-red-500 hover:underline" onclick="return confirm('Êtes-vous sûr de vouloir supprimer ce tag ?');">Supprimer</a>
+                        </div>
+                    </div>
+                    <!-- Conteneur pour le formulaire d'édition -->
+                    <div class="edit-form-container hidden"></div>
+                </div>
+            {% endfor %}
+            {% else %}
+            <div class="text-center py-4">Aucun tag trouvé pour votre recherche.</div>
+            {% endif %}
+        </div>
+
+        <!-- Modal pour l'édition -->
+        <div id="edit-modal" class="modal hidden">
+            <div class="modal-content">
+                <span class="close" onclick="closeEditModal()">&times;</span>
+                <h2 class="text-xl font-bold mb-4">Modifier le Tag</h2>
+                <form id="edit-form" method="post" action="">
+                    <input type="text" id="edit-tag-name" name="name" class="w-full p-2 border border-gray-300 rounded mb-4">
+                    <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Enregistrer</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{{ render(controller('App\\Controller\\FooterController::footer')) }}
+
+<script>
+    document.getElementById('search-bar').addEventListener('input', function () {
+        const query = this.value;
+        fetch(`{{ path('app_admin_interface') }}?search=${encodeURIComponent(query)}`)
+            .then(response => response.text())
+            .then(html => {
+                // Remplace le contenu du conteneur pour éviter les doublons
+                const parser = new DOMParser();
+                const newDocument = parser.parseFromString(html, 'text/html');
+                const newTagsContainer = newDocument.getElementById('tags-container');
+                document.getElementById('tags-container').innerHTML = newTagsContainer.innerHTML;
+            })
+            .catch(error => console.error('Erreur lors de la recherche des tags:', error));
+    });
+
+    function openEditForm(id, name) {
+        // Récupérer le conteneur du formulaire d'édition
+        const tagElement = document.getElementById(`tag-${id}`);
+        const editFormContainer = tagElement.querySelector('.edit-form-container');
+        console.log(id);
+        // Générer le formulaire d'édition
+        const editFormHtml = `
+            <form class="p-2" method="post" action="/admin/tag/edit/${id}">
+                <input type="text" name="name" value="${name}" class="w-full p-2 border border-gray-300 rounded mb-4">
+                <div class="flex flex-row items-center">
+                    <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mr-4">Enregistrer</button>
+                    <button type="button" class="text-gray-700 hover:text-blue-600 font-medium" onclick="closeEditForm(${id})">Annuler</button>
+                </div>
+            </form>
+        `;
+
+        // Insérer le formulaire dans le conteneur et l'afficher
+        editFormContainer.innerHTML = editFormHtml;
+        editFormContainer.classList.remove('hidden');
+    }
+
+    function closeEditForm(id) {
+        // Cacher le formulaire d'édition
+        const tagElement = document.getElementById(`tag-${id}`);
+        const editFormContainer = tagElement.querySelector('.edit-form-container');
+        editFormContainer.classList.add('hidden');
+        editFormContainer.innerHTML = ''; // Nettoyer le contenu
+    }
+
+    function openCreateModal() {
+        document.getElementById('create-modal').classList.remove('hidden');
+    }
+
+    function closeCreateModal() {
+        document.getElementById('create-modal').classList.add('hidden');
+    }
+</script>
+{% endblock %}

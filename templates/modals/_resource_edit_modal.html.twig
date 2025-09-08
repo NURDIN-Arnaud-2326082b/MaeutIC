@@ -1,0 +1,34 @@
+{% if app.user and app.user.userType == 1 %}
+<div id="resource-edit-modal" class="fixed inset-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center z-[1000] hidden">
+    <div class="bg-white p-5 rounded-lg w-[90%] max-w-[500px] shadow-lg relative">
+        <span class="absolute top-2 right-2 text-2xl cursor-pointer" onclick="closeResourceEditModal()">&times;</span>
+        <h2 class="text-xl font-bold mb-4">Modifier une ressource</h2>
+        {{ form_start(form, {'attr': {'id': 'resource-edit-form', 'class': 'space-y-4'}, 'action': path('app_resource_edit', {'page': page, 'id': 1})}) }}
+            {{ form_row(form.title) }}
+            {{ form_row(form.description) }}
+            {{ form_row(form.link) }}
+            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Enregistrer</button>
+        {{ form_end(form) }}
+    </div>
+</div>
+<script>
+    function openResourceEditModal(id) {
+        const form = document.getElementById('resource-edit-form');
+        const editUrl = `{{ path('app_resource_edit', {'page': page, 'id': 'PLACEHOLDER'}) }}`.replace('PLACEHOLDER', id);
+        form.action = editUrl;
+        fetch(`/{{ page }}/resource/data/${id}`)
+            .then(response => response.json())
+            .then(data => {
+                form.querySelector('[name$="[title]"]').value = data.title;
+                form.querySelector('[name$="[description]"]').value = data.description;
+                form.querySelector('[name$="[link]"]').value = data.link;
+                document.getElementById('resource-edit-modal').classList.remove('hidden');
+            });
+    }
+    function closeResourceEditModal() {
+        document.getElementById('resource-edit-modal').classList.add('hidden');
+    }
+    window.openResourceEditModal = openResourceEditModal;
+    window.closeResourceEditModal = closeResourceEditModal;
+</script>
+{% endif %}

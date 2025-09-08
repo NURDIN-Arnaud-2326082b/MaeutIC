@@ -1,0 +1,52 @@
+{% if is_granted('IS_AUTHENTICATED_FULLY') %}
+<div id="post-edit-modal" class="fixed inset-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center z-[1000] hidden">
+    <div class="bg-white/95 p-5 rounded-lg w-[90%] max-w-[500px] shadow-lg relative">
+        <span class="absolute top-2 right-2 text-2xl cursor-pointer" onclick="closePostEditModal()">&times;</span>
+        <h2 class="text-xl font-bold mb-4">Modifier la publication</h2>
+        {{ form_start(editForm, {
+            'attr': {'id': 'post-edit-form', 'class': 'space-y-4'},
+            'action': path('app_post_edit', { category: category, postId: 0 })
+        }) }}
+            <div class="mb-4">
+                {{ form_label(editForm.name) }}
+                {{ form_widget(editForm.name, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2', 'multiple': false}}) }}
+                <span class="text-red-500">{{ form_errors(editForm.name) }}</span>
+            </div>
+
+            <div class="mb-4">
+                {{ form_label(editForm.description) }}
+                {{ form_widget(editForm.description, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2', 'multiple': false}}) }}
+                <span class="text-red-500">{{ form_errors(editForm.description) }}</span>
+            </div>
+
+            <div class="mb-4">
+                {{ form_label(editForm.forum) }}
+                {{ form_widget(editForm.forum, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2', 'multiple': false}}) }}
+                <span class="text-red-500">{{ form_errors(editForm.forum) }}</span>
+            </div>
+
+            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Enregistrer</button>
+        {{ form_end(editForm) }}
+    </div>
+</div>
+<script>
+    function openPostEditModal(postId) {
+        fetch(`/forums/posts/data/${postId}`)
+            .then(response => response.json())
+            .then(data => {
+                const form = document.getElementById('post-edit-form');
+                form.action = `{{ path('app_post_edit', { category: category, postId: 'POST_ID' }) }}`.replace('POST_ID', postId);
+                form.querySelector('[name$="[name]"]').value = data.post.name;
+                form.querySelector('[name$="[description]"]').value = data.post.description;
+                const forumSelect = form.querySelector('select[name$="[forum]"]');
+                if (forumSelect) forumSelect.value = data.post.forumId;
+                document.getElementById('post-edit-modal').classList.remove('hidden');
+            });
+    }
+    function closePostEditModal() {
+        document.getElementById('post-edit-modal').classList.add('hidden');
+    }
+    window.openPostEditModal = openPostEditModal;
+    window.closePostEditModal = closePostEditModal;
+</script>
+{% endif %}

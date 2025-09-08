@@ -1,0 +1,103 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Bienvenue sur la map des utilisateurs !{% endblock %}
+
+{% block body %}
+{{ render(controller('App\\Controller\\NavbarController::navbar')) }}
+
+<!-- Tag Filter Bar -->
+{% include 'components/_tag_filter_bar.html.twig' with {
+    tag_filter_context: 'user_map'
+} %}
+
+<div class="w-screen h-[80vh] relative overflow-hidden flex items-center justify-center" id="bubble-container">
+    {% for user in users %}
+        <div class="bubble absolute shadow-lg bg-white rounded-full flex items-center justify-center cursor-grab transition duration-300 opacity-100 scale-100 group focus:outline-none focus:ring-4 focus:ring-blue-400" data-id="{{ user.id }}" style="width:80px;height:80px;" tabindex="0" onclick="window.location.href='{{ path('app_profile_show', {'username': user.username}) }}'" aria-label="Profil de {{ user.firstName }} {{ user.lastName }}">
+            <img src="{% if user.profileImage %}{{ asset('profile_images/' ~ user.profileImage) }}{% else %}{{ asset('images/default-profile.png') }}{% endif %}" alt="profile" class="w-full h-full object-cover rounded-full pointer-events-none" />
+            <div class="bubble-label hidden group-hover:flex group-focus:flex absolute left-1/2 -translate-x-1/2 -bottom-10 bg-black/90 text-white px-3 py-1 rounded-xl text-sm whitespace-nowrap z-50 pointer-events-none shadow-lg">
+                {{ user.firstName }} {{ user.lastName }}
+            </div>
+        </div>
+    {% endfor %}
+</div>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+function renderBubbles() {
+    const width = document.getElementById('bubble-container').offsetWidth;
+    const height = document.getElementById('bubble-container').offsetHeight;
+    const nodes = Array.from(document.querySelectorAll('.bubble')).map((el, i) => ({
+        id: el.dataset.id,
+        el: el,
+        x: width / 2 + 100 * Math.cos(2 * Math.PI * i / document.querySelectorAll('.bubble').length),
+        y: height / 2 + 100 * Math.sin(2 * Math.PI * i / document.querySelectorAll('.bubble').length),
+    }));
+
+    const simulation = d3.forceSimulation(nodes)
+        .alpha(1)
+        .alphaDecay(0.01)
+        .velocityDecay(0.15)
+        .force("x", d3.forceX(width / 2).strength(0.1))
+        .force("y", d3.forceY(height / 2).strength(0.1))
+        .force("charge", d3.forceManyBody().strength(5))
+        .force("collision", d3.forceCollide().radius(45))
+        .on("tick", () => {
+            nodes.forEach(node => {
+                node.el.style.left = (node.x - 40) + "px";
+                node.el.style.top = (node.y - 40) + "px";
+            });
+        });
+
+    function drag(simulation) {
+        return d3.drag()
+            .on("start", (event, d) => {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.vx = 0; d.vy = 0;
+                d.el.style.zIndex = 1000;
+            })
+            .on("drag", (event, d) => {
+                d.vx = event.dx;
+                d.vy = event.dy;
+                d.x = event.x;
+                d.y = event.y;
+            })
+            .on("end", (event, d) => {
+                if (!event.active) simulation.alphaTarget(0);
+                d.el.style.zIndex = '';
+            });
+    }
+
+    d3.selectAll('.bubble').data(nodes).call(drag(simulation));
+}
+renderBubbles();
+
+// Permet de re-render les bulles après filtrage AJAX
+window.renderUserBubbles = renderBubbles;
+
+// --- Ajout : bulle toujours devant au hover/focus ---
+document.addEventListener('DOMContentLoaded', () => {
+    function setBubbleZIndexHandlers() {
+        document.querySelectorAll('.bubble').forEach(bubble => {
+            bubble.addEventListener('mouseenter', () => {
+                bubble.style.zIndex = 9999;
+            });
+            bubble.addEventListener('mouseleave', () => {
+                bubble.style.zIndex = '';
+            });
+            bubble.addEventListener('focus', () => {
+                bubble.style.zIndex = 9999;
+            });
+            bubble.addEventListener('blur', () => {
+                bubble.style.zIndex = '';
+            });
+        });
+    }
+    setBubbleZIndexHandlers();
+    // Si AJAX recharge les bulles, réappliquer les handlers
+    window.renderUserBubbles = function() {
+        renderBubbles();
+        setBubbleZIndexHandlers();
+    }
+});
+</script>
+{% endblock %}

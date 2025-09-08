@@ -1,0 +1,209 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Éditer mon profil{% endblock %}
+
+{% block body %}
+{{ render(controller('App\\Controller\\NavbarController::navbar')) }}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-xl w-full mx-auto space-y-8">
+        <div>
+            <h1 class="mt-6 text-center text-4xl font-black text-gray-900 tracking-tight">Éditer mon profil</h1>
+        </div>
+        {% for label, messages in app.flashes %}
+            {% for message in messages %}
+                <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">{{ message }}</div>
+            {% endfor %}
+        {% endfor %}
+        {{ form_start(editForm, {'attr': {'class': 'space-y-6 bg-white/50 backdrop-blur-sm p-8 rounded-xl shadow-xl border border-white/20'}}) }}
+        <div class="space-y-5">
+            {% set field_labels = {
+                'email': 'Adresse e-mail',
+                'lastName': 'Nom',
+                'firstName': 'Prénom',
+                'username': "Nom d'utilisateur",
+                'affiliationLocation': "Lieu d'affiliation",
+                'specialization': 'Spécialisation',
+                'researchTopic': 'Sujet de recherche'
+            } %}
+            {% for field in [
+                editForm.email,
+                editForm.lastName,
+                editForm.firstName,
+                editForm.username,
+                editForm.affiliationLocation,
+                editForm.specialization,
+                editForm.researchTopic
+            ] %}
+            <div class="group">
+                {{ form_label(field, field_labels[field.vars.name], {'label_attr': {'class': 'block text-sm font-semibold text-gray-700 mb-1'}}) }}
+                {{ form_widget(field, {'attr': {
+                    'class': 'appearance-none block w-full px-4 py-2 border border-gray-200 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ease-in-out hover:border-indigo-300'
+                }}) }}
+                {{ form_errors(field) }}
+            </div>
+            {% endfor %}
+
+            {# Ajout du champ d'upload de photo de profil #}
+            <div>
+                {{ form_label(editForm.profileImageFile, 'Photo de profil', {'label_attr': {'class': 'block text-sm font-semibold text-gray-700 mb-1'}}) }}
+                {{ form_widget(editForm.profileImageFile, {'attr': {
+                    'class': 'block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100'
+                }}) }}
+                {{ form_errors(editForm.profileImageFile) }}
+            </div>
+
+            <div class="mt-10">
+                <h3 class="text-xl font-bold text-gray-900 mb-6">Questions additionnelles</h3>
+
+                {% for question, field in editForm.userQuestions %}
+                    <div class="mt-5 group">
+                        <label class="block text-sm font-semibold text-gray-700 mb-1 transition-colors">{{ dynamic_questions[loop.index0] }}</label>
+                        {{ form_widget(field, {'attr': {
+                            'class': 'appearance-none block w-full px-4 py-2 border border-gray-200 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ease-in-out hover:border-indigo-300'
+                        }}) }}
+                        {{ form_errors(field) }}
+                    </div>
+                {% endfor %}
+
+                {% for field in editForm.taggableQuestions %}
+                    <div class="taggable-question mt-5 group">
+                        <label class="block text-sm font-semibold text-gray-700 mb-1 transition-colors">{{ taggable_questions[loop.index0] }}</label>
+                        <div class="relative w-full">
+                            <input type="text"
+                                   class="taggable-tag-search w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                   placeholder="Rechercher un mot-clé..." autocomplete="off">
+                            <div class="taggable-tag-suggestions absolute left-0 right-0 bg-white border border-gray-200 rounded shadow z-10 mt-1 hidden"></div>
+                        </div>
+                        <div class="selected-tags mt-2 flex flex-wrap gap-2"></div>
+                        <div style="display: none;">
+                            {{ form_widget(field) }}
+                        </div>
+                        {{ form_errors(field) }}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="mt-8">
+            <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-base font-medium text-white  bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transform transition-all hover:-translate-y-0.5">
+                Sauvegarder les modifications
+            </button>
+        </div>
+        {{ form_end(editForm) }}
+        <div class="mt-4 text-center">
+            <a href="{{ path('app_profile') }}" class="text-indigo-600 hover:underline">Retour au profil</a>
+        </div>
+    </div>
+</div>
+
+<script>
+function debounce(fn, delay) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fn.apply(this, args), delay);
+    };
+}
+
+document.querySelectorAll('.taggable-question').forEach((container, idx) => {
+    const input = container.querySelector('.taggable-tag-search');
+    const suggestions = container.querySelector('.taggable-tag-suggestions');
+    const tagDisplay = container.querySelector('.selected-tags');
+    const hiddenSelect = container.querySelector('select');
+    let selectedTags = [];
+
+    // Cache all tags from the select for local search fallback
+    let allTags = [];
+    if (hiddenSelect) {
+        allTags = Array.from(hiddenSelect.options)
+            .filter(opt => opt.value)
+            .map(opt => ({id: opt.value, name: opt.textContent}));
+        // Pré-remplir les tags sélectionnés
+        selectedTags = Array.from(hiddenSelect.selectedOptions)
+            .filter(opt => opt.value)
+            .map(opt => ({id: opt.value, name: opt.textContent}));
+    }
+
+    input.value = '';
+    suggestions.innerHTML = '';
+    suggestions.classList.add('hidden');
+    tagDisplay.innerHTML = '';
+
+    renderActiveTags(); // <-- déplace ici, après avoir vidé tagDisplay.innerHTML
+
+    input.oninput = debounce(function() {
+        fetchTags(this.value.trim());
+    }, 200);
+
+    input.onfocus = function() {
+        fetchTags('');
+    };
+
+    function fetchTags(query) {
+        fetch('{{ path('app_tag_search') }}?q=' + encodeURIComponent(query))
+            .then(r => r.json())
+            .then(tags => {
+                suggestions.innerHTML = '';
+                tags.forEach(tag => {
+                    if (selectedTags.find(t => t.id == tag.id)) return;
+                    const div = document.createElement('div');
+                    div.className = 'px-4 py-2 hover:bg-blue-100 cursor-pointer';
+                    div.textContent = tag.name;
+                    div.onclick = () => {
+                        selectedTags.push({id: tag.id, name: tag.name});
+                        renderActiveTags();
+                        suggestions.innerHTML = '';
+                        suggestions.classList.add('hidden');
+                        input.value = '';
+                    };
+                    suggestions.appendChild(div);
+                });
+                if (tags.length > 0) {
+                    suggestions.classList.remove('hidden');
+                } else {
+                    suggestions.classList.add('hidden');
+                }
+            });
+    }
+
+    function renderActiveTags() {
+        tagDisplay.innerHTML = '';
+        // Remove all hidden inputs from previous render
+        container.querySelectorAll('input[type="hidden"][name^="' + hiddenSelect.name.replace(/\[\]$/, '') + '"]').forEach(e => e.remove());
+        selectedTags.forEach(tag => {
+            const span = document.createElement('span');
+            span.className = 'bg-indigo-100 text-indigo-800 text-sm font-medium px-3 py-1 rounded-full flex items-center gap-1';
+            span.innerHTML = `
+                ${tag.name}
+                <button type="button" class="remove-tag text-indigo-600 font-bold hover:text-red-500" data-tag-id="${tag.id}">&times;</button>
+            `;
+            const hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = hiddenSelect.name;
+            hidden.value = tag.id;
+            span.appendChild(hidden);
+            span.querySelector('.remove-tag').onclick = () => {
+                selectedTags = selectedTags.filter(t => t.id != tag.id);
+                // Supprimer l'option correspondante du select caché si elle existe
+                if (hiddenSelect) {
+                    Array.from(hiddenSelect.options).forEach(opt => {
+                        if (opt.value == tag.id) {
+                            opt.selected = false;
+                        }
+                    });
+                }
+                renderActiveTags();
+            };
+            tagDisplay.appendChild(span);
+        });
+    }
+
+    document.addEventListener('click', function(e) {
+        if (!input.contains(e.target) && !suggestions.contains(e.target)) {
+            suggestions.classList.add('hidden');
+        }
+    });
+
+    // On submit, nothing to do: hidden inputs are already in place
+});
+</script>
+{% endblock %}

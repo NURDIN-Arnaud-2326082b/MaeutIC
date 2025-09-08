@@ -1,0 +1,24 @@
+{# Grille AJAX pour les livres filtrés par tags #}
+{% for book in books %}
+<div class="bg-white hover:bg-blue-50 rounded-lg overflow-hidden relative w-44 h-72 m-4 p-3">
+    <a href="{{ book.link }}" target="_blank">
+        <img src="{{ book.image }}" alt="{{ book.title }}" class="w-full h-40 object-cover rounded-lg">
+    </a>
+    <div class="p-4">
+        <h3 class="text-lg font-semibold text-gray-800">{{ book.title }}</h3>
+        <p class="text-sm text-gray-600">{{ book.author }}</p>
+    </div>
+    {% if app.user and (book.user == app.user or app.user.userType == 1) %}
+        <div class="absolute top-2 right-2 flex flex-col items-end space-x-1">
+            <button id="crudDropdownButton{{ book.id }}" class="focus:outline-none px-2 py-1">&#9776;</button>
+            <div id="crudDropdownMenu{{ book.id }}" class="hidden flex flex-col items-end mt-2 bg-white rounded overflow-auto shadow-lg z-50">
+                <button onclick="openBookEditModal({{ book.id }})" class="block px-2 py-1 w-full text-gray-700 hover:bg-gray-100">Modifier</button>
+                <form method="post" action="{{ path('app_book_delete', {'id': book.id}) }}" onsubmit="return confirm('Voulez-vous vraiment supprimer ce livre ?');" class="w-full">
+                    <input type="hidden" name="_token" value="{{ csrf_token('delete_book_' ~ book.id) }}">
+                    <button type="submit" class="bg-white hover:bg-gray-100 text-red-600 w-full px-2 py-1 transition" title="Supprimer">Supprimer</button>
+                </form>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endfor %}

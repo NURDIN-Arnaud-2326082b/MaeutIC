@@ -1,0 +1,16 @@
+{% for message in messages %}
+    <div class="flex justify-start mb-4">
+        <div class="px-4 py-2">
+            <div class="flex flex-row items-center">
+                <a href="{{ path('app_profile', {'username': message.sender.username}) }}" class="flex flex-row items-center mr-3">
+                    <img src="{% if message.sender.profileImage %}{{ asset('profile_images/' ~ message.sender.profileImage) }}{% else %}{{ asset('images/default-profile.png') }}{% endif %}" alt="Profil" class="w-10 h-10 mr-3 rounded-full">
+                    <div class="text-sm font-semibold">{{ message.sender.username }}</div>
+                </a>
+                <div class="text-xs text-gray-400 mt-1">{{ message.sentAt|date('d/m/Y H:i') }}</div>
+            </div>
+            <div class="ml-[52px]">{{ message.content }}</div>            
+        </div>
+    </div>
+{% else %}
+    <div class="text-gray-500">Aucun message.</div>
+{% endfor %}

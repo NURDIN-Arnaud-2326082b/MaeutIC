@@ -1,0 +1,51 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Bibliothèque{% endblock %}
+
+{% block stylesheets %}
+    <script src="https://cdn.tailwindcss.com"></script>
+{% endblock %}
+
+{% block body %}
+<div>
+    {{ render(controller('App\\Controller\\NavbarController::navbar')) }}
+    <div class="flex-1 container mx-auto py-6">
+        
+        <!-- Navigation Buttons -->
+        <div class="flex justify-center space-x-4 mb-6">
+            <button class="bg-blue-700 text-white backdrop-blur-sm shadow-lg flex-grow px-4 py-2 rounded-lg font-medium hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 active:bg-blue-900">Auteurs</button>
+            <button onclick="window.location.href='{{ path('app_library_articles') }}'" class="bg-white/45 text-gray-700 backdrop-blur-sm shadow-lg flex-grow px-4 py-2 rounded-lg font-medium hover:bg-gray-200/45 focus:outline-none focus:ring-2 focus:ring-gray-400 active:bg-gray-400">Articles</button>
+            <button onclick="window.location.href='{{ path('app_library_books') }}'" class="bg-white/45 text-gray-700 backdrop-blur-sm shadow-lg flex-grow px-4 py-2 rounded-lg font-medium hover:bg-gray-200/45 focus:outline-none focus:ring-2 focus:ring-gray-400 active:bg-gray-400">Livres</button>
+        </div>
+
+        <!-- Authors Grid -->
+        <div class="bg-white/45 backdrop-blur-sm shadow-xl p-4 rounded-lg">
+            <!-- Tag Filter Bar -->
+            {% include 'components/_tag_filter_bar.html.twig' %}
+            {% if app.user %}
+                <div class="w-full flex justify-end mb-4">
+                    <button class="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition" onclick="openAuthorCreateModal()">Ajouter un auteur</button>
+                </div>
+            {% endif %}
+
+            {% include 'library/_authors_grid.html.twig' with {'authors': authors} %}
+        </div>
+    </div>
+</div>
+{{ render(controller('App\\Controller\\FooterController::footer')) }}
+
+<script>
+console.log('authors index script');
+initializeAuthorDropdowns();
+console.log('Dropdowns initialized');
+</script>
+
+<!-- Modals -->
+
+{% if createFormHasErrors is not defined %}
+    {% set createFormHasErrors = false %}
+{% endif %}
+
+{% include 'modals/_author_create_modal.html.twig' with {'form': createForm, 'formHasErrors': createFormHasErrors} %}
+{% include 'modals/_author_edit_modal.html.twig' with {'form': editForm} %}
+{% endblock %}

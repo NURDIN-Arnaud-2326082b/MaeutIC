@@ -1,0 +1,83 @@
+<div id="authors-grid" class="flex flex-wrap justify-center">
+    {% for author in authors %}
+        <div class="bg-white hover:bg-blue-50 rounded-lg overflow-hidden relative w-44 h-72 m-4 p-3 author-card" data-author-id="{{ author.id }}">
+            <a href="{{ author.link }}" target="_blank">
+                <img src="{% if author.image %}{{ asset('author_images/' ~ author.image) }}{% else %}{{ asset('images/default-author.png') }}{% endif %}" alt="{{ author.name }}" class="w-full h-40 object-cover rounded-lg">
+            </a>
+            <div class="p-4">
+                <h3 class="text-lg font-semibold text-gray-800">{{ author.name }}</h3>
+                <p class="text-sm text-gray-600">{{ author.birthYear }} - {{ author.deathYear ?: '' }}</p>
+            </div>
+            <div class="absolute bottom-2 right-2">
+                <img src="{{ asset('images/flags/' ~ author.nationality ~ '.png') }}" alt="{{ author.nationality }}" class="w-8 h-7">
+            </div>
+
+            {# Displays the edit and delete buttons if you are the author or an admin #}
+            {% if app.user and (author.user == app.user or app.user.userType == 1) %}
+                <div class="absolute top-2 right-2 flex flex-col items-end space-x-1">
+                    {# Dropdown button #}
+                    <button id="crudDropdownButton{{ author.id }}" class="focus:outline-none bg-white rounded-md px-2 py-1">
+                        &#9776;
+                    </button>
+                    {# Dropdown menu #}
+                    <div id="crudDropdownMenu{{ author.id }}" class="hidden flex flex-col items-end mt-2 bg-white rounded overflow-auto shadow-lg z-50">
+                        <button onclick="openAuthorEditModal({{ author.id }})" class="block px-2 py-1 w-full text-gray-700 hover:bg-gray-100">Modifier</button>
+                        <form method="post" action="{{ path('app_author_delete', {'id': author.id}) }}" onsubmit="return confirm('Voulez-vous vraiment supprimer cet auteur ?');" class="w-full">
+                            <input type="hidden" name="_token" value="{{ csrf_token('delete_author_' ~ author.id) }}">
+                            <button type="submit"
+                                    class="bg-white hover:bg-gray-100 text-red-600 w-full px-2 py-1 transition"
+                                    title="Supprimer">
+                                Supprimer
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    {% endfor %}
+</div>
+
+<script>
+    if (typeof initializeAuthorDropdowns === 'undefined') {
+        function initializeAuthorDropdowns() {
+            console.log('ça initialise de fou');
+            const dropdownButtons = document.querySelectorAll('[id^="crudDropdownButton"]');
+            const dropdownMenus = document.querySelectorAll('[id^="crudDropdownMenu"]');
+
+            dropdownButtons.forEach((button) => {
+                const menuId = button.id.replace('crudDropdownButton', 'crudDropdownMenu');
+                const menu = document.getElementById(menuId);
+                //console.log('ça initialise de fou', menuId);
+
+                if (menu) {
+                    button.addEventListener('click', (event) => {
+                        event.stopPropagation();
+
+                        // Close all other menus
+                        dropdownMenus.forEach((otherMenu) => {
+                            if (otherMenu !== menu) {
+                                otherMenu.classList.add('hidden');
+                            }
+                        });
+
+                        // Toggle the clicked menu
+                        menu.classList.toggle('hidden');
+                    });
+
+                    // Close the dropdown if clicked outside
+                    document.addEventListener('click', (event) => {
+                        if (!button.contains(event.target) && !menu.contains(event.target)) {
+                            menu.classList.add('hidden');
+                        }
+                    });
+                }
+            });
+        }
+
+        // Initialize dropdowns on page load
+        /*document.addEventListener('DOMContentLoaded', () => {
+            initializeAuthorDropdowns();
+            console.log('Dropdowns initialized');
+        });*/
+    }
+</script>

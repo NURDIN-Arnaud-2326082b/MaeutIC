@@ -1,0 +1,26 @@
+{# Grille AJAX pour les articles filtrés par tags #}
+<div class="flex flex-row w-full">
+    <h3 class="w-1/2">Titre</h3>
+    <h3>Auteur</h3>
+    {% if app.user %}<h3 class="w-24"></h3>{% endif %}
+</div>
+<tbody>
+{% for article in articles %}
+<div class="relative bg-white hover:bg-blue-50 flex flex-row rounded-lg w-full my-1 p-3 items-center">
+    <a href="{{ article.link }}" target="_blank" class="w-1/2">{{ article.title }}</a>
+    <p class="flex-1">{{ article.author }}</p>
+    {% if app.user and (article.user == app.user or app.user.userType == 1) %}
+        <div class="absolute top-2 right-2 flex flex-col items-end space-x-1">
+            <button id="crudDropdownButton{{ article.id }}" class="focus:outline-none px-2 py-1">&#9776;</button>
+            <div id="crudDropdownMenu{{ article.id }}" class="hidden flex flex-col items-end mt-2 bg-white rounded overflow-auto shadow-lg z-50">
+                <button onclick="openArticleEditModal({{ article.id }})" class="block px-2 py-1 w-full text-gray-700 hover:bg-gray-100">Modifier</button>
+                <form method="post" action="{{ path('app_article_delete', {'id': article.id}) }}" onsubmit="return confirm('Voulez-vous vraiment supprimer cet article ?');" class="w-full">
+                    <input type="hidden" name="_token" value="{{ csrf_token('delete_article_' ~ article.id) }}">
+                    <button type="submit" class="bg-white hover:bg-gray-100 text-red-600 w-full px-2 py-1 transition" title="Supprimer">Supprimer</button>
+                </form>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endfor %}
+</tbody>

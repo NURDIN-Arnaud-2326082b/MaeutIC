@@ -1,0 +1,59 @@
+<nav class="sticky top-0 z-20 bg-white shadow-lg shadow-black/5">
+    <div class="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4 h-20">
+        <!-- div aligned to the left -->
+        <div class="flex-shrink-0 h-full">
+            <a href="{{ path('app_home') }}"><img src="{{ asset('images/logo.png') }}" alt="logo" class="h-full"/></a>
+        </div>
+        
+        <!-- Div aligned to the right -->
+        <div class="flex items-center space-x-4 ml-auto">
+            {% if is_granted('IS_AUTHENTICATED_FULLY') %}
+                <div class="relative flex items-center">
+                    <!-- Display user information if user is logged in -->
+                    <button id="profileDropdownButton" class="focus:outline-none">
+                        <img src="{% if app.user.profileImage %}{{ asset('profile_images/' ~ app.user.profileImage) }}{% else %}{{ asset('images/default-profile.png') }}{% endif %}" alt="Profil" class="w-10 h-10 rounded-full">
+                    </button>
+                    <!-- Dropdown menu -->
+                    <div id="profileDropdownMenu" class="hidden absolute top-full mt-2 w-48 bg-white rounded-lg shadow-lg z-50">
+                        <a href="{{ path('app_profile') }}" class="block px-4 py-2 text-black hover:bg-gray-100">Mon Profil</a>
+                        <a href="{{ path('app_profile') }}" class="block px-4 py-2 text-black hover:bg-gray-100">Paramètres</a>
+                        <a href="{{ path('app_logout') }}" class="block px-4 py-2 text-black hover:bg-gray-100">Se Déconnecter</a>
+                    </div>
+                </div>
+                {#<span class="text-black">{{ app.user.username }}</span>#}
+            {% else %}
+                <button type="button" onclick="window.location.href='{{ path('app_login') }}'"
+                    class="text-gray-700 hover:text-blue-600 font-medium">
+                    Se connecter
+                </button>
+                <button type="button" onclick="window.location.href='{{ path('app_register') }}'"
+                    class="text-white bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-indigo-500 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
+                    S'inscrire
+                </button>
+            {% endif %}
+        </div>
+    </div>
+</nav>
+
+{# Suppression de l'inclusion du composant modal #}
+
+<script>
+    // JavaScript to toggle the dropdown menu
+    document.addEventListener('DOMContentLoaded', () => {
+        const dropdownButton = document.getElementById('profileDropdownButton');
+        const dropdownMenu = document.getElementById('profileDropdownMenu');
+
+        if (dropdownButton && dropdownMenu) {
+            dropdownButton.addEventListener('click', () => {
+                dropdownMenu.classList.toggle('hidden');
+            });
+
+            // Close the dropdown if clicked outside
+            document.addEventListener('click', (event) => {
+                if (!dropdownButton.contains(event.target) && !dropdownMenu.contains(event.target)) {
+                    dropdownMenu.classList.add('hidden');
+                }
+            });
+        }
+    });
+</script>

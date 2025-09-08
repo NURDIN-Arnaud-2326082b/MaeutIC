@@ -1,0 +1,96 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Bibliothèque{% endblock %}
+{% block stylesheets %}
+    <link rel="stylesheet" href="{{ asset('styles/app.css') }}">
+{% endblock %}
+
+{% block body %}
+
+{{ render(controller('App\\Controller\\NavbarController::navbar')) }}
+
+<div class="flex-1 container mx-auto py-6">
+    <div class="flex justify-center space-x-4 mb-6">
+        <button onclick="window.location.href='{{ path('app_library') }}'" class="bg-white/45 text-gray-700 backdrop-blur-sm shadow-lg flex-grow px-4 py-2 rounded-lg font-medium hover:bg-gray-200/45 focus:outline-none focus:ring-2 focus:ring-gray-400 active:bg-gray-400">Auteurs</button>
+        <button onclick="window.location.href='{{ path('app_library_articles') }}'" class="bg-white/45 text-gray-700 backdrop-blur-sm shadow-lg flex-grow px-4 py-2 rounded-lg font-medium hover:bg-gray-200/45 focus:outline-none focus:ring-2 focus:ring-gray-400 active:bg-gray-400">Articles</button>
+        <button class="bg-blue-600 text-white flex-grow px-4 py-2 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 active:bg-blue-900">Livres</button>
+    </div>
+    <!-- Tag Filter Bar pour les livres -->
+    {% include 'components/_tag_filter_bar.html.twig' with {'tag_filter_context': 'book'} %}
+    <div class="bg-white/45 backdrop-blur-sm shadow-xl flex flex-wrap p-4 rounded-lg" id="books-grid">
+        {% if app.user %}
+            <div class="w-full flex justify-end mb-4">
+                <button class="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition" onclick="openBookCreateModal()">Ajouter un livre</button>
+            </div>
+        {% endif %}
+        {% for book in books %}
+        <div class="bg-white hover:bg-blue-50 rounded-lg overflow-hidden relative w-44 h-72 m-4 p-3">
+            <a href="{{ book.link }}" target="_blank">
+                <img src="{{ book.image }}" alt="{{ book.title }}" class="w-full h-40 object-cover rounded-lg">
+            </a>
+            <div class="p-4">
+                <h3 class="text-lg font-semibold text-gray-800">{{ book.title }}</h3>
+                <p class="text-sm text-gray-600">{{ book.author }}</p>
+            </div>
+            {% if app.user and (book.user == app.user or app.user.userType == 1) %}
+                    <div class="absolute top-2 right-2 flex flex-col items-end space-x-1">
+                        {# Dropdown button #}
+                        <button id="crudDropdownButton{{ book.id }}" class="focus:outline-none px-2 py-1">
+                            &#9776;
+                        </button>
+                        {# Dropdown menu #}
+                        <div id="crudDropdownMenu{{ book.id }}" class="hidden flex flex-col items-end mt-2 bg-white rounded overflow-auto shadow-lg z-50">
+                            <button onclick="openBookEditModal({{ book.id }})" class="block px-2 py-1 w-full text-gray-700 hover:bg-gray-100">Modifier</button>
+                            <form method="post" action="{{ path('app_book_delete', {'id': book.id}) }}" onsubmit="return confirm('Voulez-vous vraiment supprimer cet auteur ?');" class="w-full">
+                                <input type="hidden" name="_token" value="{{ csrf_token('delete_book_' ~ book.id) }}">
+                                <button type="submit"
+                                        class="bg-white hover:bg-gray-100 text-red-600 w-full px-2 py-1 transition"
+                                        title="Supprimer">
+                                    Supprimer
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{{ render(controller('App\\Controller\\FooterController::footer')) }}
+<script>    
+    (function() {
+    const dropdownButtons = document.querySelectorAll('[id^="crudDropdownButton"]');
+    const dropdownMenus = document.querySelectorAll('[id^="crudDropdownMenu"]');
+
+    dropdownButtons.forEach((button) => {
+        const menuId = button.id.replace('crudDropdownButton', 'crudDropdownMenu');
+        const menu = document.getElementById(menuId);
+
+        if (menu) {
+            button.addEventListener('click', (event) => {
+                event.stopPropagation();
+
+                // Close all other menus
+                dropdownMenus.forEach((otherMenu) => {
+                    if (otherMenu !== menu) {
+                        otherMenu.classList.add('hidden');
+                    }
+                });
+
+                // Toggle the clicked menu
+                menu.classList.toggle('hidden');
+            });
+
+            // Close the dropdown if clicked outside
+            document.addEventListener('click', (event) => {
+                if (!button.contains(event.target) && !menu.contains(event.target)) {
+                    menu.classList.add('hidden');
+                }
+            });
+        }
+    });
+})();
+</script>
+{% include 'modals/_book_create_modal.html.twig' with {'form': createForm} %}
+{% include 'modals/_book_edit_modal.html.twig' with {'form': editForm} %}
+{% endblock %}

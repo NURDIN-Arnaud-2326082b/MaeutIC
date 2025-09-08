@@ -1,0 +1,20 @@
+{% if app.user and app.user.userType == 1 %}
+<div id="resource-create-modal" class="fixed inset-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center z-[1000] hidden">
+    <div class="bg-white p-5 rounded-lg w-[90%] max-w-[500px] shadow-lg relative">
+        <span class="absolute top-2 right-2 text-2xl cursor-pointer" onclick="closeResourceCreateModal()">&times;</span>
+        <h2 class="text-xl font-bold mb-4">Ajouter une resource</h2>
+        {{ form_start(form, {'attr': {'id': 'resource-create-form', 'class': 'space-y-4'}, 'action': path('app_resource_add', {'page': page})}) }}
+            {{ form_widget(form, {'attr': {'class': 'w-full p-2 border border-gray-300 rounded'}}) }}
+            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Ajouter</button>
+        {{ form_end(form) }}
+    </div>
+</div>
+<script>
+    function openResourceCreateModal() {
+        document.getElementById('resource-create-modal').classList.remove('hidden');
+    }
+    function closeResourceCreateModal() {
+        document.getElementById('resource-create-modal').classList.add('hidden');
+    }
+</script>
+{% endif %}

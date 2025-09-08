@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ post.name }}</title>
+    {% block stylesheets %}
+        <link rel="stylesheet" href="{{ asset('styles/app.css') }}">
+    {% endblock %}
+</head>
+<body>
+    {{ render(controller('App\\Controller\\NavbarController::navbar')) }}
+    <div class="flex flex-col items-center my-11">
+        <div class="bg-slate-100 m-5 p-5 rounded-lg w-full max-w-5xl">
+            <h1 class="text-2xl font-semibold">{{ post.name }}</h1>
+            <p class="text-gray-500">Par {{ post.user.firstName }} {{ post.user.lastName }}</p>
+            <div class="bg-white p-5 rounded-lg mt-5">
+                <p>{{ post.description }}</p>
+            </div>
+            <a href="{{ path('app_forums', { category: post.forum.title }) }}" class="text-blue-500 hover:underline mt-5 block">Retour aux forums</a>
+        </div>
+    </div>
+</body>
+</html>

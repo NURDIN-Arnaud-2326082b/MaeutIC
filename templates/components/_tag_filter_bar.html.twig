@@ -1,0 +1,183 @@
+<div class="mb-6">
+    <div class="relative w-full max-w-md mx-auto">
+        <input id="tag-search-input" type="text" placeholder="Rechercher un mot-clé..." class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400" autocomplete="off">
+        <div id="tag-suggestions" class="absolute left-0 right-0 bg-white border border-gray-200 rounded shadow z-10 mt-1 hidden"></div>
+    </div>
+    <div id="active-tags" class="flex flex-wrap gap-2 mt-2 max-w-md mx-auto"></div>
+</div>
+<script>
+if (typeof tagSearchInput === 'undefined') {
+    const tagSearchInput = document.getElementById('tag-search-input');
+    const tagSuggestions = document.getElementById('tag-suggestions');
+    const activeTags = document.getElementById('active-tags');
+    let selectedTags = [];
+
+    function debounce(fn, delay) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => fn.apply(this, args), delay);
+        };
+    }
+
+    function fetchTagSuggestions(query) {
+        fetch('{{ path('app_tag_search') }}?q=' + encodeURIComponent(query))
+            .then(r => r.json())
+            .then(tags => {
+                tagSuggestions.innerHTML = '';
+                tags.forEach(tag => {
+                    if (selectedTags.find(t => t.id === tag.id)) return;
+                    const div = document.createElement('div');
+                    div.className = 'px-4 py-2 hover:bg-blue-100 cursor-pointer';
+                    div.textContent = tag.name;
+                    div.dataset.tagId = tag.id;
+                    div.dataset.tagName = tag.name;
+                    div.onclick = () => {
+                        addActiveTag(tag.id, tag.name);
+                        tagSuggestions.innerHTML = '';
+                        tagSuggestions.classList.add('hidden');
+                        tagSearchInput.value = '';
+                    };
+                    tagSuggestions.appendChild(div);
+                });
+                tagSuggestions.classList.toggle('hidden', tags.length === 0);
+            });
+    }
+
+    tagSearchInput.addEventListener('input', debounce(function() {
+        const query = this.value.trim();
+        fetchTagSuggestions(query);
+    }, 200));
+
+    tagSearchInput.addEventListener('focus', function() {
+        fetchTagSuggestions(this.value.trim());
+    });
+
+    function addActiveTag(id, name) {
+        if (selectedTags.find(t => t.id == id)) return;
+        selectedTags.push({id, name});
+        renderActiveTags();
+        filterByTags();
+    }
+
+    function removeActiveTag(id) {
+        selectedTags = selectedTags.filter(t => t.id != id);
+        renderActiveTags();
+        filterByTags();
+    }
+
+    function renderActiveTags() {
+        activeTags.innerHTML = '';
+        selectedTags.forEach(tag => {
+            const span = document.createElement('span');
+            span.className = 'bg-indigo-100 text-indigo-800 text-sm font-medium px-3 py-1 rounded-full flex items-center gap-1';
+            span.innerHTML = `
+                ${tag.name}
+                <button type="button" class="remove-tag text-indigo-600 font-bold hover:text-red-500" data-tag-id="${tag.id}">&times;</button>
+            `;
+            span.querySelector('.remove-tag').onclick = () => removeActiveTag(tag.id);
+            activeTags.appendChild(span);
+        });
+    }
+
+    function filterByTags() {
+        {% set context = tag_filter_context|default('author') %}
+        {% if context == 'user_map' %}
+        const tagNames = selectedTags.map(t => t.name);
+        const params = new URLSearchParams();
+        tagNames.forEach(name => params.append('tags[]', name));
+        fetch('{{ path('app_user_map_filter') }}?' + params.toString())
+            .then(r => r.text())
+            .then(html => {
+                const bubbleContainer = document.getElementById('bubble-container');
+                const temp = document.createElement('div');
+                temp.innerHTML = html;
+                const newBubbles = Array.from(temp.querySelectorAll('.bubble'));
+                const newIds = newBubbles.map(b => b.dataset.id);
+
+                // 1. Ajoute les nouvelles bulles en invisible si elles n'existent pas déjà
+                let addedBubbles = [];
+                newBubbles.forEach(newBubble => {
+                    if (!bubbleContainer.querySelector(`.bubble[data-id="${newBubble.dataset.id}"]`)) {
+                        newBubble.classList.add('transition', 'duration-300', 'opacity-0', 'scale-90');
+                        bubbleContainer.appendChild(newBubble);
+                        addedBubbles.push(newBubble);
+                    }
+                });
+
+                // 2. Réordonne les bulles pour garder le même ordre que la réponse
+                newIds.forEach((id) => {
+                    const el = bubbleContainer.querySelector(`.bubble[data-id="${id}"]`);
+                    if (el) bubbleContainer.appendChild(el);
+                });
+
+                // 3. Anime la disparition des anciennes bulles qui ne sont plus présentes
+                const currentBubbles = Array.from(bubbleContainer.querySelectorAll('.bubble'));
+                let removing = 0;
+                currentBubbles.forEach(bubble => {
+                    if (!newIds.includes(bubble.dataset.id)) {
+                        removing++;
+                        bubble.classList.add('transition', 'duration-300', 'opacity-0', 'scale-90');
+                        setTimeout(() => {
+                            bubble.remove();
+                            removing--;
+                            // Quand toutes les suppressions sont faites, relancer D3
+                            if (removing === 0) {
+                                if (window.renderUserBubbles) window.renderUserBubbles();
+                            }
+                        }, 300);
+                    }
+                });
+
+                // 4. Anime l'apparition des nouvelles bulles
+                setTimeout(() => {
+                    addedBubbles.forEach(bubble => {
+                        bubble.classList.remove('opacity-0', 'scale-90');
+                    });
+                }, 20);
+
+                // Si aucune suppression, relancer D3 tout de suite
+                if (removing === 0) {
+                    if (window.renderUserBubbles) window.renderUserBubbles();
+                }
+            });
+        {% elseif context == 'book' %}
+        const tagIds = selectedTags.map(t => t.id);
+        const params = new URLSearchParams();
+        tagIds.forEach(id => params.append('tags[]', id));
+        fetch('{{ path('app_book_filter') }}?' + params.toString())
+            .then(r => r.text())
+            .then(html => {
+                const booksGrid = document.getElementById('books-grid');
+                booksGrid.innerHTML = html;
+            });
+        {% elseif context == 'article' %}
+        const tagIds = selectedTags.map(t => t.id);
+        const params = new URLSearchParams();
+        tagIds.forEach(id => params.append('tags[]', id));
+        fetch('{{ path('app_article_filter') }}?' + params.toString())
+            .then(r => r.text())
+            .then(html => {
+                const articlesGrid = document.getElementById('articles-grid');
+                articlesGrid.innerHTML = html;
+            });
+        {% else %}
+        const tagIds = selectedTags.map(t => t.id);
+        const params = new URLSearchParams();
+        tagIds.forEach(id => params.append('tags[]', id));
+        fetch('{{ path('app_author_filter') }}?' + params.toString())
+            .then(r => r.text())
+            .then(html => {
+                const authorsGrid = document.getElementById('authors-grid');
+                authorsGrid.innerHTML = html;
+            });
+        {% endif %}
+    }
+
+    document.addEventListener('click', function(e) {
+        if (!tagSearchInput.contains(e.target) && !tagSuggestions.contains(e.target)) {
+            tagSuggestions.classList.add('hidden');
+        }
+    });
+}
+</script>

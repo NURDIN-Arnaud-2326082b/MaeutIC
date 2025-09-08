@@ -1,0 +1,266 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Chat{% endblock %}
+{% block stylesheets %}
+    <link rel="stylesheet" href="{{ asset('styles/app.css') }}">
+{% endblock %}
+
+{% block body %}
+{{ render(controller('App\\Controller\\NavbarController::navbar')) }}
+
+{# Main container: flex-col, min-h-screen #}
+<div class="flex-1 flex flex-row justify-center w-full text-gray-700 min-h-0 max-h-[calc(100vh-80px)]">
+
+    {# chat nav #}
+    <div class="bg-white mx-3 my-6 min-h-0 rounded-lg p-4 w-52 shadow-xl">
+        <div class="inline-block">
+            <h2 class="text-2xl">Salons</h2>
+            {# <div class="bg-blue-600 h-1 rounded-full my-1 w-full"></div> #}
+        </div>
+        <div class="flex flex-col ml-2 mb-2">
+            <a href="{{ path('app_chat_global') }}" class="p-1 w-full hover:bg-blue-50 hover:text-blue-900"># General</a>
+        </div>
+
+        <div class="inline-block">
+            <h2 class="text-2xl">Conversations</h2>
+            {# <div class="bg-blue-600 h-1 rounded-full my-1 w-full"></div> #}
+        </div>
+        <div class="ml-2 mb-2">
+            {% for conversation in conversations %}
+                {% set other = conversation.user1 == app.user ? conversation.user2 : conversation.user1 %}
+                <li class="py-4 flex items-center justify-between">
+                    <a href="{{ path('private_conversation', {id: conversation.id}) }}" class="flex items-center gap-3 p-1 w-full hover:bg-blue-50 hover:text-blue-900">
+                        <img src="{{ asset('profile_images/' ~ (other.profileImage ?: 'default-profile.png')) }}" class="w-10 h-10 rounded-full object-cover" alt="">
+                        <span class="font-semibold">{{ other.username }}</span>
+                    </a>
+                </li>
+            {% else %}
+                <li class="py-4 text-gray-500">Aucune conversation.</li>
+            {% endfor %}
+        </div>
+    </div>
+
+    {# chat wrapper #}
+    <div class="bg-white flex flex-col shadow-xl p-2 rounded-lg max-w-5xl w-full flex-1 mx-3 my-6 min-h-0">
+
+        {% if conversation is defined %}
+            {# chat header #}
+            <h1 class="text-xl font-medium mb-6 ml-2">Conversation avec {% set other = conversation.user1 == app.user ? conversation.user2 : conversation.user1 %}{{ other.username }}</h1>
+
+            {# chat messages #}
+            <div id="private-chat-messages" class="flex-1 overflow-auto mb-2 min-h-0">
+                {% for message in messages %}
+                    <div class="flex justify-start mb-4">
+                        <div class="px-4 py-2">
+                            <div class="flex flex-row items-center">
+                                <a href="{{ path('app_profile', {'username': message.sender.username}) }}" class="flex flex-row items-center mr-3">
+                                    <img src="{% if message.sender.profileImage %}{{ asset('profile_images/' ~ message.sender.profileImage) }}{% else %}{{ asset('images/default-profile.png') }}{% endif %}" alt="Profil" class="w-10 h-10 mr-3 rounded-full">
+                                    <div class="text-sm font-semibold">{{ message.sender.username }}</div>
+                                </a>
+                                <div class="text-xs text-gray-400 mt-1">{{ message.sentAt|date('d/m/Y H:i') }}</div>
+                            </div>
+                            <div class="ml-[52px]">{{ message.content }}</div>            
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="text-gray-500">Aucun message.</div>
+                {% endfor %}
+            </div>
+
+            <form method="post" action="{{ path('private_message_send', {id: conversation.id}) }}" class="flex gap-2">
+                <input type="text" name="content" class="flex-1 border rounded px-3 py-2" placeholder="Votre message..." required>
+                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Envoyer</button>
+            </form>
+        {% else %}
+            {# chat header #}
+            <h1 class="flex flex-col ml-2 mb-2">Live Chat</h1>
+
+            {# chat messages #}
+            <div id="chat-messages" class="flex-1 overflow-y-scroll min-h-0 mb-2">
+                {# Messages will be loaded here #}
+            </div>
+
+            <form id="chat-form" class="flex gap-2">
+                <input type="text" id="message" placeholder="Type your message..." required class="flex-1 px-2 py-1 rounded border">
+                <button type="submit" class="px-4 py-1 rounded text-white bg-blue-600">Envoyer</button>
+            </form>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    
+    /* Cette partie du code est particulièrement horrible. Bonne chance. */
+    
+    if (typeof sending === 'undefined') {
+        var sending = false;
+    }
+    {% if conversation is defined %}
+        (function() {
+            let pollingStarted = false;
+            let privateInterval = null;
+            function startPrivateMessagePolling() {
+                if (pollingStarted) return;
+                pollingStarted = true;
+                const messagesContainer = document.getElementById('private-chat-messages');
+                const form = document.querySelector('form[action*="/send"]');
+                const input = form ? form.querySelector('input[name="content"]') : null;
+                let lastHtml = '';
+                function fetchMessages(scroll = false) {
+                    fetch(window.location.pathname.replace(/\/$/, '') + '/ajax')
+                        .then(r => r.text())
+                        .then(html => {
+                            if (messagesContainer && html !== lastHtml) {
+                                messagesContainer.innerHTML = html;
+                                if (scroll || lastHtml === '') messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                                lastHtml = html;
+                            }
+                        })
+                        .catch(() => {
+                            if (messagesContainer) messagesContainer.innerHTML = '<div class="text-red-500">Erreur de chargement des messages.</div>';
+                        });
+                }
+                privateInterval = setInterval(() => { fetchMessages(); }, 2000);
+                if (form && input) {
+                    form.addEventListener('submit', function (e) {
+                        e.preventDefault();
+                        if (sending) return;
+                        sending = true;
+                        form.querySelector('button[type="submit"]').disabled = true;
+                        const data = new FormData(form);
+                        fetch(form.action, {
+                            method: 'POST',
+                            body: data
+                        })
+                        .then(resp => {
+                            if (!resp.ok) throw new Error('Erreur lors de l\'envoi');
+                            fetchMessages(true);
+                            input.value = '';
+                        })
+                        .catch(() => {
+                            alert('Erreur lors de l\'envoi du message');
+                        })
+                        .finally(() => {
+                            sending = false;
+                            form.querySelector('button[type="submit"]').disabled = false;
+                        });
+                    });
+                }
+                // Scroll en bas au chargement
+                if (messagesContainer) messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                // Premier fetch immédiat
+                fetchMessages(true);
+
+                // Nettoyage de l'interval lors du changement de page (Turbo)
+                document.addEventListener('turbo:before-cache', function() {
+                    if (privateInterval) clearInterval(privateInterval);
+                });
+            }
+            if (window.Turbo) {
+                document.addEventListener('turbo:load', startPrivateMessagePolling);
+            } else {
+                document.addEventListener('DOMContentLoaded', startPrivateMessagePolling);
+            }
+        })();
+    {% else %}
+
+        // Polling public chat
+        var publicInterval = null;
+        var chatMessages = document.getElementById('chat-messages');
+        var chatForm = document.getElementById('chat-form');
+        var messageInput = document.getElementById('message');
+
+        function startPublicChatPolling() {
+            if (publicInterval) clearInterval(publicInterval);
+            chatMessages = document.getElementById('chat-messages');
+            chatForm = document.getElementById('chat-form');
+            messageInput = document.getElementById('message');
+            if (chatMessages && chatForm && messageInput) {
+                // Function to fetch messages
+                async function fetchMessages() {
+                    try {
+                        const response = await fetch('/chat/global/messages');
+                        if (!response.ok) throw new Error('Failed to fetch messages');
+                        const messages = await response.json();
+                        chatMessages.innerHTML = messages.length
+                            ? messages.map(msg => `
+                                <div class="flex justify-start mb-4">
+                                    <div class="px-4 py-2">
+                                        <div class="flex flex-row items-center">
+                                            <a href="/profile/${encodeURIComponent(msg.sender.username)}" class="flex flex-row items-center mr-3">
+                                                <img src="${msg.sender.profileImage ? '/profile_images/' + msg.sender.profileImage : '/images/default-profile.png'}" alt="Profil" class="w-10 h-10 mr-3 rounded-full">
+                                                <div class="text-sm font-semibold">${msg.sender.username}</div>
+                                            </a>
+                                            <div class="text-xs text-gray-400 mt-1">${msg.sentAt}</div>
+                                        </div>
+                                        <div class="ml-[52px]">${msg.content}</div>
+                                    </div>
+                                </div>
+                            `).join('')
+                            : '<div class="text-gray-500">Aucun message.</div>';
+                    } catch (error) {
+                        console.error('Error fetching messages:', error);
+                        if (chatMessages) chatMessages.innerHTML = '<p style="color: red;">Error loading messages. Check console for details.</p>';
+                    }
+                }
+
+                // Function to send a message
+                chatForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    if (sending) return;
+                    sending = true;
+                    chatForm.querySelector('button[type="submit"]').disabled = true;
+                    const message = messageInput.value.trim();
+
+                    if (!message) {
+                        alert('Message cannot be empty');
+                        sending = false;
+                        chatForm.querySelector('button[type="submit"]').disabled = false;
+                        return;
+                    }
+
+                    try {
+                        const response = await fetch('/chat/global/send', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ text: message })
+                        });
+
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            console.error('Error sending message:', errorData);
+                            alert(errorData.error || 'Failed to send message');
+                            sending = false;
+                            chatForm.querySelector('button[type="submit"]').disabled = false;
+                            return;
+                        }
+
+                        messageInput.value = '';
+                        fetchMessages();
+                    } catch (error) {
+                        console.error('Error sending message:', error);
+                        alert('An error occurred while sending the message');
+                    }
+                    sending = false;
+                    chatForm.querySelector('button[type="submit"]').disabled = false;
+                });
+
+                // Fetch messages every 2 seconds
+                publicInterval = setInterval(fetchMessages, 2000);
+                fetchMessages();
+
+                // Nettoyage de l'interval lors du changement de page (Turbo)
+                document.addEventListener('turbo:before-cache', function() {
+                    if (publicInterval) clearInterval(publicInterval);
+                });
+            }
+        }
+
+        if (window.Turbo) {
+            document.addEventListener('turbo:load', startPublicChatPolling);
+        } else {
+            document.addEventListener('DOMContentLoaded', startPublicChatPolling);
+        }
+    {% endif %}
+</script>
+{% endblock %}

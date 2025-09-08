@@ -1,0 +1,11 @@
+{% for message in messages %}
+    <div class="flex {{ message.sender == app.user ? 'justify-end' : 'justify-start' }}">
+        <div class="max-w-xs px-4 py-2 rounded-lg {{ message.sender == app.user ? 'bg-blue-100 text-right' : 'bg-gray-100' }}">
+            <div class="text-sm font-semibold">{{ message.sender.username }}</div>
+            <div>{{ message.content }}</div>
+            <div class="text-xs text-gray-400 mt-1">{{ message.sentAt|date('d/m/Y H:i') }}</div>
+        </div>
+    </div>
+{% else %}
+    <div class="text-gray-500">Aucun message.</div>
+{% endfor %}

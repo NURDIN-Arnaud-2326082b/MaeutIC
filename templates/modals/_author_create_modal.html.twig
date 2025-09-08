@@ -1,0 +1,158 @@
+{% if app.user %}
+<div id="author-create-modal" class="fixed inset-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center z-[1000] {% if formHasErrors %}block{% else %}hidden{% endif %}">
+    <div class="bg-white/95 text-gray-700 p-5 rounded-lg w-[90%] max-w-[500px] shadow-lg relative">
+        <span class="absolute top-2 right-2 text-2xl cursor-pointer" onclick="closeAuthorCreateModal()">&times;</span>
+        <h2 class="text-xl font-bold mb-4">Ajouter un auteur</h2>
+        {{ form_start(form, {'attr': {'id': 'author-create-form', 'class': 'space-y-4'}, 'action': path('app_author_add')}) }}
+            <div class="mb-4">
+                {{ form_label(form.name) }}
+                {{ form_widget(form.name, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2', 'multiple': false}}) }}
+                <span class="text-red-500">{{ form_errors(form.name) }}</span>
+            </div>
+
+            <div class="mb-4">
+                {{ form_label(form.birthYear) }}
+                {{ form_widget(form.birthYear, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2', 'multiple': false}}) }}
+                <span class="text-red-500">{{ form_errors(form.birthYear) }}</span>
+            </div>
+
+            <div class="mb-4">
+                {{ form_label(form.deathYear) }}
+                {{ form_widget(form.deathYear, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2', 'multiple': false}}) }}
+                <span class="text-red-500">{{ form_errors(form.deathYear) }}</span>
+            </div>
+            
+            <div class="mb-4">
+                {{ form_label(form.nationality) }}
+                {{ form_widget(form.nationality, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2'}}) }}
+                <span class="text-red-500">{{ form_errors(form.nationality) }}</span>
+            </div>
+
+            <div class="mb-4">
+                {{ form_label(form.link) }}
+                {{ form_widget(form.link, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2', 'multiple': false}}) }}
+                <span class="text-red-500">{{ form_errors(form.link) }}</span>
+            </div>
+
+            <div class="mb-4">
+                {{ form_label(form.imageFile) }}
+                {{ form_widget(form.imageFile, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2', 'multiple': false}}) }}
+                <span class="text-red-500">{{ form_errors(form.imageFile) }}</span>
+            </div>
+            
+            <div class="mb-4">
+                {{ form_label(form.tags) }}
+                <div class="relative w-full">
+                    <input id="author-create-tag-search" type="text" placeholder="Rechercher un mot-clé..." class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400" autocomplete="off">
+                    <div id="author-create-tag-suggestions" class="absolute left-0 right-0 bg-white border border-gray-200 rounded shadow z-10 mt-1 hidden"></div>
+                </div>
+                <div id="author-create-active-tags" class="flex flex-wrap gap-2 mt-2"></div>
+                <div style="display: none;"> // to hide the original tags field
+                    {{ form_widget(form.tags) }}
+                </div>
+                <span class="text-red-500">{{ form_errors(form.tags) }}</span>
+            </div>
+
+            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Ajouter</button>
+        {{ form_end(form) }}
+    </div>
+</div>
+<script>
+function debounce(fn, delay) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fn.apply(this, args), delay);
+    };
+}
+
+if (typeof authorCreateSelectedTags === 'undefined') {
+    let authorCreateSelectedTags = [];
+    function openAuthorCreateModal() {
+        document.getElementById('author-create-modal').classList.remove('hidden');
+        setupAuthorCreateTagSearch();
+    }
+    function closeAuthorCreateModal() {
+        document.getElementById('author-create-modal').classList.add('hidden');
+    }
+    function setupAuthorCreateTagSearch() {
+        const input = document.getElementById('author-create-tag-search');
+        const suggestions = document.getElementById('author-create-tag-suggestions');
+        const activeTags = document.getElementById('author-create-active-tags');
+        authorCreateSelectedTags = [];
+        activeTags.innerHTML = '';
+        input.value = '';
+        suggestions.innerHTML = '';
+        suggestions.classList.add('hidden');
+        input.oninput = debounce(function() {
+            fetchTags(this.value.trim());
+        }, 200);
+
+        input.onfocus = function() {
+            fetchTags('');
+        };
+
+        function fetchTags(query) {
+            fetch('{{ path('app_tag_search') }}?q=' + encodeURIComponent(query))
+                .then(r => r.json())
+                .then(tags => {
+                    suggestions.innerHTML = '';
+                    tags.forEach(tag => {
+                        if (authorCreateSelectedTags.find(t => t.id == tag.id)) return;
+                        const div = document.createElement('div');
+                        div.className = 'px-4 py-2 hover:bg-blue-100 cursor-pointer';
+                        div.textContent = tag.name;
+                        div.onclick = () => {
+                            authorCreateSelectedTags.push({id: tag.id, name: tag.name});
+                            renderAuthorCreateActiveTags();
+                            suggestions.innerHTML = '';
+                            suggestions.classList.add('hidden');
+                            input.value = '';
+                        };
+                        suggestions.appendChild(div);
+                    });
+                    if (tags.length > 0) {
+                        suggestions.classList.remove('hidden');
+                    } else {
+                        suggestions.classList.add('hidden');
+                    }
+                });
+        }
+        function renderAuthorCreateActiveTags() {
+            activeTags.innerHTML = '';
+            authorCreateSelectedTags.forEach(tag => {
+                const span = document.createElement('span');
+                span.className = 'bg-indigo-100 text-indigo-800 text-sm font-medium px-3 py-1 rounded-full flex items-center gap-1';
+                span.innerHTML = `
+                    ${tag.name}
+                    <button type="button" class="remove-tag text-indigo-600 font-bold hover:text-red-500" data-tag-id="${tag.id}">&times;</button>
+                `;
+                const hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.name = 'author[tags][]';
+                hidden.value = tag.id;
+                span.appendChild(hidden);
+                span.querySelector('.remove-tag').onclick = () => {
+                    authorCreateSelectedTags = authorCreateSelectedTags.filter(t => t.id != tag.id);
+                    renderAuthorCreateActiveTags();
+                };
+                activeTags.appendChild(span);
+            });
+        }
+        document.addEventListener('click', function(e) {
+            if (!input.contains(e.target) && !suggestions.contains(e.target)) {
+                suggestions.classList.add('hidden');
+            }
+        });
+        document.getElementById('author-create-form').addEventListener('submit', function() {
+            // nothing needed, hidden inputs are already in place
+        });
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        setupAuthorCreateTagSearch();
+    });
+}
+
+
+</script>
+{% endif %}

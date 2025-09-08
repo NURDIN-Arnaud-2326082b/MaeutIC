@@ -1,0 +1,96 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Conversation privée{% endblock %}
+
+{% block body %}
+<div class="max-w-2xl mx-auto mt-10">
+    <h1 class="text-2xl font-bold mb-6">Conversation avec {% set other = conversation.user1 == app.user ? conversation.user2 : conversation.user1 %}{{ other.username }}</h1>
+    <div class="bg-white rounded-lg shadow p-4 mb-6 h-96 overflow-y-auto flex flex-col gap-2">
+        {% for message in messages %}
+            <div class="flex {{ message.sender == app.user ? 'justify-end' : 'justify-start' }}">
+                <div class="max-w-xs px-4 py-2 rounded-lg {{ message.sender == app.user ? 'bg-blue-100 text-right' : 'bg-gray-100' }}">
+                    <div class="text-sm font-semibold">{{ message.sender.username }}</div>
+                    <div>{{ message.content }}</div>
+                    <div class="text-xs text-gray-400 mt-1">{{ message.sentAt|date('d/m/Y H:i') }}</div>
+                </div>
+            </div>
+        {% else %}
+            <div class="text-gray-500">Aucun message.</div>
+        {% endfor %}
+    </div>
+    <form method="post" action="{{ path('private_message_send', {id: conversation.id}) }}" class="flex gap-2">
+        <input type="text" name="content" class="flex-1 border rounded px-3 py-2" placeholder="Votre message..." required>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Envoyer</button>
+    </form>
+    <div class="mt-4">
+        <a href="{{ path('private_messages') }}" class="text-blue-600 hover:underline">Retour à la liste</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+(function() {
+    let pollingStarted = false;
+    function startPrivateMessagePolling() {
+        if (pollingStarted) return;
+        pollingStarted = true;
+        const messagesContainer = document.querySelector('.bg-white.rounded-lg.shadow.p-4.mb-6');
+        const form = document.querySelector('form[action*="/send"]');
+        const input = form ? form.querySelector('input[name="content"]') : null;
+        let lastHtml = '';
+        let sending = false;
+        function fetchMessages(scroll = false) {
+            fetch(window.location.pathname.replace(/\/$/, '') + '/ajax')
+                .then(r => r.text())
+                .then(html => {
+                    if (messagesContainer && html !== lastHtml) {
+                        messagesContainer.innerHTML = html;
+                        if (scroll || lastHtml === '') messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                        lastHtml = html;
+                    }
+                })
+                .catch(() => {
+                    if (messagesContainer) messagesContainer.innerHTML = '<div class="text-red-500">Erreur de chargement des messages.</div>';
+                });
+        }
+        setInterval(() => { fetchMessages(); }, 2000);
+        if (form && input) {
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                if (sending) return;
+                sending = true;
+                form.querySelector('button[type="submit"]').disabled = true;
+                const data = new FormData(form);
+                fetch(form.action, {
+                    method: 'POST',
+                    body: data
+                })
+                .then(resp => {
+                    if (!resp.ok) throw new Error('Erreur lors de l\'envoi');
+                    fetchMessages(true);
+                    input.value = '';
+                })
+                .catch(() => {
+                    alert('Erreur lors de l\'envoi du message');
+                })
+                .finally(() => {
+                    sending = false;
+                    form.querySelector('button[type="submit"]').disabled = false;
+                });
+            });
+        }
+        // Scroll en bas au chargement
+        if (messagesContainer) messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        // Premier fetch immédiat
+        fetchMessages(true);
+    }
+    if (window.Turbo) {
+        document.addEventListener('turbo:load', startPrivateMessagePolling);
+    } else {
+        document.addEventListener('DOMContentLoaded', startPrivateMessagePolling);
+    }
+})();
+</script>
+{% endblock %}

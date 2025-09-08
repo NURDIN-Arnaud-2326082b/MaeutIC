@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+    /*@apply bg-[url('../images/bgPatternWhite.png')];
+    @apply h-full;
+    @apply shadow-[inset_0_0_0_1000px_#e0e3e7af];*/
+    @apply bg-blue-50;
+}
+
+html {
+    @apply h-full;
+}

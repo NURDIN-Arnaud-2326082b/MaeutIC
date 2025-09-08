@@ -1,0 +1,140 @@
+{% if app.user %}
+<div id="book-create-modal" class="fixed inset-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center z-[1000] hidden">
+    <div class="bg-white/95 p-5 rounded-lg w-[90%] max-w-[500px] shadow-lg relative">
+        <span class="absolute top-2 right-2 text-2xl cursor-pointer" onclick="closeBookCreateModal()">&times;</span>
+        <h2 class="text-xl text-gray-700 font-bold mb-4">Ajouter un livre</h2>
+        {{ form_start(form, {'attr': {'id': 'book-create-form', 'class': 'space-y-4'}, 'action': path('app_book_add')}) }}
+            <div class="mb-4">
+                {{ form_label(form.title) }}
+                {{ form_widget(form.title, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2', 'multiple': false}}) }}
+                <span class="text-red-500">{{ form_errors(form.title) }}</span>
+            </div>
+
+            <div class="mb-4">
+                {{ form_label(form.author) }}
+                {{ form_widget(form.author, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2', 'multiple': false}}) }}
+                <span class="text-red-500">{{ form_errors(form.author) }}</span>
+            </div>
+
+            <div class="mb-4">
+                {{ form_label(form.link) }}
+                {{ form_widget(form.link, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2', 'multiple': false}}) }}
+                <span class="text-red-500">{{ form_errors(form.link) }}</span>
+            </div>
+
+            <div class="mb-4">
+                {{ form_label(form.image) }}
+                {{ form_widget(form.image, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2', 'multiple': false}}) }}
+                <span class="text-red-500">{{ form_errors(form.image) }}</span>
+            </div>
+
+            <div class="mb-4">
+                {{ form_label(form.tags) }}
+                <div class="relative w-full">
+                    <input id="book-create-tag-search" type="text" placeholder="Rechercher un mot-clé..." class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400" autocomplete="off">
+                    <div id="book-create-tag-suggestions" class="absolute left-0 right-0 bg-white border border-gray-200 rounded shadow z-10 mt-1 hidden"></div>
+                </div>
+                <div id="book-create-active-tags" class="mt-2 flex flex-wrap gap-2"></div>
+                <div style="display: none;"> // to hide the original tags field
+                    {{ form_widget(form.tags) }}
+                </div>
+                <span class="text-red-500">{{ form_errors(form.tags) }}</span>
+            </div>
+            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Ajouter</button>
+        {{ form_end(form) }}
+    </div>
+</div>
+<script>
+function debounce(fn, delay) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fn.apply(this, args), delay);
+    };
+}
+let bookCreateSelectedTags = [];
+function openBookCreateModal() {
+    document.getElementById('book-create-modal').classList.remove('hidden');
+    setupBookCreateTagSearch();
+}
+function closeBookCreateModal() {
+    document.getElementById('book-create-modal').classList.add('hidden');
+}
+function setupBookCreateTagSearch() {
+    const input = document.getElementById('book-create-tag-search');
+    const suggestions = document.getElementById('book-create-tag-suggestions');
+    const activeTags = document.getElementById('book-create-active-tags');
+    bookCreateSelectedTags = [];
+    activeTags.innerHTML = '';
+    input.value = '';
+    suggestions.innerHTML = '';
+    suggestions.classList.add('hidden');
+    input.oninput = debounce(function() {
+        fetchTags(this.value.trim());
+    }, 200);
+
+    input.onfocus = function() {
+        fetchTags('');
+    };
+
+    function fetchTags(query) {
+        fetch('{{ path('app_tag_search') }}?q=' + encodeURIComponent(query))
+            .then(r => r.json())
+            .then(tags => {
+                suggestions.innerHTML = '';
+                tags.forEach(tag => {
+                    if (bookCreateSelectedTags.find(t => t.id == tag.id)) return;
+                    const div = document.createElement('div');
+                    div.className = 'px-4 py-2 hover:bg-blue-100 cursor-pointer';
+                    div.textContent = tag.name;
+                    div.onclick = () => {
+                        bookCreateSelectedTags.push({id: tag.id, name: tag.name});
+                        renderBookCreateActiveTags();
+                        suggestions.innerHTML = '';
+                        suggestions.classList.add('hidden');
+                        input.value = '';
+                    };
+                    suggestions.appendChild(div);
+                });
+                if (tags.length > 0) {
+                    suggestions.classList.remove('hidden');
+                } else {
+                    suggestions.classList.add('hidden');
+                }
+            });
+    }
+    function renderBookCreateActiveTags() {
+        activeTags.innerHTML = '';
+        bookCreateSelectedTags.forEach(tag => {
+            const span = document.createElement('span');
+            span.className = 'bg-indigo-100 text-indigo-800 text-sm font-medium px-3 py-1 rounded-full flex items-center gap-1';
+            span.innerHTML = `
+                ${tag.name}
+                <button type="button" class="remove-tag text-indigo-600 font-bold hover:text-red-500" data-tag-id="${tag.id}">&times;</button>
+            `;
+            const hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = 'book[tags][]';
+            hidden.value = tag.id;
+            span.appendChild(hidden);
+            span.querySelector('.remove-tag').onclick = () => {
+                bookCreateSelectedTags = bookCreateSelectedTags.filter(t => t.id != tag.id);
+                renderBookCreateActiveTags();
+            };
+            activeTags.appendChild(span);
+        });
+    }
+    document.addEventListener('click', function(e) {
+        if (!input.contains(e.target) && !suggestions.contains(e.target)) {
+            suggestions.classList.add('hidden');
+        }
+    });
+    document.getElementById('book-create-form').addEventListener('submit', function() {
+        // nothing needed, hidden inputs are already in place
+    });
+}
+document.addEventListener('DOMContentLoaded', function() {
+    setupBookCreateTagSearch();
+});
+</script>
+{% endif %}

@@ -1,0 +1,34 @@
+<footer class="z-20 m-0 bg-white shadow-lg shadow-black/5">
+    <div class="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4 h-40">
+        {# div aligned to the left #}
+        <nav class="flex flex-row">
+            <div class="flex flex-col mr-14 h-full text-gray-700">
+                <h2 class="font-medium mb-1">Navigation</h2>
+                <a href="{{ path('app_home') }}" class="text-gray-700 hover:text-blue-600">Accueil</a>
+                <a href="{{ path('app_forums', { category: "General"}) }}" class="text-gray-700 hover:text-blue-600">Forums</a>
+                <a href="{{ path('app_library') }}" class="text-gray-700 hover:text-blue-600">Bibliothèque</a>
+            </div>
+            <div class="flex flex-col h-full text-gray-700">
+                <h2 class="font-medium mb-1">Code source</h2>
+                <a href="https://github.com/victorSejournes22005043/MaieutIC.git" class="text-gray-700 hover:text-blue-600">Github</a>
+            </div>
+        </nav>
+        
+        {# Div aligned to the right #}
+        <div class="flex flex-row h-20 items-center">
+            <img src="{{ asset('images/Aix-Marseille-Universite-se-dote-dune-nouvelle-charte-graphique-et-dun-nouveau-logo.png') }}" class="h-full mx-2"/>
+            <img src="{{ asset('images/cropped-cropped-cropped-cropped-cropped-cropped-cropped-Presentation1-1.jpg') }}" class="h-full mx-2"/>
+            <img src="{{ asset('images/lerass_90.png') }}" class="h-full mx-2"/>
+            <img src="{{ asset('images/logo_udmpv.jpg') }}" class="h-full mx-2"/>
+        </div>
+
+        {#<div class="grid grid-cols-2 grid-rows-2 gap-2 ml-auto w-32 h-full items-center">
+            <img src="{{ asset('images/Aix-Marseille-Universite-se-dote-dune-nouvelle-charte-graphique-et-dun-nouveau-logo.png') }}" class="object-contain h-8 w-full"/>
+            <img src="{{ asset('images/cropped-cropped-cropped-cropped-cropped-cropped-cropped-Presentation1-1.jpg') }}" class="object-contain h-8 w-full"/>
+            <img src="{{ asset('images/lerass_90.png') }}" class="object-contain h-8 w-full"/>
+            <img src="{{ asset('images/logo_udmpv.png') }}" class="object-contain h-8 w-full"/>
+        </div>#}
+    </div>
+</footer>
+
+

@@ -1,0 +1,13 @@
+{% if comments is empty %}
+    <div class="bg-gray-100 rounded-lg p-4 text-center text-gray-500">Aucun commentaire.</div>
+{% else %}
+    {% for comment in comments %}
+        <div class="bg-white rounded-lg p-4 shadow mb-4">
+            <div class="text-gray-700 mb-2 break-words">{{ comment.body }}</div>
+            <div class="text-xs text-gray-400">
+                Sur le post : <span class="font-semibold">{{ comment.post.name }}</span>
+                — {{ comment.creationDate|date('d/m/Y H:i') }}
+            </div>
+        </div>
+    {% endfor %}
+{% endif %}
