@@ -84,7 +84,7 @@ class Comment
         return $this->post;
     }
 
-    public function setPost(Post $post): static
+    public function setPost(?Post $post): static
     {
         $this->post = $post;
 

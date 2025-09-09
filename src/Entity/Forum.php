@@ -84,7 +84,7 @@ class Forum
     {
         if (!$this->posts->contains($post)) {
             $this->posts->add($post);
-            $post->setForumId($this);
+            $post->setForum($this);
         }
 
         return $this;
@@ -94,8 +94,8 @@ class Forum
     {
         if ($this->posts->removeElement($post)) {
             // set the owning side to null (unless already changed)
-            if ($post->getForumId() === $this) {
-                $post->setForumId(null);
+            if ($post->getForum() === $this) {
+                $post->setForum(null);
             }
         }
 
