@@ -39,7 +39,16 @@
             <a href="{{ path('app_forums', { category: category }) }}" class="text-blue-600 m-2 block">← Retour</a>
             <div class="bg-white relative p-5 rounded-lg">
                 <h2 class="text-2xl font-semibold text-gray-700">{{ selectedPost.name }}</h2>
-                <p class="text-gray-500">Par {{ selectedPost.user.firstName }} {{ selectedPost.user.lastName }}</p>
+
+                <p class="text-gray-500">
+                    Par 
+                    {% if selectedPost.user is not null %}
+                        {{ selectedPost.user.firstName }} {{ selectedPost.user.lastName }}
+                    {% else %}
+                        Ancien utilisateur
+                    {% endif %}
+                </p>
+
                 <div class="mt-5">
                     <p class="text-gray-700">{{ selectedPost.description }}</p>
                 </div>
@@ -94,7 +103,17 @@
                             <p id="like-count-{{ comment.id }}">{{ likes[i] }}</p>
                         </a>
                         <div class="bg-white text-gray-700 p-3 rounded-lg w-full">
-                            <p><strong>{{ comment.user.firstName }} {{ comment.user.lastName }}</strong></p>
+
+                            <p>
+                                <strong>
+                                    {% if comment.user is not null %}
+                                        {{ comment.user.firstName }} {{ comment.user.lastName }}
+                                    {% else %}
+                                        Ancien utilisateur
+                                    {% endif %}
+                                </strong>
+                            </p>
+
                             <p>{{ comment.body }}</p>
                         </div>
                     </div>
