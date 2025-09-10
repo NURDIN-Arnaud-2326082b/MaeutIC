@@ -269,10 +269,10 @@ final class ProfileController extends AbstractController{
         }
 
         if ($this->isCsrfTokenValid('delete-user', $request->request->get('_token'))) {
+
             $session->set('user_to_delete_id', $user->getId());
 
             $tokenStorage->setToken(null);
-            $session->invalidate();
 
             return $this->redirectToRoute('app_profile_delete_confirm');
         }
@@ -290,12 +290,14 @@ final class ProfileController extends AbstractController{
         $session->remove('user_to_delete_id');
 
         if ($id) {
-            $user = $entityManager->getRepository(User::class)->find($id);
+            $user = $entityManager->getRepository(\App\Entity\User::class)->find($id);
             if ($user) {
                 $entityManager->remove($user);
                 $entityManager->flush();
             }
         }
+
+        $session->invalidate();
 
         $this->addFlash('success', 'Votre compte a été supprimé.');
         return $this->redirectToRoute('app_home');
