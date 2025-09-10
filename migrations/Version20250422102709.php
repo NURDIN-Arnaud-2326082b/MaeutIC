@@ -20,14 +20,14 @@ final class Version20250422102709 extends AbstractMigration
     public function up(Schema $schema): void
     {
         // this up() migration is auto-generated, please modify it to your needs
-        $this->addSql('ALTER TABLE article ADD user_id INT DEFAULT NULL');
-        $this->addSql('ALTER TABLE article ADD CONSTRAINT FK_23A0E66A76ED395 FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE SET NULL');
+        $this->addSql('ALTER TABLE article ADD user_id INT NOT NULL');
+        $this->addSql('ALTER TABLE article ADD CONSTRAINT FK_23A0E66A76ED395 FOREIGN KEY (user_id) REFERENCES user (id)');
         $this->addSql('CREATE INDEX IDX_23A0E66A76ED395 ON article (user_id)');
-        $this->addSql('ALTER TABLE author ADD user_id INT DEFAULT NULL');
-        $this->addSql('ALTER TABLE author ADD CONSTRAINT FK_BDAFD8C8A76ED395 FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE SET NULL');
+        $this->addSql('ALTER TABLE author ADD user_id INT NOT NULL');
+        $this->addSql('ALTER TABLE author ADD CONSTRAINT FK_BDAFD8C8A76ED395 FOREIGN KEY (user_id) REFERENCES user (id)');
         $this->addSql('CREATE INDEX IDX_BDAFD8C8A76ED395 ON author (user_id)');
-        $this->addSql('ALTER TABLE book ADD user_id INT DEFAULT NULL');
-        $this->addSql('ALTER TABLE book ADD CONSTRAINT FK_CBE5A331A76ED395 FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE SET NULL');
+        $this->addSql('ALTER TABLE book ADD user_id INT NOT NULL');
+        $this->addSql('ALTER TABLE book ADD CONSTRAINT FK_CBE5A331A76ED395 FOREIGN KEY (user_id) REFERENCES user (id)');
         $this->addSql('CREATE INDEX IDX_CBE5A331A76ED395 ON book (user_id)');
     }
 
