@@ -25,11 +25,11 @@ class Post
     private ?string $description = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
-    #[ORM\JoinColumn(nullable: false)]
+    #[ORM\JoinColumn(nullable: true, onDelete: "SET NULL")]
     private ?User $user = null;
 
     #[ORM\ManyToOne(targetEntity: Forum::class, inversedBy: 'posts')]
-    #[ORM\JoinColumn(nullable: false)]
+    #[ORM\JoinColumn(nullable: false, onDelete: "CASCADE")]
     private ?Forum $forum = null;
 
     #[ORM\Column(type: Types::DATE_MUTABLE)]
