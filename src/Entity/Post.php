@@ -25,11 +25,11 @@ class Post
     private ?string $description = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
-    #[ORM\JoinColumn(nullable: true, onDelete: "SET NULL")]
+    #[ORM\JoinColumn(nullable: false)]
     private ?User $user = null;
 
     #[ORM\ManyToOne(targetEntity: Forum::class, inversedBy: 'posts')]
-    #[ORM\JoinColumn(nullable: false, onDelete: "CASCADE")]
+    #[ORM\JoinColumn(nullable: false)]
     private ?Forum $forum = null;
 
     #[ORM\Column(type: Types::DATE_MUTABLE)]
@@ -167,7 +167,7 @@ class Post
     {
         if (!$this->comments->contains($comment)) {
             $this->comments->add($comment);
-            $comment->setPostId($this);
+            $comment->setPost($this);
         }
 
         return $this;
@@ -177,8 +177,8 @@ class Post
     {
         if ($this->comments->removeElement($comment)) {
             // set the owning side to null (unless already changed)
-            if ($comment->getPostId() === $this) {
-                $comment->setPostId(null);
+            if ($comment->getPost() === $this) {
+                $comment->setPost(null);
             }
         }
 

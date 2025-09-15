@@ -49,8 +49,8 @@ class CommentController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $comment->setUserId($this->getUser());
-            $comment->setPostId($post);
+            $comment->setUser($this->getUser());
+            $comment->setPost($post);
             $comment->setCreationDate(new \DateTime());
 
             $entityManager->persist($comment);
