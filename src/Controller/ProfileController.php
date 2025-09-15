@@ -17,6 +17,7 @@ use App\Repository\UserQuestionsRepository;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use App\Repository\UserRepository;
+use App\Entity\User;
 
 final class ProfileController extends AbstractController{
     #[Route('/profile', name: 'app_profile')]
@@ -80,10 +81,10 @@ final class ProfileController extends AbstractController{
         ]);
     }
 
-    #[Route('/profile/posts', name: 'app_profile_posts')]
-    public function posts(Security $security, PostRepository $postRepository): Response
+    #[Route('/profile/posts/{username}', name: 'app_profile_posts')]
+    public function posts(string $username, UserRepository $userRepository, PostRepository $postRepository): Response
     {
-        $user = $security->getUser();
+        $user = $userRepository->findOneBy(['username' => $username]);
         $posts = [];
         if ($user) {
             $posts = $postRepository->findBy(['user' => $user]);
@@ -92,11 +93,10 @@ final class ProfileController extends AbstractController{
             'posts' => $posts,
         ]);
     }
-
     #[Route('/profile/comments/{username}', name: 'app_profile_comments')]
-    public function comments(Security $security, CommentRepository $commentRepository): Response
+    public function comments(string $username, UserRepository $userRepository, CommentRepository $commentRepository): Response
     {
-        $user = $security->getUser();
+        $user = $userRepository->findOneBy(['username' => $username]);
         $comments = [];
         if ($user) {
             $comments = $commentRepository->findBy(['user' => $user]);
@@ -269,10 +269,10 @@ final class ProfileController extends AbstractController{
         }
 
         if ($this->isCsrfTokenValid('delete-user', $request->request->get('_token'))) {
-
             $session->set('user_to_delete_id', $user->getId());
 
             $tokenStorage->setToken(null);
+            $session->invalidate();
 
             return $this->redirectToRoute('app_profile_delete_confirm');
         }
@@ -290,14 +290,12 @@ final class ProfileController extends AbstractController{
         $session->remove('user_to_delete_id');
 
         if ($id) {
-            $user = $entityManager->getRepository(\App\Entity\User::class)->find($id);
+            $user = $entityManager->getRepository(User::class)->find($id);
             if ($user) {
                 $entityManager->remove($user);
                 $entityManager->flush();
             }
         }
-
-        $session->invalidate();
 
         $this->addFlash('success', 'Votre compte a été supprimé.');
         return $this->redirectToRoute('app_home');

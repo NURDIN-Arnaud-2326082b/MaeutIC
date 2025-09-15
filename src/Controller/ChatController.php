@@ -6,6 +6,7 @@ use App\Entity\Message;
 use App\Entity\Conversation;
 use App\Repository\MessageRepository;
 use App\Repository\ConversationRepository;
+use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
