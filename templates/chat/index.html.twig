@@ -30,8 +30,13 @@
                 {% set other = conversation.user1 == app.user ? conversation.user2 : conversation.user1 %}
                 <li class="py-4 flex items-center justify-between">
                     <a href="{{ path('private_conversation', {id: conversation.id}) }}" class="flex items-center gap-3 p-1 w-full hover:bg-blue-50 hover:text-blue-900">
-                        <img src="{{ asset('profile_images/' ~ (other.profileImage ?: 'default-profile.png')) }}" class="w-10 h-10 rounded-full object-cover" alt="">
-                        <span class="font-semibold">{{ other.username }}</span>
+                        {% if other %}
+                            <img src="{{ asset('profile_images/' ~ (other.profileImage ?: 'default-profile.png')) }}" class="w-10 h-10 rounded-full object-cover" alt="">
+                            <span class="font-semibold">{{ other.username }}</span>
+                        {% else %}
+                            <img src="{{ asset('images/default-profile.png') }}" class="w-10 h-10 rounded-full object-cover" alt="">
+                            <span class="font-semibold text-gray-500">Ancien utilisateur</span>
+                        {% endif %}
                     </a>
                 </li>
             {% else %}
@@ -45,7 +50,16 @@
 
         {% if conversation is defined %}
             {# chat header #}
-            <h1 class="text-xl font-medium mb-6 ml-2">Conversation avec {% set other = conversation.user1 == app.user ? conversation.user2 : conversation.user1 %}{{ other.username }}</h1>
+            {% set other = conversation.user1 == app.user ? conversation.user2 : conversation.user1 %}
+            <h1 class="text-xl font-medium mb-6 ml-2">
+                Conversation avec 
+                {% if other %}
+                    {{ other.username }}
+                {% else %}
+                    Ancien utilisateur
+                {% endif %}
+            </h1>
+
 
             {# chat messages #}
             <div id="private-chat-messages" class="flex-1 overflow-auto mb-2 min-h-0">
@@ -53,10 +67,18 @@
                     <div class="flex justify-start mb-4">
                         <div class="px-4 py-2">
                             <div class="flex flex-row items-center">
-                                <a href="{{ path('app_profile', {'username': message.sender.username}) }}" class="flex flex-row items-center mr-3">
-                                    <img src="{% if message.sender.profileImage %}{{ asset('profile_images/' ~ message.sender.profileImage) }}{% else %}{{ asset('images/default-profile.png') }}{% endif %}" alt="Profil" class="w-10 h-10 mr-3 rounded-full">
-                                    <div class="text-sm font-semibold">{{ message.sender.username }}</div>
-                                </a>
+                                {% if message.sender %}
+                                    <a href="{{ path('app_profile', {'username': message.sender.username}) }}" class="flex flex-row items-center mr-3">
+                                        <img src="{{ asset(message.sender.profileImage ? 'profile_images/' ~ message.sender.profileImage : 'images/default-profile.png') }}" alt="Profil" class="w-10 h-10 mr-3 rounded-full">
+                                        <div class="text-sm font-semibold">{{ message.sender.username }}</div>
+                                    </a>
+                                {% else %}
+                                    <div class="flex flex-row items-center mr-3">
+                                        <img src="{{ asset('images/default-profile.png') }}" alt="Profil" class="w-10 h-10 mr-3 rounded-full">
+                                        <div class="text-sm font-semibold text-gray-500">Ancien utilisateur</div>
+                                    </div>
+                                {% endif %}
+
                                 <div class="text-xs text-gray-400 mt-1">{{ message.sentAt|date('d/m/Y H:i') }}</div>
                             </div>
                             <div class="ml-[52px]">{{ message.content }}</div>            
@@ -187,10 +209,17 @@
                                 <div class="flex justify-start mb-4">
                                     <div class="px-4 py-2">
                                         <div class="flex flex-row items-center">
-                                            <a href="/profile/${encodeURIComponent(msg.sender.username)}" class="flex flex-row items-center mr-3">
-                                                <img src="${msg.sender.profileImage ? '/profile_images/' + msg.sender.profileImage : '/images/default-profile.png'}" alt="Profil" class="w-10 h-10 mr-3 rounded-full">
-                                                <div class="text-sm font-semibold">${msg.sender.username}</div>
-                                            </a>
+                                            ${msg.sender 
+                                                ? `<a href="/profile/${encodeURIComponent(msg.sender.username)}" class="flex flex-row items-center mr-3">
+                                                    <img src="${msg.sender.profileImage ? '/profile_images/' + msg.sender.profileImage : '/images/default-profile.png'}" alt="Profil" class="w-10 h-10 mr-3 rounded-full">
+                                                    <div class="text-sm font-semibold">${msg.sender.username}</div>
+                                                </a>`
+                                                : `<div class="flex flex-row items-center mr-3">
+                                                    <img src="/images/default-profile.png" alt="Profil" class="w-10 h-10 mr-3 rounded-full">
+                                                    <div class="text-sm font-semibold text-gray-500">Ancien utilisateur</div>
+                                                </div>`
+                                            }
+
                                             <div class="text-xs text-gray-400 mt-1">${msg.sentAt}</div>
                                         </div>
                                         <div class="ml-[52px]">${msg.content}</div>

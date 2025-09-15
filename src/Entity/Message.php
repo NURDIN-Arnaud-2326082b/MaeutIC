@@ -17,7 +17,7 @@ class Message
     private ?string $content = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
-    #[ORM\JoinColumn(nullable: false)]
+    #[ORM\JoinColumn(nullable: true, onDelete: "SET NULL")]
     private ?User $sender = null;
 
     #[ORM\Column(type: 'datetime')]
