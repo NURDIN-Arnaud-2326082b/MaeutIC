@@ -11,6 +11,7 @@ use App\Repository\ForumRepository;
 use App\Repository\PostRepository;
 use App\Repository\CommentRepository;
 use App\Repository\UserLikeRepository;
+use App\Repository\PostLikeRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use App\Form\formType;
@@ -81,6 +82,7 @@ class ForumController extends AbstractController
         PostRepository $postRepository, 
         CommentRepository $commentRepository, 
         UserLikeRepository $userLikeRepository,
+        PostLikeRepository $postLikeRepository,
         Request $request, 
         ?int $postId = null
     ): Response {
@@ -95,6 +97,16 @@ class ForumController extends AbstractController
             $posts = $postRepository->findAllOrderedByName();
         } else {
             $posts = $postRepository->findByForum($category);
+        }
+
+        // Ajouter les données de likes pour les posts
+        $postLikes = [];
+        $userPostLikes = [];
+        foreach ($posts as $post) {
+            $postLikes[$post->getId()] = $postLikeRepository->countByPost($post);
+            $userPostLikes[$post->getId()] = $this->getUser() 
+                ? $postLikeRepository->isLikedByUser($post, $this->getUser()) 
+                : false;
         }
 
         $post = new Post();
@@ -114,6 +126,8 @@ class ForumController extends AbstractController
         $comments = null;
         $likes = null;
         $userLikes = null;
+        $selectedPostLikes = 0;
+        $userSelectedPostLike = false;
 
         if ($postId) {
             $selectedPost = $postRepository->find($postId);
@@ -124,6 +138,12 @@ class ForumController extends AbstractController
             if (!$selectedPost) {
                 throw $this->createNotFoundException('Post not found');
             }
+
+            // Ajouter les likes du post sélectionné
+            $selectedPostLikes = $postLikeRepository->countByPost($selectedPost);
+            $userSelectedPostLike = $this->getUser() 
+                ? $postLikeRepository->isLikedByUser($selectedPost, $this->getUser()) 
+                : false;
 
             foreach ($comments as $comment) {
                 $likes[] = $userLikeRepository->countByCommentId($comment->getId());
@@ -149,7 +169,11 @@ class ForumController extends AbstractController
             'forums' => $forums,
             'category' => $category,
             'posts' => $posts,
+            'postLikes' => $postLikes,
+            'userPostLikes' => $userPostLikes,
             'selectedPost' => $selectedPost,
+            'selectedPostLikes' => $selectedPostLikes,
+            'userSelectedPostLike' => $userSelectedPostLike,
             'comments' => $comments,
             'likes' => $likes,
             'userLikes' => $userLikes,

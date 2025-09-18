@@ -52,6 +52,20 @@
                 <div class="mt-5">
                     <p class="text-gray-700">{{ selectedPost.description }}</p>
                 </div>
+
+                {# Bouton de like pour le post #}
+                <div class="flex items-center mt-3">
+                    {% if is_granted('IS_AUTHENTICATED_FULLY') %}
+                        {% if userSelectedPostLike %}
+                            <button class="post-like-btn text-red-500 text-lg mr-2" data-post-id="{{ selectedPost.id }}">♥</button>
+                        {% else %}
+                            <button class="post-like-btn text-gray-500 text-lg mr-2" data-post-id="{{ selectedPost.id }}">♡</button>
+                        {% endif %}
+                    {% else %}
+                        <button class="text-gray-500 text-lg cursor-not-allowed mr-2" title="Connectez-vous pour liker" disabled>♡</button>
+                    {% endif %}
+                    <span data-post-like-count="{{ selectedPost.id }}" class="text-gray-600">{{ selectedPostLikes }}</span>
+                </div>
                 {% if app.user and (
                     (selectedPost.user and app.user.id == selectedPost.user.id)
                     or app.user.userType == 1
@@ -136,13 +150,14 @@
 
             <div class="flex flex-row text-sm pl-14 pr-2">
                 <p class="w-1/2 text-gray-700">Titre</p>
-                <p class="w-1/3 text-gray-700">Forum</p>
+                <p class="w-1/4 text-gray-700">Forum</p>
+                <p class="w-1/8 text-gray-700">Likes</p>
                 <p class="text-gray-700">...</p>
             </div>
 
             {% for post in posts %}
                 <li>
-                    <a href="{{ path('app_forums', { category: category, postId: post.id }) }}" class="relative group pl-12 cursor-pointer my-1 block">
+                    <div class="relative group pl-12 cursor-pointer my-1 block">
                         {# blue background bar #}
                         <div class="absolute top-0 left-0 h-full w-14 bg-blue-600 rounded-lg flex items-center justify-center">
                             <p class="mb-2 mr-2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-150 text-white text-3xl font-semibold">
@@ -154,18 +169,34 @@
                         {# Content #}
                         <div class="flex items-center bg-white group-hover:bg-blue-50 transition-all duration-150 px-2 py-3 rounded-md relative z-10">
                             <div class="w-1/2">
-                                <h3 class="text-lg text-gray-700">{{ post.name }}</h3>
-                                <p class="text-gray-500">
-                                    {% if post.user is not null %}
-                                        {{ post.user.firstName }} {{ post.user.lastName }}
-                                    {% else %}
-                                        Ancien utilisateur
-                                    {% endif %}
-                                </p>
+                                <a href="{{ path('app_forums', { category: category, postId: post.id }) }}">
+                                    <h3 class="text-lg text-gray-700">{{ post.name }}</h3>
+                                    <p class="text-gray-500">
+                                        {% if post.user is not null %}
+                                            {{ post.user.firstName }} {{ post.user.lastName }}
+                                        {% else %}
+                                            Ancien utilisateur
+                                        {% endif %}
+                                    </p>
+                                </a>
                             </div>
-                            <p class="text-gray-500">{{ post.forum.title }}</p>
+                            <p class="w-1/4 text-gray-500">{{ post.forum.title }}</p>
+                            
+                            {# Likes section pour la liste des posts #}
+                            <div class="w-1/8 flex items-center">
+                                {% if is_granted('IS_AUTHENTICATED_FULLY') %}
+                                    {% if userPostLikes[post.id] %}
+                                        <button class="post-like-btn text-red-500 text-sm mr-1" data-post-id="{{ post.id }}">♥</button>
+                                    {% else %}
+                                        <button class="post-like-btn text-gray-500 text-sm mr-1" data-post-id="{{ post.id }}">♡</button>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-gray-500 text-sm mr-1">♡</span>
+                                {% endif %}
+                                <span data-post-like-count="{{ post.id }}" class="text-gray-600 text-sm">{{ postLikes[post.id] }}</span>
+                            </div>
                         </div>
-                    </a>
+                    </div>
                 </li>
             {% endfor %}
         {% endif %}
@@ -270,6 +301,79 @@
             }
         });
     }
+
+    function likePost(id) {
+        const btn = document.querySelector(`.post-like-btn[data-post-id="${id}"]`);
+        const count = document.querySelector(`[data-post-like-count="${id}"]`);
+        if (!btn || !count) return;
+        
+        const wasLiked = btn.textContent === '♥';
+        let currentCount = parseInt(count.textContent, 10) || 0;
+        
+        // Optimistic update
+        if (wasLiked) {
+            btn.textContent = '♡';
+            btn.classList.remove('text-red-500');
+            btn.classList.add('text-gray-500');
+            count.textContent = Math.max(0, currentCount - 1);
+        } else {
+            btn.textContent = '♥';
+            btn.classList.remove('text-gray-500');
+            btn.classList.add('text-red-500');
+            count.textContent = currentCount + 1;
+        }
+
+        fetch(`/post-like/toggle/${id}`, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                // Restaurer l'état initial en cas d'erreur
+                if (wasLiked) {
+                    btn.textContent = '♥';
+                    btn.classList.remove('text-gray-500');
+                    btn.classList.add('text-red-500');
+                    count.textContent = currentCount;
+                } else {
+                    btn.textContent = '♡';
+                    btn.classList.remove('text-red-500');
+                    btn.classList.add('text-gray-500');
+                    count.textContent = currentCount;
+                }
+                return;
+            }
+            // Synchroniser avec la valeur du serveur
+            count.textContent = data.count;
+        })
+        .catch(() => {
+            // Restaurer en cas d'erreur réseau
+            if (wasLiked) {
+                btn.textContent = '♥';
+                btn.classList.remove('text-gray-500');
+                btn.classList.add('text-red-500');
+                count.textContent = currentCount;
+            } else {
+                btn.textContent = '♡';
+                btn.classList.remove('text-red-500');
+                btn.classList.add('text-gray-500');
+                count.textContent = currentCount;
+            }
+        });
+    }
+
+    // Event listener pour les likes de posts
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('post-like-btn')) {
+            e.preventDefault();
+            e.stopPropagation();
+            const postId = e.target.dataset.postId;
+            likePost(postId);
+        }
+    });
 
     function openPostCreateModal() {
         document.getElementById('post-create-modal').classList.remove('hidden');
