@@ -5,6 +5,7 @@ namespace App\Repository;
 use App\Entity\Post;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use App\Entity\User;
 
 /**
  * @extends ServiceEntityRepository<Post>
@@ -47,7 +48,18 @@ class PostRepository extends ServiceEntityRepository
         $this->getEntityManager()->flush();
     }
 
-     
+    public function findRepliesByUser(User $user): array
+    {
+        return $this->createQueryBuilder('p')
+            ->where('p.user = :user')
+            ->andWhere('p.isReply = :isReply')
+            ->setParameter('user', $user)
+            ->setParameter('isReply', true)
+            ->orderBy('p.creationDate', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
     // /**
     //     * @return Post[] Returns an array of Post objects
     //     */
