@@ -18,6 +18,7 @@ use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use App\Repository\UserRepository;
 use App\Entity\User;
+use App\Repository\PostLikeRepository;
 
 final class ProfileController extends AbstractController{
     #[Route('/profile', name: 'app_profile')]
@@ -299,6 +300,35 @@ final class ProfileController extends AbstractController{
 
         $this->addFlash('success', 'Votre compte a été supprimé.');
         return $this->redirectToRoute('app_home');
+    }
+
+    #[Route('/profile/replies', name: 'app_profile_replies')]
+    public function replies(
+        PostRepository $postRepository,
+        PostLikeRepository $postLikeRepository
+    ): Response {
+        $user = $this->getUser();
+        if (!$user) {
+            throw $this->createAccessDeniedException('Vous devez être connecté pour accéder à cette page.');
+        }
+
+        $replies = $postRepository->findRepliesByUser($user);
+        
+        // Initialiser les données de likes pour les réponses
+        $repliesLikes = [];
+        $userRepliesLikes = [];
+        
+        foreach ($replies as $reply) {
+            $repliesLikes[$reply->getId()] = $postLikeRepository->countByPost($reply);
+            $userRepliesLikes[$reply->getId()] = $postLikeRepository->isLikedByUser($reply, $user);
+        }
+
+        return $this->render('profile/replies.html.twig', [
+            'user' => $user,
+            'replies' => $replies,
+            'repliesLikes' => $repliesLikes,
+            'userRepliesLikes' => $userRepliesLikes,
+        ]);
     }
 
     private function findTagIdByName($tags, $name)

@@ -11,6 +11,7 @@ use App\Repository\ForumRepository;
 use App\Repository\PostRepository;
 use App\Repository\CommentRepository;
 use App\Repository\UserLikeRepository;
+use App\Repository\PostLikeRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use App\Form\formType;
@@ -81,66 +82,101 @@ class ForumController extends AbstractController
         PostRepository $postRepository, 
         CommentRepository $commentRepository, 
         UserLikeRepository $userLikeRepository,
+        PostLikeRepository $postLikeRepository,
         Request $request, 
         ?int $postId = null
     ): Response {
-        $forums = $forumRepository->findAllOrderedByTitle();
-        
-        $category = urldecode($request->attributes->get('category'));
-        if (!$category) {
-            $category = 'General';
-        }
-        
+        $category = $request->get('category', 'General');
+        $forums = $forumRepository->findAll();
+
         if ($category === 'General') {
             $posts = $postRepository->findAllOrderedByName();
         } else {
             $posts = $postRepository->findByForum($category);
         }
 
-        $post = new Post();
-        // Préselection du forum si catégorie courante
-        if ($category !== 'General') {
-            foreach ($forums as $forum) {
-                if ($forum->getTitle() === $category) {
-                    $post->setForum($forum);
-                    break;
-                }
-            }
+        // Initialiser les données de likes pour TOUS les posts (toujours)
+        $postLikes = [];
+        $userPostLikes = [];
+        foreach ($posts as $post) {
+            $postLikes[$post->getId()] = $postLikeRepository->countByPost($post);
+            $userPostLikes[$post->getId()] = $this->getUser() 
+                ? $postLikeRepository->isLikedByUser($post, $this->getUser()) 
+                : false;
         }
-        $form = $this->createForm(PostFormType::class, $post);
-        $editForm = $this->createForm(PostFormType::class, $post);
 
+        // Si un post spécifique est sélectionné
         $selectedPost = null;
-        $comments = null;
-        $likes = null;
-        $userLikes = null;
+        $selectedPostLikes = 0;
+        $userSelectedPostLike = false;
+        $comments = [];
+        $likes = [];
+        $userLikes = [];
+        $replies = []; // Nouvelle variable pour les réponses
+        $form = null;
+        $editForm = null;
+
+        // Toujours créer les formulaires
+        $post = new Post();
+        $form = $this->createForm(PostFormType::class, $post);
+        $editForm = $this->createForm(PostFormType::class, new Post());
 
         if ($postId) {
             $selectedPost = $postRepository->find($postId);
-            $comments = $commentRepository->findByPost($postId);
-            $likes = [];
-            $userLikes = [];
+            if ($selectedPost) {
+                $comments = $commentRepository->findByPost($postId);
+                $likes = [];
+                $userLikes = [];
 
-            if (!$selectedPost) {
-                throw $this->createNotFoundException('Post not found');
-            }
-
-            foreach ($comments as $comment) {
-                $likes[] = $userLikeRepository->countByCommentId($comment->getId());
-                $userLikes[$comment->getId()] = $this->getUser() 
-                    ? $userLikeRepository->hasUserLikedComment($this->getUser()->getId(), $comment->getId()) 
+                // Ajouter les likes du post sélectionné
+                $selectedPostLikes = $postLikeRepository->countByPost($selectedPost);
+                $userSelectedPostLike = $this->getUser() 
+                    ? $postLikeRepository->isLikedByUser($selectedPost, $this->getUser()) 
                     : false;
-            }
 
-            if ($request->isMethod('POST')) {
-                $commentBody = $request->request->get('comment');
-                if ($commentBody && $this->isGranted('IS_AUTHENTICATED_FULLY')) {
-                    $commentRepository->addComment($commentBody, $selectedPost, $this->getUser());
-                    
+                foreach ($comments as $comment) {
+                    $likes[] = $userLikeRepository->countByCommentId($comment->getId());
+                    $userLikes[$comment->getId()] = $this->getUser() 
+                        ? $userLikeRepository->hasUserLikedComment($this->getUser()->getId(), $comment->getId()) 
+                        : false;
+                }
+
+                // Récupérer les réponses au post
+                $replies = $postRepository->findBy(['parentPost' => $selectedPost], ['id' => 'ASC']);
+                
+                // Initialiser les likes pour les réponses
+                foreach ($replies as $reply) {
+                    $postLikes[$reply->getId()] = $postLikeRepository->countByPost($reply);
+                    $userPostLikes[$reply->getId()] = $this->getUser() 
+                        ? $postLikeRepository->isLikedByUser($reply, $this->getUser()) 
+                        : false;
+                }
+
+                // Traitement du formulaire de création de post
+                $form->handleRequest($request);
+                if ($form->isSubmitted() && $form->isValid()) {
+                    $post = $form->getData();
+                    $post->setUser($this->getUser());
+                    $post->setCreationDate(new \DateTime());
+                    $post->setLastActivity(new \DateTime());
+                    $postRepository->addPost($post);
                     return $this->redirectToRoute('app_forums', [
-                        'category' => $category,
-                        'postId' => $postId,
+                        'category' => $post->getForum()->getTitle(),
+                        'postId' => $post->getId(),
                     ]);
+                }
+
+                // Traitement des commentaires
+                if ($request->isMethod('POST') && $request->request->has('comment') && $this->getUser()) {
+                    $commentBody = $request->request->get('comment');
+                    if ($commentBody) {
+                        $commentRepository->addComment($commentBody, $selectedPost, $this->getUser());
+                        
+                        return $this->redirectToRoute('app_forums', [
+                            'category' => $category,
+                            'postId' => $postId,
+                        ]);
+                    }
                 }
             }
         }
@@ -149,10 +185,15 @@ class ForumController extends AbstractController
             'forums' => $forums,
             'category' => $category,
             'posts' => $posts,
+            'postLikes' => $postLikes,
+            'userPostLikes' => $userPostLikes,
             'selectedPost' => $selectedPost,
+            'selectedPostLikes' => $selectedPostLikes,
+            'userSelectedPostLike' => $userSelectedPostLike,
             'comments' => $comments,
             'likes' => $likes,
             'userLikes' => $userLikes,
+            'replies' => $replies ?? [], // Assurer que replies existe
             'form' => $form,
             'editForm' => $editForm,
         ]);
@@ -298,5 +339,45 @@ class ForumController extends AbstractController
         }
         $count = $userLikeRepository->countByCommentId($comment->getId());
         return $this->json(['count' => $count]);
+    }
+
+    #[Route('forums/{category}/{postId}/reply', name: 'app_post_reply', requirements: ['postId' => '\d+'], methods: ['POST'])]
+    public function replyToPost(
+        int $postId,
+        string $category,
+        Request $request,
+        PostRepository $postRepository,
+        EntityManagerInterface $entityManager
+    ): Response {
+        if (!$this->getUser()) {
+            throw $this->createAccessDeniedException('Vous devez être connecté pour répondre à un post.');
+        }
+
+        $parentPost = $postRepository->find($postId);
+        if (!$parentPost) {
+            throw $this->createNotFoundException('Post non trouvé.');
+        }
+
+        $replyContent = $request->request->get('reply_content');
+        if (empty(trim($replyContent))) {
+            $this->addFlash('error', 'Le contenu de la réponse ne peut pas être vide.');
+            return $this->redirectToRoute('app_forums', ['category' => $category, 'postId' => $postId]);
+        }
+
+        $reply = new Post();
+        $reply->setName('Re: ' . $parentPost->getName());
+        $reply->setDescription($replyContent);
+        $reply->setUser($this->getUser());
+        $reply->setForum($parentPost->getForum());
+        $reply->setParentPost($parentPost);
+        $reply->setIsReply(true);
+        $reply->setCreationDate(new \DateTime()); // Ajout de la date de création
+        $reply->setLastActivity(new \DateTime()); // Ajout de la date de dernière activité
+
+        $entityManager->persist($reply);
+        $entityManager->flush();
+
+        $this->addFlash('success', 'Votre réponse a été ajoutée avec succès.');
+        return $this->redirectToRoute('app_forums', ['category' => $category, 'postId' => $postId]);
     }
 }
