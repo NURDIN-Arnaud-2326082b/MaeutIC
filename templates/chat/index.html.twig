@@ -69,7 +69,15 @@
                             <div class="flex flex-row items-center">
                                 {% if message.sender %}
                                     <a href="{{ path('app_profile', {'username': message.sender.username}) }}" class="flex flex-row items-center mr-3">
-                                        <img src="{{ asset(message.sender.profileImage ? 'profile_images/' ~ message.sender.profileImage : 'images/default-profile.png') }}" alt="Profil" class="w-10 h-10 mr-3 rounded-full">
+                                        {% if message.sender.profileImage is not empty %}
+                                            <img src="{{ asset('images/profile_images/' ~ message.sender.profileImage) }}" 
+                                                alt="Profil" 
+                                                class="w-10 h-10 mr-3 rounded-full">
+                                        {% else %}
+                                            <img src="{{ asset('images/default-profile.png') }}" 
+                                                alt="Profil" 
+                                                class="w-10 h-10 mr-3 rounded-full">
+                                        {% endif %}
                                         <div class="text-sm font-semibold">{{ message.sender.username }}</div>
                                     </a>
                                 {% else %}
@@ -211,7 +219,7 @@
                                         <div class="flex flex-row items-center">
                                             ${msg.sender 
                                                 ? `<a href="/profile/${encodeURIComponent(msg.sender.username)}" class="flex flex-row items-center mr-3">
-                                                    <img src="${msg.sender.profileImage ? '/profile_images/' + msg.sender.profileImage : '/images/default-profile.png'}" alt="Profil" class="w-10 h-10 mr-3 rounded-full">
+                                                    <img src="${msg.sender.profileImage ? '/profile_images/' + msg.sender.profileImage : 'assets/images/default-profile.png'}" alt="Profil" class="w-10 h-10 mr-3 rounded-full">
                                                     <div class="text-sm font-semibold">${msg.sender.username}</div>
                                                 </a>`
                                                 : `<div class="flex flex-row items-center mr-3">
