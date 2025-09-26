@@ -23,6 +23,12 @@ class Forum
     #[ORM\Column(length: 5000)]
     private ?string $body = null;
 
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    private bool $anonymous = false;
+
+    #[ORM\Column(name: "debussy_clairDeLune", type: 'boolean', options: ['default' => false])]
+    private bool $debussy_clairDeLune = false;
+
     #[ORM\Column(type: Types::DATE_MUTABLE)]
     private ?\DateTimeInterface $lastActivity = null;
 
@@ -71,6 +77,30 @@ class Forum
     public function setLastActivity(\DateTimeInterface $lastActivity): static
     {
         $this->lastActivity = $lastActivity;
+
+        return $this;
+    }
+
+    public function isAnonymous(): bool
+    {
+        return $this->anonymous;
+    }
+
+    public function setAnonymous(bool $anonymous): static
+    {
+        $this->anonymous = $anonymous;
+
+        return $this;
+    }
+
+    public function isDebussyClairDeLune(): bool
+    {
+        return $this->debussy_clairDeLune;
+    }
+
+    public function setDebussyClairDeLune(bool $debussy_clairDeLune): static
+    {
+        $this->debussy_clairDeLune = $debussy_clairDeLune;
 
         return $this;
     }

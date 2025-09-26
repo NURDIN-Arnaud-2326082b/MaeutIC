@@ -86,7 +86,8 @@ class ForumController extends AbstractController
         Request $request, 
         ?int $postId = null
     ): Response {
-        $category = $request->get('category', 'General');
+        $category = $request->attributes->get('category', 'General');
+        $currentForum = $forumRepository->findOneBy(['title' => $category]);
         $forums = $forumRepository->findAll();
 
         if ($category === 'General') {
@@ -184,6 +185,7 @@ class ForumController extends AbstractController
         return $this->render('forum/forums.html.twig', [
             'forums' => $forums,
             'category' => $category,
+            'currentForum' => $currentForum,
             'posts' => $posts,
             'postLikes' => $postLikes,
             'userPostLikes' => $userPostLikes,
