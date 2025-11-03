@@ -84,6 +84,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'integer')]
     private ?int $userType = 0;
 
+    private ?array $network = [];
+
     public function __construct()
     {
         $this->subscribedPosts = new ArrayCollection();
@@ -410,6 +412,43 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->userType = $userType;
 
         return $this;
+    }
+
+    public function getNetwork(): array
+    {
+        return $this->network ?? [];
+    }
+
+    public function setNetwork(array $network): self
+    {
+        $this->network = array_values(array_unique(array_map('intval', $network)));
+
+        return $this;
+    }
+
+    public function addToNetwork(int $userId): self
+    {
+        $list = $this->getNetwork();
+        if (!in_array($userId, $list, true)) {
+            $list[] = $userId;
+            $this->network = $list;
+        }
+
+        return $this;
+    }
+
+    public function removeFromNetwork(int $userId): self
+    {
+        $list = $this->getNetwork();
+        $list = array_values(array_filter($list, fn($id) => ((int)$id) !== $userId));
+        $this->network = $list;
+
+        return $this;
+    }
+
+    public function isInNetwork(int $userId): bool
+    {
+        return in_array($userId, $this->getNetwork(), true);
     }
 
     /**

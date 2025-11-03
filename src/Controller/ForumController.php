@@ -18,6 +18,8 @@ use App\Form\formType;
 use App\Entity\Post;
 use App\Form\PostFormType;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
+use App\Entity\Conversation;
+use App\Entity\User;
 
 class ForumController extends AbstractController
 {
@@ -381,5 +383,109 @@ class ForumController extends AbstractController
 
         $this->addFlash('success', 'Votre réponse a été ajoutée avec succès.');
         return $this->redirectToRoute('app_forums', ['category' => $category, 'postId' => $postId]);
+    }
+
+    // --- Nouveau : toggleNetwork pour créer/retourner conversation entre utilisateurs ---
+    #[Route('/network/toggle/{userId}', name: 'network_toggle', methods: ['POST'])]
+    public function toggleNetwork(
+        int $userId,
+        Request $request,
+        EntityManagerInterface $entityManager
+    ): \Symfony\Component\HttpFoundation\JsonResponse {
+        try {
+            $me = $this->getUser();
+            if (!$me) {
+                return $this->json(['error' => 'Unauthorized'], 401);
+            }
+
+            if ($me->getId() === (int) $userId) {
+                return $this->json(['error' => 'Cannot connect to yourself'], 400);
+            }
+
+            $userRepo = $entityManager->getRepository(User::class);
+            $other = $userRepo->find($userId);
+            if (!$other) {
+                return $this->json(['error' => 'User not found'], 404);
+            }
+
+            $convRepo = $entityManager->getRepository(Conversation::class);
+            // Recherche conversation existante entre les deux (ordre indifférent)
+            $qb = $convRepo->createQueryBuilder('c');
+            $qb->where('(c.user1 = :a AND c.user2 = :b) OR (c.user1 = :b AND c.user2 = :a)')
+               ->setParameter('a', $me)
+               ->setParameter('b', $other)
+               ->setMaxResults(1);
+            $existing = $qb->getQuery()->getOneOrNullResult();
+
+            if ($existing) {
+                // Déjà créé : renvoyer URL de la conversation existante
+                $url = $this->generateUrl('private_conversation', ['id' => $existing->getId()]);
+                return $this->json(['success' => true, 'conversationId' => $existing->getId(), 'redirect' => $url]);
+            }
+
+            // Créer une nouvelle conversation (vide)
+            $conversation = new Conversation();
+            // Selon votre entité Conversation, ajuster les setters si nom différent
+            if (method_exists($conversation, 'setUser1') && method_exists($conversation, 'setUser2')) {
+                $conversation->setUser1($me);
+                $conversation->setUser2($other);
+            } elseif (method_exists($conversation, 'setUserOne') && method_exists($conversation, 'setUserTwo')) {
+                $conversation->setUserOne($me);
+                $conversation->setUserTwo($other);
+            } else {
+                // tentative générique : essayer d'ajouter via reflection si nécessaire
+                // sinon laisser l'exception remonter pour debug
+                throw new \RuntimeException('Conversation setters not found (setUser1/setUser2 or setUserOne/setUserTwo)');
+            }
+
+            $entityManager->persist($conversation);
+            $entityManager->flush();
+
+            $url = $this->generateUrl('private_conversation', ['id' => $conversation->getId()]);
+            return $this->json(['success' => true, 'conversationId' => $conversation->getId(), 'redirect' => $url]);
+        } catch (\Throwable $e) {
+            // Renvoie message d'erreur utile pour debug (dev only)
+            return $this->json(['error' => 'Exception', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    // --- Nouveau : lister les connexions (utilisateurs en conversation) pour un profil ---
+    #[Route('/network/list/{userId}', name: 'network_list', methods: ['GET'])]
+    public function listNetwork(
+        int $userId,
+        EntityManagerInterface $entityManager
+    ): \Symfony\Component\HttpFoundation\JsonResponse {
+        $userRepo = $entityManager->getRepository(User::class);
+        $target = $userRepo->find($userId);
+        if (!$target) {
+            return $this->json(['error' => 'User not found'], 404);
+        }
+
+        $convRepo = $entityManager->getRepository(Conversation::class);
+        $qb = $convRepo->createQueryBuilder('c');
+        $qb->where('c.user1 = :u OR c.user2 = :u')->setParameter('u', $target);
+        $conversations = $qb->getQuery()->getResult();
+
+        $connections = [];
+        foreach ($conversations as $c) {
+            // déterminer l'autre user
+            $other = null;
+            if ($c->getUser1() && $c->getUser1()->getId() !== $target->getId()) {
+                $other = $c->getUser1();
+            } elseif ($c->getUser2() && $c->getUser2()->getId() !== $target->getId()) {
+                $other = $c->getUser2();
+            }
+            if ($other) {
+                $connections[] = [
+                    'id' => $other->getId(),
+                    'username' => $other->getUsername(),
+                    'firstName' => method_exists($other, 'getFirstName') ? $other->getFirstName() : null,
+                    'lastName' => method_exists($other, 'getLastName') ? $other->getLastName() : null,
+                    'profileImage' => method_exists($other, 'getProfileImage') ? $other->getProfileImage() : null,
+                ];
+            }
+        }
+
+        return $this->json(['connections' => $connections]);
     }
 }

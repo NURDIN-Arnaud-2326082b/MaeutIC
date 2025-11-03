@@ -14,9 +14,6 @@
     {% for user in users %}
         <div class="bubble absolute shadow-lg bg-white rounded-full flex items-center justify-center cursor-grab transition duration-300 opacity-100 scale-100 group focus:outline-none focus:ring-4 focus:ring-blue-400" data-id="{{ user.id }}" style="width:80px;height:80px;" tabindex="0" onclick="window.location.href='{{ path('app_profile_show', {'username': user.username}) }}'" aria-label="Profil de {{ user.firstName }} {{ user.lastName }}">
             <img src="{% if user.profileImage %}{{ asset('profile_images/' ~ user.profileImage) }}{% else %}{{ asset('images/default-profile.png') }}{% endif %}" alt="profile" class="w-full h-full object-cover rounded-full pointer-events-none" />
-            <div class="bubble-label hidden group-hover:flex group-focus:flex absolute left-1/2 -translate-x-1/2 -bottom-10 bg-black/90 text-white px-3 py-1 rounded-xl text-sm whitespace-nowrap z-50 pointer-events-none shadow-lg">
-                {{ user.firstName }} {{ user.lastName }}
-            </div>
         </div>
     {% endfor %}
 </div>
@@ -99,5 +96,52 @@ document.addEventListener('DOMContentLoaded', () => {
         setBubbleZIndexHandlers();
     }
 });
+
+// Fonction utilitaire pour créer conversation / ajouter au réseau et ouvrir la messagerie
+function addToNetwork(userId) {
+    fetch('/network/toggle/' + encodeURIComponent(userId), {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({})
+    })
+    .then(r => r.text().then(text => ({ status: r.status, ok: r.ok, text })))
+    .then(resp => {
+        if (resp.status === 401) {
+            window.location.href = '{{ path('app_login') }}';
+            throw new Error('Unauthorized');
+        }
+        if (!resp.ok) {
+            console.error('network/toggle error', resp.status, resp.text);
+            alert('Erreur serveur (' + resp.status + '): ' + (resp.text || 'No details'));
+            return;
+        }
+        let j = {};
+        try { j = resp.text ? JSON.parse(resp.text) : {}; } catch (e) {
+            console.warn('Réponse non JSON:', resp.text);
+            alert('Réponse inattendue du serveur : ' + resp.text);
+            return;
+        }
+        if (j.redirect) {
+            window.location.href = j.redirect;
+        } else if (j.conversationId) {
+            window.location.href = '/private/conversation/' + j.conversationId;
+        } else if (j.error) {
+            alert('Erreur : ' + j.error);
+        } else {
+            alert('Action terminée.');
+        }
+    })
+    .catch(err => {
+        if (err.message !== 'Unauthorized') {
+            console.error('Fetch toggleNetwork failed:', err);
+            alert('Erreur réseau lors de la création de la connexion. Voir console pour détails.');
+        }
+    });
+}
 </script>
 {% endblock %}
