@@ -3,6 +3,36 @@
 {% block title %}Forums{% endblock %}
 {% block stylesheets %}
     <link rel="stylesheet" href="{{ asset('styles/app.css') }}">
+    <style>
+        /* Scrollbar personnalisée */
+        .custom-scrollbar {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #3b82f6;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #2563eb;
+        }
+
+        .custom-scrollbar {
+            scrollbar-width: thin;
+            scrollbar-color: #3b82f6 #f1f5f9;
+        }
+    </style>
 {% endblock %}
 
 {% block body %}
@@ -33,20 +63,35 @@
     </div>
 
 {% if currentForum and currentForum.debussyClairDeLune %}
-{# Lecteur de musique #}
+{# Lecteur de musique amélioré #}
 <div id="music-player" 
     class="fixed bottom-5 right-5 bg-white backdrop-blur-md border border-gray-200 shadow-lg rounded-xl p-4 w-72 flex flex-col items-center space-y-2 z-[10000]">
-    <audio id="debussy-audio" controls loop class="w-full rounded-lg">
-        <source src="{{ asset('audio/clair_de_lune_debussy.mp3') }}" type="audio/mpeg">
+    <audio id="debussy-audio" 
+           controls 
+           loop 
+           preload="none"
+           class="w-full rounded-lg">
+        <source src="{{ asset('audio/clair_de_lune_debussy.mp3') }}?v=1.0" type="audio/mpeg">
         Votre navigateur ne supporte pas la balise audio.
     </audio>
     <p class="text-sm text-gray-600">🎶 Claude Debussy - Clair de Lune</p>
+    <div id="music-status" class="text-xs text-gray-500 hidden">Chargement...</div>
 </div>
 
 <style>
 #music-player {
     z-index: 10000;
     position: fixed;
+}
+
+/* Style pour éviter le grisage */
+audio::-webkit-media-controls-panel {
+    background-color: white;
+}
+
+audio::-webkit-media-controls-play-button {
+    background-color: #3b82f6;
+    border-radius: 50%;
 }
 </style>
 {% endif %}
@@ -55,7 +100,8 @@
     <ul class="m-5 max-w-5xl w-full bg-white/50 backdrop-blur-sm p-8 rounded-xl shadow-xl border border-white/20">
         {% if selectedPost %}
             {# Display the selected post #}
-            <a href="{{ path('app_forums', { category: category }) }}" class="text-blue-600 m-2 block">← Retour</a>
+            {# <a href="{{ path('app_forums', { category: category }) }}" class="text-blue-600 m-2 block">← Retour</a> #}
+            <a href="{{ path('app_forums', { category: selectedPost.forum.title }) }}" class="text-blue-600 m-2 block">← Retour a la catégorie "{{ selectedPost.forum.title }}"</a>
             
             {# Post principal avec possibilité de répondre #}
             <div class="bg-white relative p-5 rounded-lg border-l-4 border-blue-500">
@@ -300,50 +346,108 @@
                 {% endif %}
             </div>
 
+{# BARRE DE RECHERCHE - VERSION AMÉLIORÉE #}
+<div class="mb-6 bg-white/70 backdrop-blur-sm p-6 rounded-xl shadow-sm border border-white/30">
+    <div class="flex flex-col lg:flex-row gap-6 items-start lg:items-center w-full">
+        {# Champ de recherche - prend toute la largeur disponible #}
+        <div class="w-full lg:flex-1">
+            <div class="relative">
+                <input 
+                    type="text" 
+                    id="search-input"
+                    placeholder="Rechercher..." 
+                    class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/80 backdrop-blur-sm text-gray-700 placeholder-gray-400"
+                >
+            </div>
+        </div>
+
+        {# Filtres de recherche - avec plus d'espace entre les sélecteurs #}
+        <div class="w-full lg:w-2/3">
+            <div class="flex flex-row gap-6 w-full">
+                {# Filtre par type de recherche #}
+                <select id="search-type" class="flex-1 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm text-gray-700">
+                    <option value="all">Tout</option>
+                    <option value="title">Titres</option>
+                    <option value="content">Contenu</option>
+                    <option value="author">Auteurs</option>
+                </select>
+
+                {# Filtre par date #}
+                <select id="date-filter" class="flex-1 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm text-gray-700">
+                    <option value="all">Toutes dates</option>
+                    <option value="today">Aujourd'hui</option>
+                    <option value="week">Semaine</option>
+                    <option value="month">Mois</option>
+                    <option value="year">Année</option>
+                </select>
+
+                {# Filtre par popularité #}
+                <select id="sort-by" class="flex-1 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm text-gray-700">
+                    <option value="recent">Récents</option>
+                    <option value="popular">Populaires (likes)</option>
+                    <option value="commented">Commentés</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    {# Indicateur de recherche #}
+    <div id="search-indicator" class="hidden mt-4 text-sm text-gray-600">
+        <span id="search-results-count">0</span> résultat(s) trouvé(s)
+        <button onclick="clearSearch()" class="ml-2 text-blue-600 hover:text-blue-800 text-xs underline">Effacer</button>
+    </div>
+</div>
+{# FIN BARRE DE RECHERCHE #}
+
             <div class="flex flex-row text-sm pl-14 pr-2">
                 <p class="w-1/2 text-gray-700">Titre</p>
                 <p class="w-1/4 text-gray-700">Forum</p>
                 <p class="text-gray-700">Date</p>
             </div>
 
-            {% for post in posts %}
-                <li>
-                    <div class="relative group pl-12 cursor-pointer my-1 block">
-                        {# blue background bar #}
-                        <div class="absolute top-0 left-0 h-full w-14 bg-blue-600 rounded-lg flex items-center justify-center">
-                            <p class="mb-2 mr-2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-150 text-white text-3xl font-semibold">
-                                ›
-                            </p>
-                        </div>
-                        <div class="absolute top-0 left-3 h-full w-20 bg-white group-hover:left-11 group-hover:bg-blue-50 rounded-lg transition-all z-10 duration-150"></div>
-
-                        {# Content #}
-                        <div class="flex items-center bg-white group-hover:bg-blue-50 transition-all duration-150 px-2 py-3 rounded-md relative z-10">
-                            <div class="w-1/2">
-                                <a href="{{ path('app_forums', { category: category, postId: post.id }) }}">
-                                    <h3 class="text-lg text-gray-700">{{ post.name }}</h3>
-                                    <p class="text-gray-500">
-                                    {# Si le forum est anonyme, on affiche le nom d'un écrivain ou philosophe célèbre #}
-                                        {% if post.forum.anonymous %}
-                                            {{ random(['Victor Hugo', 'Platon', 'René Descartes', 'Jean-Paul Sartre', 'Voltaire', 'Friedrich Nietzsche',
-                                            'Albert Camus', 'Michel de Montaigne', 'Jean-Jacques Rousseau', 'Honoré de Balzac', 'Socrates', 'Aristote',
-                                            'Emmanuel Kant', 'Sigmund Freud', 'John Locke', 'Thomas Hobbes', 'Karl Marx', 'Georg Wilhelm Friedrich Hegel', 'Sören Kierkegaard']) }}
-                                        {% else %}
-                                            {% if post.user is not null %}
-                                                {{ post.user.firstName }} {{ post.user.lastName }}
-                                            {% else %}
-                                                Ancien utilisateur
-                                            {% endif %}
-                                        {% endif %}
-                                    </p>
-                                </a>
+            {# Conteneur pour les posts avec ID pour la recherche dynamique #}
+{# Conteneur pour les posts avec scrollbar #}
+<div id="posts-container" class="max-h-[600px] overflow-y-auto custom-scrollbar">
+                {% for post in posts %}
+                    <li>
+                        <div class="relative group pl-12 cursor-pointer my-1 block">
+                            {# blue background bar #}
+                            <div class="absolute top-0 left-0 h-full w-14 bg-blue-600 rounded-lg flex items-center justify-center">
+                                <p class="mb-2 mr-2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-150 text-white text-3xl font-semibold">
+                                    ›
+                                </p>
                             </div>
-                            <p class="w-1/3 text-gray-500">{{ post.forum.title }}</p>
-                            <p class="text-gray-500">{{ post.creationDate|date('d/m/Y') }}</p>
+                            <div class="absolute top-0 left-3 h-full w-20 bg-white group-hover:left-11 group-hover:bg-blue-50 rounded-lg transition-all z-10 duration-150"></div>
+
+                            {# Content #}
+                            <div class="flex items-center bg-white group-hover:bg-blue-50 transition-all duration-150 px-2 py-3 rounded-md relative z-10">
+                                <div class="w-1/2">
+                                    {# <a href="{{ path('app_forums', { category: category, postId: post.id }) }}"> #}
+                                    <a href="{{ path('app_forums', { category: post.forum.title, postId: post.id }) }}">
+                                        <h3 class="text-lg text-gray-700">{{ post.name }}</h3>
+                                        <p class="text-gray-500">
+                                        {# Si le forum est anonyme, on affiche le nom d'un écrivain ou philosophe célèbre #}
+                                            {% if post.forum.anonymous %}
+                                                {{ random(['Victor Hugo', 'Platon', 'René Descartes', 'Jean-Paul Sartre', 'Voltaire', 'Friedrich Nietzsche',
+                                                'Albert Camus', 'Michel de Montaigne', 'Jean-Jacques Rousseau', 'Honoré de Balzac', 'Socrates', 'Aristote',
+                                                'Emmanuel Kant', 'Sigmund Freud', 'John Locke', 'Thomas Hobbes', 'Karl Marx', 'Georg Wilhelm Friedrich Hegel', 'Sören Kierkegaard']) }}
+                                            {% else %}
+                                                {% if post.user is not null %}
+                                                    {{ post.user.firstName }} {{ post.user.lastName }}
+                                                {% else %}
+                                                    Ancien utilisateur
+                                                {% endif %}
+                                            {% endif %}
+                                        </p>
+                                    </a>
+                                </div>
+                                <p class="w-1/3 text-gray-500">{{ post.forum.title }}</p>
+                                <p class="text-gray-500">{{ post.creationDate|date('d/m/Y') }}</p>
+                            </div>
                         </div>
-                    </div>
-                </li>
-            {% endfor %}
+                    </li>
+                {% endfor %}
+            </div>
         {% endif %}
     </ul>
 </div>
@@ -620,38 +724,359 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Gestion de la musique
-    const audio = document.getElementById('debussy-audio');
-    if (audio) {
-        const forumKey = "debussy_forum_{{ category }}";
+
+});
+
+// Système de recherche dynamique
+let searchTimeout = null;
+
+// Fonction pour initialiser/re-initialiser la recherche
+function initializeSearch() {
+    const searchInput = document.getElementById('search-input');
+    const clearSearchBtn = document.getElementById('clear-search');
+    
+    if (!searchInput) return; // Élément non trouvé (page de post individuel)
+    
+    // Fonction pour lancer la recherche
+    const triggerSearch = () => {
+        performSearch(searchInput.value);
+    };
+    
+    // Recherche à la saisie
+    searchInput.addEventListener('input', function(e) {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(triggerSearch, 300);
         
-        // Charger l'état sauvegardé
-        const saved = JSON.parse(localStorage.getItem(forumKey) || "{}");
-        if (saved.currentTime) {
-            audio.currentTime = saved.currentTime;
+        // Afficher/masquer le bouton effacer
+        if (e.target.value.length > 0) {
+            clearSearchBtn.classList.remove('hidden');
+        } else {
+            clearSearchBtn.classList.add('hidden');
+        }
+    });
+    
+    // Recherche avec Entrée
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            triggerSearch();
+        }
+    });
+    
+    // Écouteurs pour les filtres - recherche immédiate
+    document.getElementById('search-type').addEventListener('change', triggerSearch);
+    document.getElementById('date-filter').addEventListener('change', triggerSearch);
+    document.getElementById('sort-by').addEventListener('change', triggerSearch);
+    
+    // Recherche initiale si des filtres sont actifs
+    if (searchInput.value || 
+        document.getElementById('search-type').value !== 'all' ||
+        document.getElementById('date-filter').value !== 'all' ||
+        document.getElementById('sort-by').value !== 'recent') {
+        triggerSearch();
+    }
+}
+
+// Fonction de recherche
+function performSearch(query) {
+    const searchType = document.getElementById('search-type').value;
+    const dateFilter = document.getElementById('date-filter').value;
+    const sortBy = document.getElementById('sort-by').value;
+    
+    // Récupérer la catégorie ACTUELLE depuis l'URL ou le DOM
+    const currentCategory = getCurrentCategory();
+    
+    console.log('Recherche dans la catégorie:', currentCategory); // Debug
+    
+    // Afficher l'indicateur de chargement
+    const postsContainer = document.getElementById('posts-container');
+    const searchIndicator = document.getElementById('search-indicator');
+    
+    postsContainer.innerHTML = `
+        <div class="flex justify-center items-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span class="ml-3 text-gray-600">Recherche en cours...</span>
+        </div>
+    `;
+    
+    // Requête AJAX
+    fetch(`/forums/search?q=${encodeURIComponent(query)}&type=${searchType}&date=${dateFilter}&sort=${sortBy}&category=${encodeURIComponent(currentCategory)}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Erreur réseau');
+        }
+        return response.json();
+    })
+    .then(data => {
+        displaySearchResults(data);
+        
+        // Mettre à jour l'indicateur
+        if (query.trim() !== '' || searchType !== 'all' || dateFilter !== 'all' || sortBy !== 'recent') {
+            searchIndicator.classList.remove('hidden');
+            document.getElementById('search-results-count').textContent = data.posts.length;
+        } else {
+            searchIndicator.classList.add('hidden');
+        }
+    })
+    .catch(error => {
+        console.error('Erreur de recherche:', error);
+        postsContainer.innerHTML = `
+            <div class="text-center py-8 text-red-600">
+                Erreur lors de la recherche. Veuillez réessayer.
+            </div>
+        `;
+    });
+}
+
+// Fonction pour récupérer la catégorie actuelle
+function getCurrentCategory() {
+    // Méthode 1: Récupérer depuis l'URL
+    const path = window.location.pathname;
+    const match = path.match(/\/forums\/([^\/]+)/);
+    if (match && match[1]) {
+        return decodeURIComponent(match[1]);
+    }
+    
+    // Méthode 2: Récupérer depuis le lien actif dans le menu des catégories
+    const activeCategoryLink = document.querySelector('.bg-blue-50.text-blue-900');
+    if (activeCategoryLink) {
+        const href = activeCategoryLink.getAttribute('href');
+        const categoryMatch = href.match(/\/forums\/([^\/]+)/);
+        if (categoryMatch && categoryMatch[1]) {
+            return decodeURIComponent(categoryMatch[1]);
+        }
+    }
+    
+    // Méthode 3: Fallback - "General"
+    return "General";
+}
+
+// Affichage des résultats
+function displaySearchResults(data) {
+    const postsContainer = document.getElementById('posts-container');
+    
+    if (data.posts.length === 0) {
+        postsContainer.innerHTML = `
+            <div class="text-center py-8 text-gray-500">
+                <p class="mt-2">Aucun post trouvé pour votre recherche.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    data.posts.forEach(post => {
+        html += `
+            <li>
+                <div class="relative group pl-12 cursor-pointer my-1 block">
+                    <div class="absolute top-0 left-0 h-full w-14 bg-blue-600 rounded-lg flex items-center justify-center">
+                        <p class="mb-2 mr-2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-150 text-white text-3xl font-semibold">
+                            ›
+                        </p>
+                    </div>
+                    <div class="absolute top-0 left-3 h-full w-20 bg-white group-hover:left-11 group-hover:bg-blue-50 rounded-lg transition-all z-10 duration-150"></div>
+
+                    <div class="flex items-center bg-white group-hover:bg-blue-50 transition-all duration-150 px-2 py-3 rounded-md relative z-10">
+                        <div class="w-1/2">
+                            <a href="/forums/${encodeURIComponent(post.forum_title)}/${post.id}">
+                                <h3 class="text-lg text-gray-700">${post.name}</h3>
+                                <p class="text-gray-500">${post.author_name}</p>
+                            </a>
+                        </div>
+                        <p class="w-1/3 text-gray-500">${post.forum_title}</p>
+                        <p class="text-gray-500">${post.creation_date}</p>
+                    </div>
+                </div>
+            </li>
+        `;
+    });
+    
+    postsContainer.innerHTML = html;
+}
+
+// Effacer la recherche
+function clearSearch() {
+    
+    // Recharger la page pour afficher les posts de la catégorie ACTUELLE
+    location.reload();
+}
+
+// Initialisation au chargement de la page
+document.addEventListener('DOMContentLoaded', function() {
+    initializeSearch();
+});
+
+// Réinitialisation après navigation (pour Turbo si vous l'utilisez)
+document.addEventListener('turbo:load', function() {
+    initializeSearch();
+});
+
+// Réinitialisation classique pour les navigations normales
+window.addEventListener('load', function() {
+    initializeSearch();
+});
+</script>
+
+<script>
+// Gestion simplifiée du lecteur audio - compatible Turbo
+(function() {
+    // Vérifier si déjà initialisé pour éviter les redéclarations avec Turbo
+    if (window.audioPlayerInitialized) return;
+    window.audioPlayerInitialized = true;
+    
+    let audioInitialized = false;
+    
+    function initAudioPlayer() {
+        const audio = document.getElementById('debussy-audio');
+        const musicStatus = document.getElementById('music-status');
+        
+        if (!audio) {
+            setTimeout(initAudioPlayer, 100);
+            return;
         }
         
-        // Tenter la lecture après interaction utilisateur
-        const tryPlay = () => {
-            if (audio.paused) {
-                audio.play().catch(e => {
-                    console.log('Lecture nécessite une interaction utilisateur');
-                });
+        // Éviter les initialisations multiples
+        if (audioInitialized) return;
+        audioInitialized = true;
+        
+        console.log('Initialisation audio...');
+        
+        // Configuration
+        audio.preload = 'auto';
+        audio.volume = 0.5;
+        audio.currentTime = 0;
+        
+        let retryCount = 0;
+        const maxRetries = 3;
+        let canplayTriggered = false;
+        
+        function updateStatus(text, className = 'text-gray-500') {
+            if (musicStatus) {
+                musicStatus.textContent = text;
+                musicStatus.className = `text-xs ${className}`;
+                musicStatus.classList.remove('hidden');
             }
+        }
+        
+        function hideStatus() {
+            if (musicStatus) {
+                musicStatus.classList.add('hidden');
+            }
+        }
+        
+        function loadAudio() {
+            console.log('Chargement audio...');
+            
+            audio.pause();
+            audio.currentTime = 0;
+            canplayTriggered = false; // Reset du flag
+            
+            // Cache busting
+            const source = audio.querySelector('source');
+            if (source) {
+                const originalSrc = source.src.replace(/\?v=.*$/, '');
+                source.src = originalSrc + '?v=' + Date.now();
+            }
+            
+            audio.load();
+            updateStatus('Chargement...', 'text-gray-500');
+        }
+        
+        function retryLoad() {
+            if (retryCount < maxRetries) {
+                retryCount++;
+                console.log('Nouvelle tentative ' + retryCount + '/' + maxRetries);
+                updateStatus('Nouvelle tentative ' + retryCount + '/' + maxRetries, 'text-yellow-500');
+                setTimeout(loadAudio, 1000);
+            } else {
+                console.error('Echec du chargement');
+                updateStatus('Echec du chargement', 'text-red-500');
+            }
+        }
+        
+        // Événements avec gestion des doublons
+        function handleCanPlay() {
+            if (canplayTriggered) return; // Éviter les déclenchements multiples
+            canplayTriggered = true;
+            
+            console.log('Audio pret');
+            audio.currentTime = 0;
+            updateStatus('Pret', 'text-green-500');
+            setTimeout(hideStatus, 2000);
+            retryCount = 0;
+        }
+        
+        function handleError() {
+            console.error('Erreur audio');
+            retryLoad();
+        }
+        
+        function handleWaiting() {
+            updateStatus('Buffering...', 'text-yellow-500');
+        }
+        
+        function handlePlaying() {
+            hideStatus();
+        }
+        
+        function handleEnded() {
+            audio.currentTime = 0;
+        }
+        
+        // Nettoyer les anciens écouteurs d'abord
+        audio.removeEventListener('canplay', handleCanPlay);
+        audio.removeEventListener('error', handleError);
+        audio.removeEventListener('waiting', handleWaiting);
+        audio.removeEventListener('playing', handlePlaying);
+        audio.removeEventListener('ended', handleEnded);
+        
+        // Ajouter les nouveaux écouteurs
+        audio.addEventListener('canplay', handleCanPlay, { once: true }); // once: true pour éviter les multiples déclenchements
+        audio.addEventListener('error', handleError);
+        audio.addEventListener('waiting', handleWaiting);
+        audio.addEventListener('playing', handlePlaying);
+        audio.addEventListener('ended', handleEnded);
+        
+        // Chargement initial
+        loadAudio();
+        
+        // Réessayer après 2s si problème détecté
+        setTimeout(() => {
+            if (audio.readyState === 0 || audio.duration === 0) {
+                console.log('Probleme detecte, rechargement...');
+                loadAudio();
+            }
+        }, 2000);
+        
+        // Fonctions globales
+        window.forceAudioReload = function() {
+            canplayTriggered = false;
+            loadAudio();
         };
         
-        // Écouter les interactions utilisateur
-        document.addEventListener('click', tryPlay, { once: true });
-        
-        // Sauvegarder l'état régulièrement
-        setInterval(() => {
-            localStorage.setItem(forumKey, JSON.stringify({
-                currentTime: audio.currentTime,
-                paused: audio.paused
-            }));
-        }, 1000);
+        window.debugAudio = function() {
+            console.log('Audio - currentTime:', audio.currentTime, 'duration:', audio.duration, 'readyState:', audio.readyState);
+        };
     }
-});
+    
+    // Démarrer l'initialisation
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initAudioPlayer);
+    } else {
+        initAudioPlayer();
+    }
+    
+    // Gérer les navigations Turbo
+    document.addEventListener('turbo:load', function() {
+        // Réinitialiser complètement pour les nouvelles pages
+        window.audioPlayerInitialized = false;
+        audioInitialized = false;
+        setTimeout(initAudioPlayer, 100);
+    });
+})();
 </script>
 
 

@@ -18,9 +18,48 @@ use App\Form\formType;
 use App\Entity\Post;
 use App\Form\PostFormType;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
+use Symfony\Component\HttpFoundation\JsonResponse;
 
 class ForumController extends AbstractController
 {
+
+    #[Route('/forums/search', name: 'app_forums_search', methods: ['GET'])]
+    public function search(
+        Request $request,
+        PostRepository $postRepository
+    ): JsonResponse {
+        $query = $request->query->get('q', '');
+        $type = $request->query->get('type', 'all');
+        $dateFilter = $request->query->get('date', 'all');
+        $sortBy = $request->query->get('sort', 'recent');
+        $category = $request->query->get('category', 'General');
+
+        $posts = $postRepository->searchPosts($query, $type, $dateFilter, $sortBy, $category);
+
+        // Formater les données pour JSON
+        $formattedPosts = [];
+        foreach ($posts as $post) {
+            $formattedPosts[] = [
+                'id' => $post->getId(),
+                'name' => $post->getName(),
+                'description' => $post->getDescription(),
+                'creation_date' => $post->getCreationDate()->format('d/m/Y'),
+                'forum_title' => $post->getForum()->getTitle(),
+                'author_name' => $post->getForum()->isAnonymous() 
+                    ? $this->getRandomAuthorName()
+                    : ($post->getUser() 
+                        ? $post->getUser()->getFirstName() . ' ' . $post->getUser()->getLastName()
+                        : 'Ancien utilisateur'
+                    )
+            ];
+        }
+
+        return $this->json([
+            'posts' => $formattedPosts,
+            'count' => count($posts)
+        ]);
+    }
+
     #[Route('forums/{category}/add', name: 'app_post_add')]
     public function addPost(
         ForumRepository $forumRepository,
@@ -381,5 +420,17 @@ class ForumController extends AbstractController
 
         $this->addFlash('success', 'Votre réponse a été ajoutée avec succès.');
         return $this->redirectToRoute('app_forums', ['category' => $category, 'postId' => $postId]);
+    }
+
+    // Méthode utilitaire pour les noms d'auteurs anonymes
+    private function getRandomAuthorName(): string
+    {
+        $authors = [
+            'Victor Hugo', 'Platon', 'René Descartes', 'Jean-Paul Sartre', 'Voltaire', 'Friedrich Nietzsche',
+            'Albert Camus', 'Michel de Montaigne', 'Jean-Jacques Rousseau', 'Honoré de Balzac', 'Socrates', 'Aristote',
+            'Emmanuel Kant', 'Sigmund Freud', 'John Locke', 'Thomas Hobbes', 'Karl Marx', 'Georg Wilhelm Friedrich Hegel', 'Sören Kierkegaard'
+        ];
+        
+        return $authors[array_rand($authors)];
     }
 }
