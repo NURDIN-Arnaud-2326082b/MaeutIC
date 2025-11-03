@@ -408,6 +408,20 @@ class ForumController extends AbstractController
                 return $this->json(['error' => 'User not found'], 404);
             }
 
+            // If already in network -> remove both sides (toggle off)
+            if ($me->isInNetwork($other->getId())) {
+                // Remove network entries only (do NOT delete Conversation)
+                $me->removeFromNetwork($other->getId());
+                $other->removeFromNetwork($me->getId());
+
+                $entityManager->persist($me);
+                $entityManager->persist($other);
+                $entityManager->flush();
+
+                return $this->json(['success' => true, 'removed' => true]);
+            }
+
+            // Not in network -> find or create conversation and add both to networks
             $convRepo = $entityManager->getRepository(Conversation::class);
             // Recherche conversation existante entre les deux (ordre indifférent)
             $qb = $convRepo->createQueryBuilder('c');
@@ -418,14 +432,21 @@ class ForumController extends AbstractController
             $existing = $qb->getQuery()->getOneOrNullResult();
 
             if ($existing) {
-                // Déjà créé : renvoyer URL de la conversation existante
+                // Ensure network entries exist for both users
+                if (!$me->isInNetwork($other->getId())) {
+                    $me->addToNetwork($other->getId());
+                    $other->addToNetwork($me->getId());
+                    $entityManager->persist($me);
+                    $entityManager->persist($other);
+                    $entityManager->flush();
+                }
+
                 $url = $this->generateUrl('private_conversation', ['id' => $existing->getId()]);
                 return $this->json(['success' => true, 'conversationId' => $existing->getId(), 'redirect' => $url]);
             }
 
             // Créer une nouvelle conversation (vide)
             $conversation = new Conversation();
-            // Selon votre entité Conversation, ajuster les setters si nom différent
             if (method_exists($conversation, 'setUser1') && method_exists($conversation, 'setUser2')) {
                 $conversation->setUser1($me);
                 $conversation->setUser2($other);
@@ -433,12 +454,16 @@ class ForumController extends AbstractController
                 $conversation->setUserOne($me);
                 $conversation->setUserTwo($other);
             } else {
-                // tentative générique : essayer d'ajouter via reflection si nécessaire
-                // sinon laisser l'exception remonter pour debug
                 throw new \RuntimeException('Conversation setters not found (setUser1/setUser2 or setUserOne/setUserTwo)');
             }
 
+            // Add mutual network entries
+            $me->addToNetwork($other->getId());
+            $other->addToNetwork($me->getId());
+
             $entityManager->persist($conversation);
+            $entityManager->persist($me);
+            $entityManager->persist($other);
             $entityManager->flush();
 
             $url = $this->generateUrl('private_conversation', ['id' => $conversation->getId()]);
@@ -461,29 +486,40 @@ class ForumController extends AbstractController
             return $this->json(['error' => 'User not found'], 404);
         }
 
-        $convRepo = $entityManager->getRepository(Conversation::class);
-        $qb = $convRepo->createQueryBuilder('c');
-        $qb->where('c.user1 = :u OR c.user2 = :u')->setParameter('u', $target);
-        $conversations = $qb->getQuery()->getResult();
+        // Récupère les IDs depuis le champ JSON 'network' du user (dépend uniquement de network)
+        $ids = $target->getNetwork();
+        if (empty($ids)) {
+            return $this->json(['connections' => []]);
+        }
+
+        // Récupérer les utilisateurs correspondants (sans toucher aux Conversations)
+        $users = $userRepo->createQueryBuilder('u')
+            ->where('u.id IN (:ids)')
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->getResult();
+
+        // Indexer par id pour respecter l'ordre stocké dans network
+        $map = [];
+        foreach ($users as $u) {
+            $map[$u->getId()] = $u;
+        }
 
         $connections = [];
-        foreach ($conversations as $c) {
-            // déterminer l'autre user
-            $other = null;
-            if ($c->getUser1() && $c->getUser1()->getId() !== $target->getId()) {
-                $other = $c->getUser1();
-            } elseif ($c->getUser2() && $c->getUser2()->getId() !== $target->getId()) {
-                $other = $c->getUser2();
+        foreach ($ids as $id) {
+            $id = (int) $id;
+            if (!isset($map[$id])) {
+                continue; // utilisateur supprimé ou inexistant -> ignorer
             }
-            if ($other) {
-                $connections[] = [
-                    'id' => $other->getId(),
-                    'username' => $other->getUsername(),
-                    'firstName' => method_exists($other, 'getFirstName') ? $other->getFirstName() : null,
-                    'lastName' => method_exists($other, 'getLastName') ? $other->getLastName() : null,
-                    'profileImage' => method_exists($other, 'getProfileImage') ? $other->getProfileImage() : null,
-                ];
-            }
+            $other = $map[$id];
+            // construire la représentation minimale attendue par le frontend
+            $connections[] = [
+                'id' => $other->getId(),
+                'username' => $other->getUsername(),
+                'firstName' => method_exists($other, 'getFirstName') ? $other->getFirstName() : null,
+                'lastName' => method_exists($other, 'getLastName') ? $other->getLastName() : null,
+                'profileImage' => method_exists($other, 'getProfileImage') ? $other->getProfileImage() : null,
+            ];
         }
 
         return $this->json(['connections' => $connections]);

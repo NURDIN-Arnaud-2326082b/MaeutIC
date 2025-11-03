@@ -84,6 +84,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'integer')]
     private ?int $userType = 0;
 
+    // Persist the network as JSON in the database
+    #[ORM\Column(type: 'json', nullable: true)]
     private ?array $network = [];
 
     public function __construct()

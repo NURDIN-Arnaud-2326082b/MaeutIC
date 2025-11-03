@@ -44,8 +44,15 @@
                 {% endif %}
                 {% if app.user and app.user.id != user.id %}
                     <a href="{{ path('private_message_new', {userId: user.id}) }}" class="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">Envoyer un message</a>
-                    {# Nouveau : bouton ajouter au réseau qui déclenche la création/détection de conversation #}
-                    <button type="button" onclick="addToNetwork({{ user.id }})" class="inline-block px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition">Ajouter au réseau</button>
+
+                    {# Bouton de réseau : label rendu en fonction de l'état initial (app.user.isInNetwork) #}
+                    <button id="network-toggle-btn"
+                            type="button"
+                            onclick="addToNetwork({{ user.id }})"
+                            class="inline-block px-4 py-2 rounded text-white transition
+                                   {{ app.user.isInNetwork(user.id) ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700' }}">
+                        {{ app.user.isInNetwork(user.id) ? 'Supprimer du réseau' : 'Ajouter au réseau' }}
+                    </button>
                 {% endif %}
             </div>
         </div>
@@ -107,19 +114,23 @@ document.addEventListener('DOMContentLoaded', function () {
     tabs.posts.addEventListener('click', function () {
         setActive('posts');
         fetch('{{ path('app_profile_posts', {username : user.username}) }}')
-            .then(r => r.text())
-            .then(html => { tabContent.innerHTML = html; });
+            .then((r) => r.text())
+            .then((html) => { tabContent.innerHTML = html; });
     });
 
     tabs.comments.addEventListener('click', function () {
         setActive('comments');
         fetch('{{ path('app_profile_comments', {username : user.username}) }}')
-            .then(r => r.text())
-            .then(html => { tabContent.innerHTML = html; });
+            .then((r) => r.text())
+            .then((html) => { tabContent.innerHTML = html; });
     });
 
     // Fonction utilitaire déjà utilisée sur la map
     window.addToNetwork = function(userId) {
+        const toggleBtn = document.getElementById('network-toggle-btn');
+        // Optionnel : indique qu'on attend la réponse
+        if (toggleBtn) toggleBtn.disabled = true;
+
         fetch('/network/toggle/' + encodeURIComponent(userId), {
             method: 'POST',
             credentials: 'include',
@@ -131,17 +142,14 @@ document.addEventListener('DOMContentLoaded', function () {
             body: JSON.stringify({})
         })
         .then(r => {
-            // toujours récupérer le texte pour diagnostiquer les réponses non-JSON
             return r.text().then(text => ({ status: r.status, ok: r.ok, text }));
         })
         .then(resp => {
             if (resp.status === 401) {
-                // non connecté
                 window.location.href = '{{ path('app_login') }}';
                 throw new Error('Unauthorized');
             }
             if (!resp.ok) {
-                // affichage détaillé pour comprendre la cause (statut + body)
                 console.error('network/toggle error', resp.status, resp.text);
                 alert('Erreur serveur (' + resp.status + '): ' + (resp.text || 'No details'));
                 return;
@@ -152,14 +160,39 @@ document.addEventListener('DOMContentLoaded', function () {
                 alert('Réponse inattendue du serveur : ' + resp.text);
                 return;
             }
+
+            // redirections prioritaires (existantes)
             if (j.redirect) {
                 window.location.href = j.redirect;
-            } else if (j.conversationId) {
+                return;
+            }
+            if (j.conversationId) {
                 window.location.href = '/private/conversation/' + j.conversationId;
-            } else if (j.error) {
+                return;
+            }
+
+            // Mise à jour locale du bouton selon la réponse
+            if (toggleBtn) {
+                if (j.removed) {
+                    // supprimé du réseau -> afficher "Ajouter au réseau"
+                    toggleBtn.textContent = 'Ajouter au réseau';
+                    toggleBtn.classList.remove('bg-red-600','hover:bg-red-700');
+                    toggleBtn.classList.add('bg-green-600','hover:bg-green-700');
+                } else if (j.success) {
+                    // ajouté -> afficher "Supprimer du réseau"
+                    toggleBtn.textContent = 'Supprimer du réseau';
+                    toggleBtn.classList.remove('bg-green-600','hover:bg-green-700');
+                    toggleBtn.classList.add('bg-red-600','hover:bg-red-700');
+                }
+            }
+
+            if (j.error) {
                 alert('Erreur : ' + j.error);
             } else {
-                fetchNetwork({{ user.id }});
+                // optionnel : rafraîchir la liste réseau affichée si présente
+                if (typeof fetchNetwork === 'function') {
+                    fetchNetwork({{ user.id }});
+                }
             }
         })
         .catch(err => {
@@ -167,6 +200,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 console.error('Fetch toggleNetwork failed:', err);
                 alert('Erreur réseau lors de la création de la connexion. Voir console pour détails.');
             }
+        })
+        .finally(() => {
+            if (toggleBtn) toggleBtn.disabled = false;
         });
     }
 
