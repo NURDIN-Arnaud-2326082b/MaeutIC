@@ -88,7 +88,8 @@ final class ProfileController extends AbstractController{
         $user = $userRepository->findOneBy(['username' => $username]);
         $posts = [];
         if ($user) {
-            $posts = $postRepository->findBy(['user' => $user]);
+            // order by creationDate descending so recent posts first
+            $posts = $postRepository->findBy(['user' => $user], ['creationDate' => 'DESC']);
         }
         return $this->render('profile/_posts.html.twig', [
             'posts' => $posts,
