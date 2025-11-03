@@ -16,8 +16,7 @@ final class Version20251103AddNetworkColumn extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        // Add a JSON column (stored as LONGTEXT with Doctrine JSON mapping comment for portability)
-        $this->addSql("ALTER TABLE `user` ADD network LONGTEXT DEFAULT NULL COMMENT '(DC2Type:json)'");
+        $this->addSql(sql: "ALTER TABLE `user` ADD network LONGTEXT DEFAULT NULL COMMENT '(DC2Type:json)'");
     }
 
     public function down(Schema $schema): void

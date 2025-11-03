@@ -20,6 +20,8 @@ use App\Form\PostFormType;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use App\Entity\Conversation;
 use App\Entity\User;
+use App\Entity\Notification;
+use App\Repository\NotificationRepository;
 
 class ForumController extends AbstractController
 {
@@ -410,68 +412,175 @@ class ForumController extends AbstractController
 
             // If already in network -> remove both sides (toggle off)
             if ($me->isInNetwork($other->getId())) {
-                // Remove network entries only (do NOT delete Conversation)
                 $me->removeFromNetwork($other->getId());
                 $other->removeFromNetwork($me->getId());
-
                 $entityManager->persist($me);
                 $entityManager->persist($other);
                 $entityManager->flush();
-
                 return $this->json(['success' => true, 'removed' => true]);
             }
 
-            // Not in network -> find or create conversation and add both to networks
+            // Not in network -> create a pending notification for the recipient
+            // Avoid creating duplicate pending requests
+            $notifRepo = $entityManager->getRepository(Notification::class);
+            $existingNotif = $notifRepo->findOneBy([
+                'recipient' => $other,
+                'sender' => $me,
+                'type' => 'network_request',
+                'status' => 'pending'
+            ]);
+            if ($existingNotif) {
+                return $this->json(['success' => true, 'notificationSent' => false, 'alreadyPending' => true]);
+            }
+
+            // Optionally detect existing conversation id to help frontend, but do NOT auto-add network entries
             $convRepo = $entityManager->getRepository(Conversation::class);
-            // Recherche conversation existante entre les deux (ordre indifférent)
             $qb = $convRepo->createQueryBuilder('c');
             $qb->where('(c.user1 = :a AND c.user2 = :b) OR (c.user1 = :b AND c.user2 = :a)')
                ->setParameter('a', $me)
                ->setParameter('b', $other)
                ->setMaxResults(1);
-            $existing = $qb->getQuery()->getOneOrNullResult();
+            $existingConv = $qb->getQuery()->getOneOrNullResult();
+            $convId = $existingConv ? $existingConv->getId() : null;
 
-            if ($existing) {
-                // Ensure network entries exist for both users
-                if (!$me->isInNetwork($other->getId())) {
-                    $me->addToNetwork($other->getId());
-                    $other->addToNetwork($me->getId());
-                    $entityManager->persist($me);
-                    $entityManager->persist($other);
-                    $entityManager->flush();
-                }
-
-                $url = $this->generateUrl('private_conversation', ['id' => $existing->getId()]);
-                return $this->json(['success' => true, 'conversationId' => $existing->getId(), 'redirect' => $url]);
+            $notification = new Notification();
+            $notification->setType('network_request')
+                         ->setSender($me)
+                         ->setRecipient($other)
+                         ->setData([
+                             'senderId' => $me->getId(),
+                             'senderUsername' => $me->getUsername(),
+                             'message' => trim(($me->getFirstName() ?? '') . ' ' . ($me->getLastName() ?? '')) . ' veut vous ajouter à son réseau'
+                         ])
+                         ->setStatus('pending');
+            // set createdAt / isRead if those setters exist to ensure correct repository filtering
+            if (method_exists($notification, 'setCreatedAt')) {
+                $notification->setCreatedAt(new \DateTime());
+            }
+            if (method_exists($notification, 'setIsRead')) {
+                $notification->setIsRead(false);
             }
 
-            // Créer une nouvelle conversation (vide)
-            $conversation = new Conversation();
-            if (method_exists($conversation, 'setUser1') && method_exists($conversation, 'setUser2')) {
-                $conversation->setUser1($me);
-                $conversation->setUser2($other);
-            } elseif (method_exists($conversation, 'setUserOne') && method_exists($conversation, 'setUserTwo')) {
-                $conversation->setUserOne($me);
-                $conversation->setUserTwo($other);
-            } else {
-                throw new \RuntimeException('Conversation setters not found (setUser1/setUser2 or setUserOne/setUserTwo)');
-            }
-
-            // Add mutual network entries
-            $me->addToNetwork($other->getId());
-            $other->addToNetwork($me->getId());
-
-            $entityManager->persist($conversation);
-            $entityManager->persist($me);
-            $entityManager->persist($other);
+            $entityManager->persist($notification);
             $entityManager->flush();
 
-            $url = $this->generateUrl('private_conversation', ['id' => $conversation->getId()]);
-            return $this->json(['success' => true, 'conversationId' => $conversation->getId(), 'redirect' => $url]);
+            $resp = ['success' => true, 'notificationSent' => true];
+            if ($convId) $resp['conversationId'] = $convId;
+            return $this->json($resp);
         } catch (\Throwable $e) {
-            // Renvoie message d'erreur utile pour debug (dev only)
             return $this->json(['error' => 'Exception', 'message' => $e->getMessage()], 500);
         }
+    }
+
+    // Notifications endpoints
+    #[Route('/notifications/list', name: 'notifications_list', methods: ['GET'])]
+    public function notificationsList(NotificationRepository $notificationRepo): \Symfony\Component\HttpFoundation\JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user) {
+            return $this->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $notifs = $notificationRepo->findPendingByRecipient($user);
+        $out = [];
+        foreach ($notifs as $n) {
+            $out[] = [
+                'id' => $n->getId(),
+                'type' => $n->getType(),
+                'data' => $n->getData(),
+                'sender' => $n->getSender() ? [
+                    'id' => $n->getSender()->getId(),
+                    'username' => $n->getSender()->getUsername(),
+                ] : null,
+                'createdAt' => $n->getCreatedAt()->format('c'),
+            ];
+        }
+
+        return $this->json(['notifications' => $out]);
+    }
+
+    #[Route('/notifications/accept/{id}', name: 'notification_accept', methods: ['POST'])]
+    public function acceptNotification(int $id, NotificationRepository $notificationRepo, EntityManagerInterface $em): \Symfony\Component\HttpFoundation\JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user) return $this->json(['error' => 'Unauthorized'], 401);
+
+        $notif = $notificationRepo->find($id);
+        if (!$notif || $notif->getRecipient()->getId() !== $user->getId()) {
+            return $this->json(['error' => 'Not found'], 404);
+        }
+        if ($notif->getType() !== 'network_request' || $notif->getStatus() !== 'pending') {
+            return $this->json(['error' => 'Invalid notification'], 400);
+        }
+
+        $sender = $notif->getSender();
+        if (!$sender) {
+            $notif->setStatus('declined');
+            $em->persist($notif);
+            $em->flush();
+            return $this->json(['error' => 'Sender not found'], 400);
+        }
+
+        // Add mutual network entries
+        if (!$user->isInNetwork($sender->getId())) {
+            $user->addToNetwork($sender->getId());
+        }
+        if (!$sender->isInNetwork($user->getId())) {
+            $sender->addToNetwork($user->getId());
+        }
+
+        // Ensure a Conversation exists (create if needed)
+        $convRepo = $em->getRepository(Conversation::class);
+        $qb = $convRepo->createQueryBuilder('c');
+        $qb->where('(c.user1 = :a AND c.user2 = :b) OR (c.user1 = :b AND c.user2 = :a)')
+           ->setParameter('a', $user)
+           ->setParameter('b', $sender)
+           ->setMaxResults(1);
+        $existing = $qb->getQuery()->getOneOrNullResult();
+        if (!$existing) {
+            $conversation = new Conversation();
+            if (method_exists($conversation, 'setUser1')) {
+                $conversation->setUser1($user);
+                $conversation->setUser2($sender);
+            } elseif (method_exists($conversation, 'setUserOne')) {
+                $conversation->setUserOne($user);
+                $conversation->setUserTwo($sender);
+            }
+            $em->persist($conversation);
+            $em->flush();
+            $convId = $conversation->getId();
+        } else {
+            $convId = $existing->getId();
+        }
+
+        $notif->setStatus('accepted');
+        $em->persist($user);
+        $em->persist($sender);
+        $em->persist($notif);
+        $em->flush();
+
+        return $this->json(['success' => true, 'conversationId' => $convId]);
+    }
+
+    #[Route('/notifications/decline/{id}', name: 'notification_decline', methods: ['POST'])]
+    public function declineNotification(int $id, NotificationRepository $notificationRepo, EntityManagerInterface $em): \Symfony\Component\HttpFoundation\JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user) return $this->json(['error' => 'Unauthorized'], 401);
+
+        $notif = $notificationRepo->find($id);
+        if (!$notif || $notif->getRecipient()->getId() !== $user->getId()) {
+            return $this->json(['error' => 'Not found'], 404);
+        }
+        if ($notif->getStatus() !== 'pending') {
+            return $this->json(['error' => 'Already handled'], 400);
+        }
+
+        $notif->setStatus('declined');
+        $em->persist($notif);
+        $em->flush();
+
+        return $this->json(['success' => true]);
     }
 
     // --- Nouveau : lister les connexions (utilisateurs en conversation) pour un profil ---
@@ -480,48 +589,64 @@ class ForumController extends AbstractController
         int $userId,
         EntityManagerInterface $entityManager
     ): \Symfony\Component\HttpFoundation\JsonResponse {
-        $userRepo = $entityManager->getRepository(User::class);
-        $target = $userRepo->find($userId);
-        if (!$target) {
-            return $this->json(['error' => 'User not found'], 404);
-        }
-
-        // Récupère les IDs depuis le champ JSON 'network' du user (dépend uniquement de network)
-        $ids = $target->getNetwork();
-        if (empty($ids)) {
-            return $this->json(['connections' => []]);
-        }
-
-        // Récupérer les utilisateurs correspondants (sans toucher aux Conversations)
-        $users = $userRepo->createQueryBuilder('u')
-            ->where('u.id IN (:ids)')
-            ->setParameter('ids', $ids)
-            ->getQuery()
-            ->getResult();
-
-        // Indexer par id pour respecter l'ordre stocké dans network
-        $map = [];
-        foreach ($users as $u) {
-            $map[$u->getId()] = $u;
-        }
-
-        $connections = [];
-        foreach ($ids as $id) {
-            $id = (int) $id;
-            if (!isset($map[$id])) {
-                continue; // utilisateur supprimé ou inexistant -> ignorer
+        try {
+            $userRepo = $entityManager->getRepository(User::class);
+            $target = $userRepo->find($userId);
+            if (!$target) {
+                return $this->json(['error' => 'User not found'], 404);
             }
-            $other = $map[$id];
-            // construire la représentation minimale attendue par le frontend
-            $connections[] = [
-                'id' => $other->getId(),
-                'username' => $other->getUsername(),
-                'firstName' => method_exists($other, 'getFirstName') ? $other->getFirstName() : null,
-                'lastName' => method_exists($other, 'getLastName') ? $other->getLastName() : null,
-                'profileImage' => method_exists($other, 'getProfileImage') ? $other->getProfileImage() : null,
-            ];
-        }
 
-        return $this->json(['connections' => $connections]);
+            // Récupère les IDs depuis le champ 'network' du user.
+            $ids = $target->getNetwork();
+            // Si la valeur est stockée sous forme de chaîne JSON, décoder
+            if (is_string($ids)) {
+                $decoded = json_decode($ids, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    $ids = $decoded;
+                } else {
+                    $ids = [];
+                }
+            }
+
+            if (empty($ids) || !is_array($ids)) {
+                return $this->json(['connections' => []]);
+            }
+
+            // Normaliser IDs en integers et filtrer valeurs invalides
+            $ids = array_values(array_filter(array_map('intval', $ids), fn($v) => $v > 0));
+            if (empty($ids)) {
+                return $this->json(['connections' => []]);
+            }
+
+            // Récupérer les utilisateurs correspondant aux IDs (sans toucher aux Conversations)
+            $users = $userRepo->findBy(['id' => $ids]);
+
+            // Indexer par id pour respecter l'ordre stocké dans network
+            $map = [];
+            foreach ($users as $u) {
+                $map[$u->getId()] = $u;
+            }
+
+            $connections = [];
+            foreach ($ids as $id) {
+                if (!isset($map[$id])) {
+                    // utilisateur supprimé ou inexistant -> ignorer
+                    continue;
+                }
+                $other = $map[$id];
+                $connections[] = [
+                    'id' => $other->getId(),
+                    'username' => $other->getUsername(),
+                    'firstName' => method_exists($other, 'getFirstName') ? $other->getFirstName() : null,
+                    'lastName' => method_exists($other, 'getLastName') ? $other->getLastName() : null,
+                    'profileImage' => method_exists($other, 'getProfileImage') ? $other->getProfileImage() : null,
+                ];
+            }
+
+            return $this->json(['connections' => $connections]);
+        } catch (\Throwable $e) {
+            // Retourner JSON d'erreur pour éviter que le frontend reçoive une page HTML
+            return $this->json(['error' => 'Server error', 'message' => $e->getMessage()], 500);
+        }
     }
 }

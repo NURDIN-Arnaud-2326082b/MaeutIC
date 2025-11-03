@@ -1,3 +1,4 @@
+{# filepath: c:\Users\Utilisateur\Documents\GitHub\MaeutIC\templates\components\_navbar.html.twig #}
 <nav class="sticky top-0 z-20 bg-white shadow-lg shadow-black/5">
     <div class="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4 h-20">
         <!-- div aligned to the left -->
@@ -8,26 +9,44 @@
         <!-- Div aligned to the right -->
         <div class="flex items-center space-x-4 ml-auto">
             {% if is_granted('IS_AUTHENTICATED_FULLY') %}
+                {# Notifications bell (badge server-side via notificationsCount) #}
+                <div class="relative mr-3">
+                    <button id="notifButton" class="focus:outline-none" aria-label="Notifications" title="Notifications" type="button">
+                        <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                        </svg>
+                    </button>
+                    <span id="notifBadge"
+                          class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1 {{ (notificationsCount is defined and notificationsCount > 0) ? '' : 'hidden' }}">
+                        {{ notificationsCount|default(0) }}
+                    </span>
+
+                    <div id="notifDropdown" class="hidden absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg z-50">
+                        <div id="notifItems" class="max-h-64 overflow-auto p-2">
+                            <div class="text-sm text-gray-500 p-2">Chargement...</div>
+                        </div>
+                    </div>
+                </div>
+
+                {# Profile avatar + dropdown #}
                 <div class="relative flex items-center">
-                    <!-- Display user information if user is logged in -->
-                    <button id="profileDropdownButton" class="focus:outline-none">
+                    <button id="profileDropdownButton" class="focus:outline-none" type="button" aria-haspopup="true" aria-expanded="false">
                         <img src="{% if app.user.profileImage %}{{ asset('profile_images/' ~ app.user.profileImage) }}{% else %}{{ asset('images/default-profile.png') }}{% endif %}" alt="Profil" class="w-10 h-10 rounded-full">
                     </button>
-                    <!-- Dropdown menu -->
                     <div id="profileDropdownMenu" class="hidden absolute top-full mt-2 w-48 bg-white rounded-lg shadow-lg z-50">
                         <a href="{{ path('app_profile') }}" class="block px-4 py-2 text-black hover:bg-gray-100">Mon Profil</a>
                         <a href="{{ path('app_profile') }}" class="block px-4 py-2 text-black hover:bg-gray-100">Paramètres</a>
                         <a href="{{ path('app_logout') }}" class="block px-4 py-2 text-black hover:bg-gray-100">Se Déconnecter</a>
                     </div>
                 </div>
-                {#<span class="text-black">{{ app.user.username }}</span>#}
             {% else %}
                 <button type="button" onclick="window.location.href='{{ path('app_login') }}'"
-                    class="text-gray-700 hover:text-blue-600 font-medium">
+                        class="text-gray-700 hover:text-blue-600 font-medium">
                     Se connecter
                 </button>
                 <button type="button" onclick="window.location.href='{{ path('app_register') }}'"
-                    class="text-white bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-indigo-500 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
+                        class="text-white bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-indigo-500 font-medium rounded-lg text-sm px-5 py-2.5 focus:outline-none">
                     S'inscrire
                 </button>
             {% endif %}
@@ -35,25 +54,124 @@
     </div>
 </nav>
 
-{# Suppression de l'inclusion du composant modal #}
-
 <script>
-    // JavaScript to toggle the dropdown menu
-    document.addEventListener('DOMContentLoaded', () => {
-        const dropdownButton = document.getElementById('profileDropdownButton');
-        const dropdownMenu = document.getElementById('profileDropdownMenu');
+document.addEventListener('DOMContentLoaded', () => {
+    // Profile dropdown
+    const dropdownButton = document.getElementById('profileDropdownButton');
+    const dropdownMenu = document.getElementById('profileDropdownMenu');
 
-        if (dropdownButton && dropdownMenu) {
-            dropdownButton.addEventListener('click', () => {
-                dropdownMenu.classList.toggle('hidden');
-            });
+    if (dropdownButton && dropdownMenu) {
+        dropdownButton.addEventListener('click', () => {
+            dropdownMenu.classList.toggle('hidden');
+        });
+        document.addEventListener('click', (event) => {
+            if (!dropdownButton.contains(event.target) && !dropdownMenu.contains(event.target)) {
+                dropdownMenu.classList.add('hidden');
+            }
+        });
+    }
 
-            // Close the dropdown if clicked outside
-            document.addEventListener('click', (event) => {
-                if (!dropdownButton.contains(event.target) && !dropdownMenu.contains(event.target)) {
-                    dropdownMenu.classList.add('hidden');
+    // Notifications
+    const notifButton = document.getElementById('notifButton');
+    const notifDropdown = document.getElementById('notifDropdown');
+    const notifBadge = document.getElementById('notifBadge');
+    const notifItems = document.getElementById('notifItems');
+
+    function renderNotificationItem(n) {
+        const sender = (n.sender && n.sender.username) ? n.sender.username : 'Utilisateur';
+        const div = document.createElement('div');
+        div.className = 'p-2 border-b last:border-b-0';
+        div.innerHTML = `
+            <div class="flex justify-between items-start">
+                <div class="text-sm">
+                    <div class="font-semibold">${sender}</div>
+                    <div class="text-xs text-gray-600">${(n.data && n.data.message) ? n.data.message : 'Vous avez une notification'}</div>
+                </div>
+                <div class="flex space-x-1">
+                    <button data-id="${n.id}" class="notif-accept bg-green-600 text-white text-xs px-2 py-1 rounded">Accepter</button>
+                    <button data-id="${n.id}" class="notif-decline bg-gray-200 text-xs px-2 py-1 rounded">Refuser</button>
+                </div>
+            </div>
+        `;
+        return div;
+    }
+
+    async function fetchNotifications() {
+        if (!notifItems) return;
+        try {
+            const res = await fetch('{{ path('notifications_list') }}', { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+            if (!res.ok) throw new Error('network');
+            const json = await res.json();
+            const arr = json.notifications || [];
+
+            if (notifBadge) {
+                if (arr.length > 0) {
+                    notifBadge.textContent = arr.length;
+                    notifBadge.classList.remove('hidden');
+                } else {
+                    notifBadge.classList.add('hidden');
                 }
+            }
+
+            notifItems.innerHTML = '';
+            if (arr.length === 0) {
+                notifItems.innerHTML = '<div class="text-sm text-gray-500 p-2">Aucune notification.</div>';
+            } else {
+                arr.forEach(n => notifItems.appendChild(renderNotificationItem(n)));
+            }
+
+            // Wire buttons
+            document.querySelectorAll('.notif-accept').forEach(btn => {
+                btn.onclick = async (e) => {
+                    const id = e.currentTarget.dataset.id;
+                    e.currentTarget.disabled = true;
+                    try {
+                        const r = await fetch('/notifications/accept/' + encodeURIComponent(id), { method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}});
+                        const j = await r.json();
+                        if (j.success) {
+                            // Rester sur la page actuelle : on rafraîchit simplement la liste des notifications
+                            // et on met éventuellement à jour l'UI côté client (fetchNotifications le gère).
+                        }
+                    } catch (err) {
+                        console.error(err);
+                    } finally {
+                        fetchNotifications();
+                    }
+                };
             });
+
+            document.querySelectorAll('.notif-decline').forEach(btn => {
+                btn.onclick = async (e) => {
+                    const id = e.currentTarget.dataset.id;
+                    e.currentTarget.disabled = true;
+                    try {
+                        await fetch('/notifications/decline/' + encodeURIComponent(id), { method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}});
+                    } catch (err) {
+                        console.error(err);
+                    } finally {
+                        fetchNotifications();
+                    }
+                };
+            });
+        } catch (err) {
+            console.error('Failed to fetch notifications', err);
         }
-    });
+    }
+
+    if (notifButton && notifDropdown) {
+        notifButton.addEventListener('click', (e) => {
+            notifDropdown.classList.toggle('hidden');
+            if (!notifDropdown.classList.contains('hidden')) {
+                fetchNotifications();
+            }
+        });
+        document.addEventListener('click', (e) => {
+            if (!notifButton.contains(e.target) && !notifDropdown.contains(e.target)) {
+                notifDropdown.classList.add('hidden');
+            }
+        });
+        // Poll every 15s
+        setInterval(fetchNotifications, 15000);
+    }
+});
 </script>
