@@ -815,7 +815,7 @@ function performSearch(query) {
     `;
     
     // Requête AJAX
-    fetch(`/forums/search?q=${encodeURIComponent(query)}&type=${searchType}&date=${dateFilter}&sort=${sortBy}&category=${encodeURIComponent(currentCategory)}`, {
+    fetch(`/forums/administratif/search?q=${encodeURIComponent(query)}&type=${searchType}&date=${dateFilter}&sort=${sortBy}&category=${encodeURIComponent(currentCategory)}`, {
         headers: {
             'X-Requested-With': 'XMLHttpRequest',
         }
@@ -897,7 +897,7 @@ function displaySearchResults(data) {
 
                     <div class="flex items-center bg-white group-hover:bg-blue-50 transition-all duration-150 px-2 py-3 rounded-md relative z-10">
                         <div class="w-1/2">
-                            <a href="/forums/${encodeURIComponent(post.forum_title)}/${post.id}">
+                            <a href="/administratif-forums/${encodeURIComponent(post.forum_title)}/${post.id}">
                                 <h3 class="text-lg text-gray-700">${post.name}</h3>
                                 <p class="text-gray-500">${post.author_name}</p>
                             </a>
