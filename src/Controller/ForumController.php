@@ -118,6 +118,37 @@ class ForumController extends AbstractController
         // ]);
     }
 
+    #[Route('/methodology-forums/add', name: 'app_methodology_post_add')]
+    public function addMethodologyPost(
+        ForumRepository $forumRepository,
+        PostRepository $postRepository,
+        Request $request
+    ): Response {
+        // Récupérer uniquement les forums methodology
+        $forums = $forumRepository->findBy(['special' => 'methodology']);
+        
+        $post = new Post();
+        $form = $this->createForm(PostFormType::class, $post);
+
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            $post = $form->getData();
+            $post->setUser($this->getUser());
+            $post->setCreationDate(new \DateTime());
+            $post->setLastActivity(new \DateTime());
+            $postRepository->addPost($post);
+            
+            // Rediriger avec la catégorie du forum
+            return $this->redirectToRoute('app_methodology_forums_post', [
+                'category' => $post->getForum()->getTitle(),
+                'postId' => $post->getId(),
+            ]);
+        }
+
+        return $this->redirectToRoute('app_methodology_forums');
+    }
+
     #[Route('forums/{category}/{postId}', name: 'app_forums', requirements: ['postId' => '\d+'])]
     #[Route('forums/{category}', name: 'app_forums_no_post')]
     public function index(
@@ -244,6 +275,149 @@ class ForumController extends AbstractController
         ]);
     }
 
+    #[Route('/methodology-forums', name: 'app_methodology_forums')]
+    #[Route('/methodology-forums/{category}', name: 'app_methodology_forums_category')]
+    #[Route('/methodology-forums/{category}/{postId}', name: 'app_methodology_forums_post', requirements: ['postId' => '\d+'])]
+    public function methodologyForums(
+        ForumRepository $forumRepository, 
+        PostRepository $postRepository, 
+        CommentRepository $commentRepository, 
+        UserLikeRepository $userLikeRepository,
+        PostLikeRepository $postLikeRepository,
+        Request $request, 
+        ?string $category = null,
+        ?int $postId = null
+    ): Response {
+        // Récupérer uniquement les forums methodology
+        $forums = $forumRepository->findBy(['special' => 'methodology']);
+        
+        // Si aucune catégorie n'est spécifiée, afficher tous les posts methodology
+        if (!$category || $category === 'methodology') {
+            $category = 'methodology';
+            // Récupérer les posts de tous les forums methodology
+            $posts = [];
+            foreach ($forums as $forum) {
+                $forumPosts = $postRepository->findBy(['forum' => $forum], ['creationDate' => 'DESC']);
+                $posts = array_merge($posts, $forumPosts);
+            }
+            $currentForum = null;
+        } else {
+            // Filtrer par catégorie spécifique
+            $currentForum = $forumRepository->findOneBy(['title' => $category, 'special' => 'methodology']);
+            if (!$currentForum) {
+                throw $this->createNotFoundException('Catégorie methodology non trouvée');
+            }
+            $posts = $postRepository->findBy(['forum' => $currentForum], ['creationDate' => 'DESC']);
+        }
+
+        // Initialiser les données de likes pour TOUS les posts
+        $postLikes = [];
+        $userPostLikes = [];
+        foreach ($posts as $post) {
+            $postLikes[$post->getId()] = $postLikeRepository->countByPost($post);
+            $userPostLikes[$post->getId()] = $this->getUser() 
+                ? $postLikeRepository->isLikedByUser($post, $this->getUser()) 
+                : false;
+        }
+
+        // Si un post spécifique est sélectionné
+        $selectedPost = null;
+        $selectedPostLikes = 0;
+        $userSelectedPostLike = false;
+        $comments = [];
+        $likes = [];
+        $userLikes = [];
+        $replies = [];
+        $form = null;
+        $editForm = null;
+
+        // Toujours créer les formulaires
+        $post = new Post();
+        $form = $this->createForm(PostFormType::class, $post);
+        $editForm = $this->createForm(PostFormType::class, new Post());
+
+        if ($postId) {
+            $selectedPost = $postRepository->find($postId);
+            if ($selectedPost) {
+                $comments = $commentRepository->findByPost($postId);
+                $likes = [];
+                $userLikes = [];
+
+                // Ajouter les likes du post sélectionné
+                $selectedPostLikes = $postLikeRepository->countByPost($selectedPost);
+                $userSelectedPostLike = $this->getUser() 
+                    ? $postLikeRepository->isLikedByUser($selectedPost, $this->getUser()) 
+                    : false;
+
+                foreach ($comments as $comment) {
+                    $likes[] = $userLikeRepository->countByCommentId($comment->getId());
+                    $userLikes[$comment->getId()] = $this->getUser() 
+                        ? $userLikeRepository->hasUserLikedComment($this->getUser()->getId(), $comment->getId()) 
+                        : false;
+                }
+
+                // Récupérer les réponses au post
+                $replies = $postRepository->findBy(['parentPost' => $selectedPost], ['id' => 'ASC']);
+                
+                // Initialiser les likes pour les réponses
+                foreach ($replies as $reply) {
+                    $postLikes[$reply->getId()] = $postLikeRepository->countByPost($reply);
+                    $userPostLikes[$reply->getId()] = $this->getUser() 
+                        ? $postLikeRepository->isLikedByUser($reply, $this->getUser()) 
+                        : false;
+                }
+
+                // Traitement du formulaire de création de post
+                $form->handleRequest($request);
+                if ($form->isSubmitted() && $form->isValid()) {
+                    $post = $form->getData();
+                    $post->setUser($this->getUser());
+                    $post->setCreationDate(new \DateTime());
+                    $post->setLastActivity(new \DateTime());
+                    $postRepository->addPost($post);
+                    
+                    // Rediriger vers la page methodology avec le nouveau post
+                    return $this->redirectToRoute('app_methodology_forums_post', [
+                        'category' => $category,
+                        'postId' => $post->getId(),
+                    ]);
+                }
+
+                // Traitement des commentaires
+                if ($request->isMethod('POST') && $request->request->has('comment') && $this->getUser()) {
+                    $commentBody = $request->request->get('comment');
+                    if ($commentBody) {
+                        $commentRepository->addComment($commentBody, $selectedPost, $this->getUser());
+                        
+                        return $this->redirectToRoute('app_methodology_forums_post', [
+                            'category' => $category,
+                            'postId' => $postId,
+                        ]);
+                    }
+                }
+            }
+        }
+
+        return $this->render('forum/methodology_forums.html.twig', [
+            'forums' => $forums,
+            'category' => $category,
+            'currentForum' => $currentForum,
+            'posts' => $posts,
+            'postLikes' => $postLikes,
+            'userPostLikes' => $userPostLikes,
+            'selectedPost' => $selectedPost,
+            'selectedPostLikes' => $selectedPostLikes,
+            'userSelectedPostLike' => $userSelectedPostLike,
+            'comments' => $comments,
+            'likes' => $likes,
+            'userLikes' => $userLikes,
+            'replies' => $replies ?? [],
+            'form' => $form,
+            'editForm' => $editForm,
+            'special' => 'methodology',
+        ]);
+    }
+
     #[Route('/like/{id}', name: 'app_forums_like', methods: ['POST'])]
     public function likeComment(
         ?Comment $comment,
@@ -312,6 +486,43 @@ class ForumController extends AbstractController
         ]);
     }
 
+    #[Route('/methodology-forums/{category}/{postId}/edit', name: 'app_methodology_post_edit')]
+    public function editMethodologyPost(
+        ForumRepository $forumRepository,
+        PostRepository $postRepository,
+        Request $request,
+        string $category,
+        int $postId
+    ): Response {
+        $post = $postRepository->find($postId);
+        if (!$post) {
+            throw $this->createNotFoundException('Post not found');
+        }
+        if ($post->getUser() !== $this->getUser()) {
+            throw new AccessDeniedException('Vous ne pouvez modifier que vos propres posts.');
+        }
+
+        // Récupérer uniquement les forums methodology
+        $forums = $forumRepository->findBy(['special' => 'methodology']);
+        $form = $this->createForm(PostFormType::class, $post);
+
+        $form->handleRequest($request);
+        if ($form->isSubmitted() && $form->isValid()) {
+            $postRepository->addPost($post);
+            return $this->redirectToRoute('app_methodology_forums_post', [
+                'category' => $category,
+                'postId' => $post->getId(),
+            ]);
+        }
+
+        return $this->render('forum/edit_post.html.twig', [
+            'form' => $form->createView(),
+            'forums' => $forums,
+            'category' => $category,
+            'post' => $post,
+        ]);
+    }
+
     #[Route('forums/{category}/delete/{postId}', name: 'app_post_delete', methods: ['POST'])]
     public function deletePost(
         PostRepository $postRepository,
@@ -337,6 +548,36 @@ class ForumController extends AbstractController
         return $this->redirectToRoute('app_forums', [
             'category' => $category,
         ]);
+    }
+
+    #[Route('/methodology-forums/{category}/delete/{postId}', name: 'app_methodology_post_delete', methods: ['POST'])]
+    public function deleteMethodologyPost(
+        PostRepository $postRepository,
+        Request $request,
+        string $category,
+        int $postId
+    ): Response {
+        $post = $postRepository->find($postId);
+        if (!$post) {
+            throw $this->createNotFoundException('Post not found');
+        }
+        if ($post->getUser() !== $this->getUser()) {
+            throw new AccessDeniedException('Vous ne pouvez supprimer que vos propres posts.');
+        }
+
+        // Protection CSRF
+        if (!$this->isCsrfTokenValid('delete_post_' . $postId, $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Invalid CSRF token');
+        }
+
+        $postRepository->removePost($post);
+
+        // Rediriger vers la bonne catégorie
+        if ($category === 'methodology') {
+            return $this->redirectToRoute('app_methodology_forums');
+        } else {
+            return $this->redirectToRoute('app_methodology_forums_category', ['category' => $category]);
+        }
     }
 
     #[Route('forums/posts/data/{postId}', name: 'app_post_data', methods: ['GET'])]
@@ -424,6 +665,52 @@ class ForumController extends AbstractController
 
         $this->addFlash('success', 'Votre réponse a été ajoutée avec succès.');
         return $this->redirectToRoute('app_forums', ['category' => $category, 'postId' => $postId]);
+    }
+
+    #[Route('/methodology-forums/{category}/{postId}/reply', name: 'app_methodology_post_reply', requirements: ['postId' => '\d+'], methods: ['POST'])]
+    public function replyToMethodologyPost(
+        string $category,
+        int $postId,
+        Request $request,
+        PostRepository $postRepository,
+        EntityManagerInterface $entityManager
+    ): Response {
+        if (!$this->getUser()) {
+            throw $this->createAccessDeniedException('Vous devez être connecté pour répondre à un post.');
+        }
+
+        $parentPost = $postRepository->find($postId);
+        if (!$parentPost) {
+            throw $this->createNotFoundException('Post non trouvé.');
+        }
+
+        $replyContent = $request->request->get('reply_content');
+        if (empty(trim($replyContent))) {
+            $this->addFlash('error', 'Le contenu de la réponse ne peut pas être vide.');
+            return $this->redirectToRoute('app_methodology_forums_post', [
+                'category' => $category,
+                'postId' => $postId
+            ]);
+        }
+
+        $reply = new Post();
+        $reply->setName('Re: ' . $parentPost->getName());
+        $reply->setDescription($replyContent);
+        $reply->setUser($this->getUser());
+        $reply->setForum($parentPost->getForum());
+        $reply->setParentPost($parentPost);
+        $reply->setIsReply(true);
+        $reply->setCreationDate(new \DateTime());
+        $reply->setLastActivity(new \DateTime());
+
+        $entityManager->persist($reply);
+        $entityManager->flush();
+
+        $this->addFlash('success', 'Votre réponse a été ajoutée avec succès.');
+        return $this->redirectToRoute('app_methodology_forums_post', [
+            'category' => $category,
+            'postId' => $postId
+        ]);
     }
 
     // Méthode utilitaire pour les noms d'auteurs anonymes

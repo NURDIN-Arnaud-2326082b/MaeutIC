@@ -182,4 +182,15 @@ class PostRepository extends ServiceEntityRepository
         return $qb->getQuery()->getResult();
     }
 
+    public function findByMethodologyForums()
+    {
+        return $this->createQueryBuilder('p')
+            ->join('p.forum', 'f')
+            ->where('f.special = :special')
+            ->setParameter('special', 'methodology')
+            ->orderBy('p.creationDate', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
 }
