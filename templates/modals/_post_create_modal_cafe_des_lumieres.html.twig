@@ -1,0 +1,43 @@
+{% if is_granted('IS_AUTHENTICATED_FULLY') and form is defined %}
+<div id="post-create-modal" class="fixed inset-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center z-[1000] hidden">
+    <div class="bg-white/95 text-gray-700 p-5 rounded-lg w-[90%] max-w-[500px] shadow-lg relative">
+        <span class="absolute top-2 right-2 text-2xl cursor-pointer" onclick="closePostCreateModal()">&times;</span>
+        <h2 class="text-xl font-bold mb-4">Créer une publication</h2>
+        {{ form_start(form, {
+            'attr': {'id': 'post-create-form'},
+            'action': path('app_cafe_des_lumieres_post_create', { category: category })
+        }) }}
+            <div class="mb-4">
+                {{ form_label(form.name) }}
+                {{ form_widget(form.name, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2', 'multiple': false}}) }}
+                <span class="text-red-500">{{ form_errors(form.name) }}</span>
+            </div>
+
+            <div class="mb-4">
+                {{ form_label(form.description) }}
+                {{ form_widget(form.description, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2', 'multiple': false}}) }}
+                <span class="text-red-500">{{ form_errors(form.description) }}</span>
+            </div>
+
+            <div class="mb-4">
+                {{ form_label(form.forum) }}
+                {{ form_widget(form.forum, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2', 'multiple': false}}) }}
+                <span class="text-red-500">{{ form_errors(form.forum) }}</span>
+            </div>
+
+            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Publier</button>
+        {{ form_end(form) }}
+    </div>
+</div>
+<script>
+    function openPostCreateModal() {
+        document.getElementById('post-create-modal').classList.remove('hidden');
+        // setupForumSelect() peut être appelé ici si besoin
+    }
+    function closePostCreateModal() {
+        document.getElementById('post-create-modal').classList.add('hidden');
+    }
+    window.openPostCreateModal = openPostCreateModal;
+    window.closePostCreateModal = closePostCreateModal;
+</script>
+{% endif %}

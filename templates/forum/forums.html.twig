@@ -52,10 +52,12 @@
                     <a href="{{ path('app_forums', { category: "General"}) }}" class="p-1 w-full hover:bg-blue-50 text-gray-700 hover:text-blue-900">Toutes categories</a>
                 {% endif %}
                 {% for forum in forums %}
-                    {% if category == forum.title %}
-                        <a href="{{ path('app_forums', { category: forum.title}) }}" class="p-1 w-full font-semibold bg-blue-50 text-blue-900"><h3>{{ forum.title }}</h3></a>
-                    {% else %}
-                        <a href="{{ path('app_forums', { category: forum.title}) }}" class="p-1 w-full hover:bg-blue-50 text-gray-700 hover:text-blue-900"><h3>{{ forum.title }}</h3></a>
+                    {% if not forum.anonymous %}
+                        {% if category == forum.title %}
+                            <a href="{{ path('app_forums', { category: forum.title}) }}" class="p-1 w-full font-semibold bg-blue-50 text-blue-900"><h3>{{ forum.title }}</h3></a>
+                        {% else %}
+                            <a href="{{ path('app_forums', { category: forum.title}) }}" class="p-1 w-full hover:bg-blue-50 text-gray-700 hover:text-blue-900"><h3>{{ forum.title }}</h3></a>
+                        {% endif %}
                     {% endif %}
                 {% endfor %}
             </div>
