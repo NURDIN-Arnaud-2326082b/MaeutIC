@@ -66,6 +66,21 @@ class RegistrationFormType extends AbstractType
                     ]),
                 ],
             ])
+            ->add('genre', ChoiceType::class, [
+                'label' => 'Genre',
+                'required' => true,
+                'choices' => [
+                    'Homme' => 'male',
+                    'Femme' => 'female',
+                    'Autre' => 'other',
+                    'Je préfère ne pas répondre' => 'prefer_not_to_say',
+                ],
+                'constraints' => [
+                    new NotBlank([
+                        'message' => 'Veuillez sélectionner votre genre',
+                    ]),
+                ],
+            ])
             ->add('affiliationLocation', TextType::class, [
                 'required' => false,
             ])
