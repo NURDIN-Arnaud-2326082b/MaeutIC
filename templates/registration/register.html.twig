@@ -227,33 +227,79 @@ function hideError(field) {
     }
 }
 
-// Validation des champs
-function validateField(field) {
+// Vérification de la disponibilité de l'email
+async function checkEmailAvailability(email) {
+    if (!email || email.length < 3) return { available: true };
+    
+    try {
+        const response = await fetch(`/api/check-email?email=${encodeURIComponent(email)}`);
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Erreur lors de la vérification de l\'email:', error);
+        return { available: true }; // En cas d'erreur, on considère que c'est disponible
+    }
+}
+
+// Vérification de la disponibilité du username
+async function checkUsernameAvailability(username) {
+    if (!username || username.length < 2) return { available: true };
+    
+    try {
+        const response = await fetch(`/api/check-username?username=${encodeURIComponent(username)}`);
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Erreur lors de la vérification du username:', error);
+        return { available: true };
+    }
+}
+
+// Validation améliorée des champs avec vérification de disponibilité
+async function validateFieldWithAvailability(field) {
     const value = field.value.trim();
     const name = field.name;
     
     hideError(field);
     
-    // Validation des champs obligatoires (basée sur la logique métier, pas l'attribut required)
+    // Validation des champs obligatoires
     let isRequired = false;
     
-    // Déterminer si le champ est obligatoire
     if (name.includes('email') || name.includes('lastName') || name.includes('firstName') || 
-        name.includes('plainPassword') || name.includes('genre')) {
+        name.includes('plainPassword') || name.includes('genre') || name.includes('username')) {
         isRequired = true;
     }
     
     if (isRequired && !value) {
         let message = 'Ce champ est obligatoire';
         if (name.includes('genre')) message = 'Veuillez sélectionner votre genre';
+        if (name.includes('username')) message = 'Veuillez entrer votre nom d\'utilisateur';
         showError(field, message);
         return false;
     }
     
     // Validation spécifique par type
-    if (name.includes('email') && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-        showError(field, 'Format d\'email invalide');
-        return false;
+    if (name.includes('email') && value) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+            showError(field, 'Format d\'email invalide');
+            return false;
+        }
+        
+        // Vérification de la disponibilité de l'email
+        const emailCheck = await checkEmailAvailability(value);
+        if (emailCheck && !emailCheck.available) {
+            showError(field, emailCheck.message);
+            return false;
+        }
+    }
+    
+    if (name.includes('username') && value && value.length >= 2) {
+        // Vérification de la disponibilité du username
+        const usernameCheck = await checkUsernameAvailability(value);
+        if (usernameCheck && !usernameCheck.available) {
+            showError(field, usernameCheck.message);
+            return false;
+        }
     }
     
     if (name.includes('plainPassword') && value && !validatePassword(value)) {
@@ -378,18 +424,20 @@ function validateTerms() {
 }
 
 // Validation globale du formulaire
-function validateForm() {
+async function validateForm() {
     let isValid = true;
     
-    // Validation des champs de base (tous les inputs, selects, textareas)
+    // Validation des champs de base avec vérification de disponibilité
     const formFields = document.querySelectorAll('#registration-form input, #registration-form select, #registration-form textarea');
-    formFields.forEach(field => {
-        if (!validateField(field)) {
+    
+    for (const field of formFields) {
+        const fieldValid = await validateFieldWithAvailability(field);
+        if (!fieldValid) {
             isValid = false;
         }
-    });
+    }
     
-    // Validation du mot de passe (toujours vérifier même si pas rempli)
+    // Validation du mot de passe
     const passwordField = document.querySelector('#registration_form_plainPassword');
     if (passwordField && passwordField.value) {
         if (!validatePassword(passwordField.value)) {
@@ -422,38 +470,39 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (!form) return;
     
-    // Mise à jour du compteur de questions
-    form.addEventListener('input', debounce(function(e) {
+    // Validation en temps réel avec debounce
+    const validateFieldDebounced = debounce(async function(e) {
         if (e.target.matches('.question-field')) {
             updateQuestionsCounter();
             validateMinimumQuestions();
         }
         
         if (e.target.matches('input, select, textarea')) {
-            validateField(e.target);
+            await validateFieldWithAvailability(e.target);
         }
-    }, 500));
+    }, 800); // Délai augmenté pour éviter trop de requêtes
     
-    // Validation sur le blur des champs
-    form.addEventListener('blur', function(e) {
-        if (e.target.matches('input, select, textarea')) {
-            validateField(e.target);
-        }
-    }, true);
+    form.addEventListener('input', validateFieldDebounced);
+    
+    // Validation sur le blur
+    form.addEventListener('blur', validateFieldDebounced, true);
     
     // Validation du mot de passe en temps réel
     const passwordField = document.querySelector('#registration_form_plainPassword');
     if (passwordField) {
         passwordField.addEventListener('input', debounce(function() {
             validatePassword(this.value);
-            validateField(this);
+            validateFieldWithAvailability(this);
         }, 300));
     }
     
     // Validation à la soumission
-    form.addEventListener('submit', function(e) {
-        if (!validateForm()) {
-            e.preventDefault();
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const isValid = await validateForm();
+        
+        if (!isValid) {
             e.stopPropagation();
             
             // Scroll vers la première erreur
@@ -468,6 +517,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 submitBtn.disabled = true;
                 submitBtn.textContent = 'Création du compte...';
             }
+            
+            // Soumission du formulaire
+            this.submit();
         }
     });
     
@@ -564,6 +616,13 @@ document.querySelectorAll('.taggable-question').forEach((container, idx) => {
         }
     });
 });
+</script>
+
+<style>
+.requirement {
+    transition: color 0.3s ease;
+}
+</style>
 </script>
 
 <style>
