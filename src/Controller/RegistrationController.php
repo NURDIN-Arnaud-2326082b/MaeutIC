@@ -44,7 +44,7 @@ class RegistrationController extends AbstractController
             'Si vous deviez choisir 5 mots pour vous définir en tant que chercheur (se); quels seraient-ils? *',
         ];
 
-        $requiredQuestions = [3, 4, 11, 12]; // Indices des questions obligatoires
+        $minQuestionsRequired = 3; // Nombre minimum de questions obligatoires
 
         $taggableMinChoices = [2, 5]; // Par exemple, 2 tags minimum pour chaque question taggable
 
@@ -53,7 +53,7 @@ class RegistrationController extends AbstractController
         // Créer le formulaire et passer les questions dynamiques comme option
         $form = $this->createForm(RegistrationFormType::class, $user, [
             'dynamic_questions' => $dynamicQuestions,
-            'required_questions' => $requiredQuestions,
+            'min_questions_required' => $minQuestionsRequired,
             'taggable_questions' => $taggableQuestions,
             'taggable_min_choices' => $taggableMinChoices,
             'tags' => $tags, // Passer les tags au formulaire
@@ -129,6 +129,8 @@ class RegistrationController extends AbstractController
         return $this->render('registration/register.html.twig', [
             'registrationForm' => $form,
             'dynamic_questions' => $dynamicQuestions, // Passer les questions au template
+            'min_questions_required' => $minQuestionsRequired, // Passer les questions au template
+            'taggable_min_choices' => $taggableMinChoices, // Passer les questions au template
             'taggable_questions' => $taggableQuestions, // Passer les questions au template
         ]);
     }
