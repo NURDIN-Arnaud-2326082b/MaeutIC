@@ -1,8 +1,13 @@
 {% for user in users %}
-    <div class="bubble absolute shadow-lg bg-white rounded-full flex items-center justify-center cursor-grab transition duration-300 opacity-100 scale-100 group focus:outline-none focus:ring-4 focus:ring-blue-400" data-id="{{ user.id }}" style="width:80px;height:80px;" tabindex="0" onclick="window.location.href='{{ path('app_profile_show', {'username': user.username}) }}'" aria-label="Profil de {{ user.firstName }} {{ user.lastName }}">
-        <img src="{% if user.profileImage %}{{ asset('profile_images/' ~ user.profileImage) }}{% else %}{{ asset('images/default-profile.png') }}{% endif %}" alt="profile" class="w-full h-full object-cover rounded-full pointer-events-none" />
-        <div class="bubble-label hidden group-hover:flex group-focus:flex absolute left-1/2 -translate-x-1/2 -bottom-10 bg-black/90 text-white px-3 py-1 rounded-xl text-sm whitespace-nowrap z-50 pointer-events-none shadow-lg border border-white">
-            {{ user.firstName }} {{ user.lastName }}
-        </div>
-    </div>
-{% endfor %}
+-    <div class="bubble absolute shadow-lg bg-white rounded-full flex items-center justify-center cursor-grab transition duration-300 opacity-100 scale-100 group focus:outline-none focus:ring-4 focus:ring-blue-400" data-id="{{ user.id }}" style="width:80px;height:80px;" tabindex="0" onclick="window.location.href='{{ path('app_profile_show', {'username': user.username}) }}'" aria-label="Profil de {{ user.firstName }} {{ user.lastName }}">
++    {# Ne pas afficher la bulle si l'utilisateur courant ou la cible a bloqué l'autre #}
++    {% if not (app.user and (app.user.isBlocked(user.id) or user.isBlocked(app.user.id))) %}
++        <div class="bubble absolute shadow-lg bg-white rounded-full flex items-center justify-center cursor-grab transition duration-300 opacity-100 scale-100 group focus:outline-none focus:ring-4 focus:ring-blue-400" data-id="{{ user.id }}" style="width:80px;height:80px;" tabindex="0" onclick="window.location.href='{{ path('app_profile_show', {'username': user.username}) }}'" aria-label="Profil de {{ user.firstName }} {{ user.lastName }}">
+             <img src="{% if user.profileImage %}{{ asset('profile_images/' ~ user.profileImage) }}{% else %}{{ asset('images/default-profile.png') }}{% endif %}" alt="profile" class="w-full h-full object-cover rounded-full pointer-events-none" />
+             <div class="bubble-label hidden group-hover:flex group-focus:flex absolute left-1/2 -translate-x-1/2 -bottom-10 bg-black/90 text-white px-3 py-1 rounded-xl text-sm whitespace-nowrap z-50 pointer-events-none shadow-lg border border-white">
+                 {{ user.firstName }} {{ user.lastName }}
+             </div>
+-        </div>
++        </div>
++    {% endif %}
+ {% endfor %}

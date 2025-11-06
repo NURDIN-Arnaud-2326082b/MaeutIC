@@ -88,6 +88,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $network = [];
 
+    // Persist the blocked users as JSON in the database (list of user ids this user has blocked)
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $blocked = [];
+
     public function __construct()
     {
         $this->subscribedPosts = new ArrayCollection();
@@ -451,6 +455,41 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function isInNetwork(int $userId): bool
     {
         return in_array($userId, $this->getNetwork(), true);
+    }
+
+    // --- Blocked users (similar API to network) ---
+    public function getBlocked(): array
+    {
+        return $this->blocked ?? [];
+    }
+
+    public function setBlocked(array $blocked): self
+    {
+        $this->blocked = array_values(array_unique(array_map('intval', $blocked)));
+        return $this;
+    }
+
+    public function addToBlocked(int $userId): self
+    {
+        $list = $this->getBlocked();
+        if (!in_array($userId, $list, true)) {
+            $list[] = $userId;
+            $this->blocked = $list;
+        }
+        return $this;
+    }
+
+    public function removeFromBlocked(int $userId): self
+    {
+        $list = $this->getBlocked();
+        $list = array_values(array_filter($list, fn($id) => ((int)$id) !== $userId));
+        $this->blocked = $list;
+        return $this;
+    }
+
+    public function isBlocked(int $userId): bool
+    {
+        return in_array($userId, $this->getBlocked(), true);
     }
 
     /**

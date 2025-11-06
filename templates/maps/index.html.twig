@@ -129,8 +129,15 @@ function addToNetwork(userId) {
         if (j.redirect) {
             window.location.href = j.redirect;
         } else if (j.conversationId) {
-            window.location.href = '/private/conversation/' + j.conversationId;
-        } else if (j.error) {
+            // Rester sur la map, ne pas naviguer automatiquement vers la conversation.
+            console.info('Conversation disponible:', '/private/conversation/' + j.conversationId);
+        }
+        // Forcer reload si l'action réseau a réussi (ajout ou suppression)
+        if (j.success || j.removed) {
+            window.location.reload();
+            return;
+        }
+        else if (j.error) {
             alert('Erreur : ' + j.error);
         } else {
             alert('Action terminée.');

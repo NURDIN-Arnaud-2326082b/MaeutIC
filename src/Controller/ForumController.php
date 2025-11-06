@@ -1741,6 +1741,8 @@ class ForumController extends AbstractController
         // Rediriger vers la bonne catégorie
         if ($category === 'cafe_des_lumieres') {
             return $this->redirectToRoute('app_cafe_des_lumieres_forums');
+
+
         } else {
             return $this->redirectToRoute('app_cafe_des_lumieres_forums_category', ['category' => $category]);
         }
@@ -1946,4 +1948,135 @@ private function setupForumSelection(Post $post, array $forums, string $currentC
     }
 }
 
+    #[Route('/network/status/{userId}', name: 'network_status', methods: ['GET'])]
+    public function networkStatus(int $userId, EntityManagerInterface $entityManager): \Symfony\Component\HttpFoundation\JsonResponse
+    {
+        $me = $this->getUser();
+        if (!$me) {
+            return $this->json(['error' => 'Unauthorized'], 401);
+        }
+        if ($me->getId() === (int) $userId) {
+            return $this->json(['status' => 'self']);
+        }
+
+        $userRepo = $entityManager->getRepository(User::class);
+        $other = $userRepo->find($userId);
+        if (!$other) {
+            return $this->json(['error' => 'User not found'], 404);
+        }
+
+        // connected?
+        if ($me->isInNetwork($other->getId())) {
+            $status = 'connected';
+        } else {
+            $notifRepo = $entityManager->getRepository(Notification::class);
+            // outgoing (I sent a pending request to them)
+            $out = $notifRepo->findOneBy([
+                'sender' => $me,
+                'recipient' => $other,
+                'type' => 'network_request',
+                'status' => 'pending'
+            ]);
+            if ($out) {
+                $status = 'outgoing_request';
+            } else {
+                // incoming (they sent me a pending request)
+                $in = $notifRepo->findOneBy([
+                    'sender' => $other,
+                    'recipient' => $me,
+                    'type' => 'network_request',
+                    'status' => 'pending'
+                ]);
+                if ($in) {
+                    $status = 'incoming_request';
+                } else {
+                    $status = 'none';
+                }
+            }
+        }
+
+        // blocked flags
+        $blockedByMe = $me->isBlocked($other->getId());
+        $blockedByThem = $other->isBlocked($me->getId());
+
+        return $this->json([
+            'status' => $status,
+            'blockedByMe' => $blockedByMe,
+            'blockedByThem' => $blockedByThem
+        ]);
+    }
+
+    #[Route('/user/block/toggle/{userId}', name: 'user_block_toggle', methods: ['POST'])]
+    public function toggleBlock(
+        int $userId,
+        EntityManagerInterface $entityManager
+    ): \Symfony\Component\HttpFoundation\JsonResponse {
+        try {
+            $me = $this->getUser();
+            if (!$me) {
+                return $this->json(['error' => 'Unauthorized'], 401);
+            }
+            if ($me->getId() === (int) $userId) {
+                return $this->json(['error' => 'Cannot block yourself'], 400);
+            }
+            $userRepo = $entityManager->getRepository(User::class);
+            $other = $userRepo->find($userId);
+            if (!$other) {
+                return $this->json(['error' => 'User not found'], 404);
+            }
+
+            // If already blocked -> unblock
+            if ($me->isBlocked($other->getId())) {
+                $me->removeFromBlocked($other->getId());
+                $entityManager->persist($me);
+                $entityManager->flush();
+                return $this->json(['success' => true, 'cancelled' => true]);
+            }
+
+            // Block: add to blocked list, optionally remove network relation and pending network_request notifications
+            $me->addToBlocked($other->getId());
+            // remove mutual network entries if present
+            if ($me->isInNetwork($other->getId())) {
+                $me->removeFromNetwork($other->getId());
+            }
+            if ($other->isInNetwork($me->getId())) {
+                $other->removeFromNetwork($me->getId());
+            }
+
+            // remove pending network_request notifications in both directions
+            $notifRepo = $entityManager->getRepository(Notification::class);
+            $qb = $notifRepo->createQueryBuilder('n');
+            $qb->where('(n.sender = :a AND n.recipient = :b) OR (n.sender = :b AND n.recipient = :a)')
+               ->andWhere('n.type = :t')->andWhere('n.status = :s')
+               ->setParameter('a', $me)
+               ->setParameter('b', $other)
+               ->setParameter('t', 'network_request')
+               ->setParameter('s', 'pending');
+            $pending = $qb->getQuery()->getResult();
+            foreach ($pending as $p) {
+                $entityManager->remove($p);
+            }
+
+            // --- Nouveau : supprimer toute conversation existante entre les deux utilisateurs ---
+            $convRepo = $entityManager->getRepository(Conversation::class);
+            $qb2 = $convRepo->createQueryBuilder('c');
+            $qb2->where('(c.user1 = :a AND c.user2 = :b) OR (c.user1 = :b AND c.user2 = :a)')
+                ->setParameter('a', $me)
+                ->setParameter('b', $other);
+            $conversations = $qb2->getQuery()->getResult();
+            foreach ($conversations as $conv) {
+                // removal cascades messages via Conversation entity mapping
+                $entityManager->remove($conv);
+            }
+            // --- fin suppression conversations ---
+
+            $entityManager->persist($me);
+            $entityManager->persist($other);
+            $entityManager->flush();
+
+            return $this->json(['success' => true, 'blocked' => true]);
+        } catch (\Throwable $e) {
+            return $this->json(['error' => 'Exception', 'message' => $e->getMessage()], 500);
+        }
+    }
 }

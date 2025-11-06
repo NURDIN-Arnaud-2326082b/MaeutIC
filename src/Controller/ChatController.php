@@ -94,6 +94,13 @@ final class ChatController extends AbstractController{
     {
         $user = $this->getUser();
 
+        // Vérifier que la conversation est accessible (pas de blocage entre participants)
+        $other = ($conversation->getUser1() === $user) ? $conversation->getUser2() : $conversation->getUser1();
+        if (!$other || $user->isBlocked($other->getId()) || $other->isBlocked($user->getId())) {
+            $this->addFlash('error', 'Conversation inaccessible à cause d\'un blocage.');
+            return $this->redirectToRoute('app_home');
+        }
+
         $conversations = $conversationRepo->createQueryBuilder('c')
             ->where('c.user1 = :user OR c.user2 = :user')
             ->setParameter('user', $user)
@@ -122,6 +129,13 @@ final class ChatController extends AbstractController{
         if (!$other || $other === $user) {
             throw $this->createNotFoundException();
         }
+
+        // Empêche la création de conversation si blocage mutuel/unilatéral
+        if ($user->isBlocked($other->getId()) || $other->isBlocked($user->getId())) {
+            $this->addFlash('error', 'Impossible de démarrer une conversation à cause d\'un blocage.');
+            return $this->redirectToRoute('app_profile_show', ['username' => $other->getUsername()]);
+        }
++
         $conversation = $conversationRepo->createQueryBuilder('c')
             ->where('(c.user1 = :user1 AND c.user2 = :user2) OR (c.user1 = :user2 AND c.user2 = :user1)')
             ->setParameter('user1', $user)
@@ -142,6 +156,12 @@ final class ChatController extends AbstractController{
     public function sendPrivateMessage(Request $request, Conversation $conversation, EntityManagerInterface $em): Response
     {
         $user = $this->getUser();
+        $other = ($conversation->getUser1() === $user) ? $conversation->getUser2() : $conversation->getUser1();
+        if ($user->isBlocked($other->getId()) || $other->isBlocked($user->getId())) {
+            $this->addFlash('error', 'Impossible d\'envoyer un message à cause d\'un blocage.');
+            return $this->redirectToRoute('app_home');
+        }
+
         if ($conversation->getUser1() !== $user && $conversation->getUser2() !== $user) {
             throw $this->createAccessDeniedException();
         }
@@ -163,6 +183,11 @@ final class ChatController extends AbstractController{
     public function ajaxMessages(Conversation $conversation, MessageRepository $messageRepo): Response
     {
         $user = $this->getUser();
+        $other = ($conversation->getUser1() === $user) ? $conversation->getUser2() : $conversation->getUser1();
+        if ($user->isBlocked($other->getId()) || $other->isBlocked($user->getId())) {
+            return new JsonResponse(['error' => 'inaccessible'], Response::HTTP_FORBIDDEN);
+        }
+
         if ($conversation->getUser1() !== $user && $conversation->getUser2() !== $user) {
             throw $this->createAccessDeniedException();
         }
