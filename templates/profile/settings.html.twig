@@ -1,0 +1,91 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Paramètres{% endblock %}
+
+{% block body %}
+{{ render(controller('App\\Controller\\NavbarController::navbar')) }}
+
+<div class="max-w-3xl mx-auto my-8 bg-white/45 p-6 rounded-lg shadow-xl">
+    <h1 class="text-2xl font-bold mb-4">Paramètres</h1>
+
+    <section class="mb-6">
+        <h2 class="text-lg font-semibold mb-2">Utilisateurs bloqués</h2>
+        {% if blockedUsers is empty %}
+            <div class="text-gray-600">Vous n'avez bloqué personne.</div>
+        {% else %}
+            <ul class="space-y-3">
+                {% for u in blockedUsers %}
+                    <li class="flex items-center justify-between p-3 bg-white rounded border">
+                        <div class="flex items-center gap-3">
+                            <img src="{% if u.profileImage %}{{ asset('profile_images/' ~ u.profileImage) }}{% else %}{{ asset('images/default-profile.png') }}{% endif %}" alt="avatar" class="w-10 h-10 rounded-full object-cover">
+                            <div>
+                                <div class="font-medium">{{ u.firstName }} {{ u.lastName }} <span class="text-sm text-gray-500">(@{{ u.username }})</span></div>
+                                <div class="text-sm text-gray-500">{{ u.affiliationLocation }}</div>
+                            </div>
+                        </div>
+                        <div>
+                            <button class="unblock-btn px-4 py-2 bg-green-600 text-white rounded" data-user-id="{{ u.id }}">
+                                Débloquer
+                            </button>
+                        </div>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </section>
+</div>
+
+{{ render(controller('App\\Controller\\FooterController::footer')) }}
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.unblock-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const id = btn.dataset.userId;
+            if (!id) return;
+            btn.disabled = true;
+            const originalText = btn.textContent;
+            btn.textContent = 'Traitement...';
+
+            try {
+                const res = await fetch('/user/block/toggle/' + encodeURIComponent(id), {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+
+                if (!res.ok) {
+                    const t = await res.text();
+                    alert('Erreur serveur: ' + res.status + (t ? ' — ' + t : ''));
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                    return;
+                }
+
+                const json = await res.json();
+
+                // Si l'action a annulé le blocage, retirer l'élément de la liste.
+                if (json.cancelled) {
+                    const li = btn.closest('li');
+                    if (li) li.remove();
+                    return;
+                }
+
+                // Si c'est un blocage récent, recharger pour refléter l'état global.
+                if (json.blocked) {
+                    window.location.reload();
+                    return;
+                }
+
+                // Par défaut, recharger pour garder la cohérence.
+                window.location.reload();
+            } catch (err) {
+                console.error(err);
+                alert('Erreur réseau — veuillez réessayer.');
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

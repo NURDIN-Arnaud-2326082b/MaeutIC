@@ -36,7 +36,7 @@
                     </button>
                     <div id="profileDropdownMenu" class="hidden absolute top-full mt-2 w-48 bg-white rounded-lg shadow-lg z-50">
                         <a href="{{ path('app_profile') }}" class="block px-4 py-2 text-black hover:bg-gray-100">Mon Profil</a>
-                        <a href="{{ path('app_profile') }}" class="block px-4 py-2 text-black hover:bg-gray-100">Paramètres</a>
+                        <a href="{{ path('app_settings') }}" class="block px-4 py-2 text-black hover:bg-gray-100">Paramètres</a>
                         <a href="{{ path('app_logout') }}" class="block px-4 py-2 text-black hover:bg-gray-100">Se Déconnecter</a>
                     </div>
                 </div>
@@ -99,7 +99,8 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchNotifications() {
         if (!notifItems) return;
         try {
-            const res = await fetch('{{ path('notifications_list') }}', { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+            // utilise l'URL fournie par le contrôleur (générée ou fallback)
+            const res = await fetch('{{ notificationsUrl }}', { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
             if (!res.ok) throw new Error('network');
             const json = await res.json();
             const arr = json.notifications || [];
