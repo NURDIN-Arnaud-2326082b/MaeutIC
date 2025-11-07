@@ -50,7 +50,7 @@ class ForumController extends AbstractController
                 'creation_date' => $post->getCreationDate()->format('d/m/Y'),
                 'forum_title' => $post->getForum()->getTitle(),
                 'author_name' => $post->getForum()->isAnonymous() 
-                    ? $this->getRandomAuthorName()
+                    ? $this->generateAnonymousId()
                     : ($post->getUser() 
                         ? $post->getUser()->getFirstName() . ' ' . $post->getUser()->getLastName()
                         : 'Ancien utilisateur'
@@ -118,7 +118,7 @@ class ForumController extends AbstractController
                 'creation_date' => $post->getCreationDate()->format('d/m/Y'),
                 'forum_title' => $post->getForum()->getTitle(),
                 'author_name' => $post->getForum()->isAnonymous() 
-                    ? $this->getRandomAuthorName()
+                    ? $this->generateAnonymousId()
                     : ($post->getUser() 
                         ? $post->getUser()->getFirstName() . ' ' . $post->getUser()->getLastName()
                         : 'Ancien utilisateur'
@@ -750,16 +750,34 @@ class ForumController extends AbstractController
         ]);
     }
 
-    // Méthode utilitaire pour les noms d'auteurs anonymes
-    private function getRandomAuthorName(): string
-    {
-        $authors = [
-            'Victor Hugo', 'Platon', 'René Descartes', 'Jean-Paul Sartre', 'Voltaire', 'Friedrich Nietzsche',
-            'Albert Camus', 'Michel de Montaigne', 'Jean-Jacques Rousseau', 'Honoré de Balzac', 'Socrates', 'Aristote',
-            'Emmanuel Kant', 'Sigmund Freud', 'John Locke', 'Thomas Hobbes', 'Karl Marx', 'Georg Wilhelm Friedrich Hegel', 'Sören Kierkegaard'
-        ];
+    // // Méthode utilitaire pour les noms d'auteurs anonymes
+    // private function getRandomAuthorName(): string
+    // {
+    //     $authors = [
+    //         'Victor Hugo', 'Platon', 'René Descartes', 'Jean-Paul Sartre', 'Voltaire', 'Friedrich Nietzsche',
+    //         'Albert Camus', 'Michel de Montaigne', 'Jean-Jacques Rousseau', 'Honoré de Balzac', 'Socrates', 'Aristote',
+    //         'Emmanuel Kant', 'Sigmund Freud', 'John Locke', 'Thomas Hobbes', 'Karl Marx', 'Georg Wilhelm Friedrich Hegel', 'Sören Kierkegaard'
+    //     ];
         
-        return $authors[array_rand($authors)];
+    //     return $authors[array_rand($authors)];
+    // }
+
+    private function generateAnonymousId(): string
+    {
+        $letters = 'abcdefghijklmnopqrstuvwxyz';
+        $numbers = '0123456789';
+        
+        $randomLetters = '';
+        for ($i = 0; $i < 3; $i++) {
+            $randomLetters .= $letters[random_int(0, strlen($letters) - 1)];
+        }
+        
+        $randomNumbers = '';
+        for ($i = 0; $i < 3; $i++) {
+            $randomNumbers .= $numbers[random_int(0, strlen($numbers) - 1)];
+        }
+        
+        return $randomLetters . '.' . $randomNumbers;
     }
 
     #[Route('/network/toggle/{userId}', name: 'network_toggle', methods: ['POST'])]

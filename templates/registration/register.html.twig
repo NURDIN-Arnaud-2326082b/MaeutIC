@@ -3,225 +3,631 @@
 {% block title %}Register{% endblock %}
 
 {% block body %}
-    {{ render(controller('App\\Controller\\NavbarController::navbar')) }}
-    <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
-        <div class="max-w-xl w-full mx-auto space-y-8">
-            <div>
-                <h1 class="mt-6 text-center text-4xl font-black text-gray-900 tracking-tight">Créer son compte</h1>
-                <p class="mt-2 text-center text-gray-600">Rejoignez notre communauté de chercheur !</p>
-            </div>
-
-            {{ form_errors(registrationForm) }}
-
-            {{ form_start(registrationForm, {'attr': {'class': 'mt-8 space-y-6 bg-white/50 backdrop-blur-sm p-8 rounded-xl shadow-xl border border-white/20'}, 'enctype': 'multipart/form-data'}) }}
-            <div class="space-y-5">
-                {% set field_labels = {
-                    'email': 'Adresse e-mail',
-                    'lastName': 'Nom',
-                    'firstName': 'Prénom',
-                    'username': "Nom d'utilisateur"
-                } %}
-                {% for field in [
-                    registrationForm.email,
-                    registrationForm.lastName,
-                    registrationForm.firstName,
-                    registrationForm.username
-                ] %}
-                    <div class="group">
-                        {{ form_label(field, field_labels[field.vars.name], {'label_attr': {'class': 'block text-sm font-semibold text-gray-700 mb-1'}}) }}
-                        {{ form_widget(field, {'attr': {
-                            'class': 'appearance-none block w-full px-4 py-2 border border-gray-200 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ease-in-out hover:border-indigo-300'
-                        }}) }}
-                    </div>
-                {% endfor %}
-
-                {# Ajout du champ d'upload de photo de profil #}
-                <div>
-                    {{ form_label(registrationForm.profileImageFile, 'Photo de profil', {'label_attr': {'class': 'block text-sm font-semibold text-gray-700 mb-1'}}) }}
-                    {{ form_widget(registrationForm.profileImageFile, {'attr': {
-                        'class': 'block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100'
-                    }}) }}
-                    {{ form_errors(registrationForm.profileImageFile) }}
-                </div>
-
-                <div>
-                    {{ form_label(registrationForm.plainPassword, 'Mot de passe', {'label_attr': {'class': 'block text-sm font-semibold text-gray-700 mb-1'}}) }}
-                    {{ form_widget(registrationForm.plainPassword, {'attr': {
-                        'class': 'appearance-none block w-full px-4 py-2 border border-gray-200 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ease-in-out hover:border-indigo-300'
-                    }}) }}
-                </div>
-
-                {% set field_labels2 = {
-                    'affiliationLocation': "Lieu d'affiliation",
-                    'specialization': 'Spécialisation',
-                    'researchTopic': 'Sujet de recherche'
-                } %}
-                {% for field in [
-                    registrationForm.affiliationLocation,
-                    registrationForm.specialization,
-                    registrationForm.researchTopic
-                ] %}
-                    <div class="group">
-                        {{ form_label(field, field_labels2[field.vars.name], {'label_attr': {'class': 'block text-sm font-semibold text-gray-700 mb-1 transition-colors'}}) }}
-                        {{ form_widget(field, {'attr': {
-                            'class': 'appearance-none block w-full px-4 py-2 border border-gray-200 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ease-in-out hover:border-indigo-300'
-                        }}) }}
-                    </div>
-                {% endfor %}
-
-                <div class="flex items-center group hover:bg-indigo-50 p-2 rounded-lg transition-colors">
-                    {{ form_widget(registrationForm.agreeTerms, {'attr': {'class': 'h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'}}) }}
-                    {{ form_label(registrationForm.agreeTerms, null, {'label_attr': {'class': 'ml-3 block text-sm text-gray-700 transition-colors'}}) }}
-                </div>
-
-                <div class="mt-10">
-                    <h3 class="text-xl font-bold text-gray-900 mb-6">Questions additionnelles</h3>
-
-                    {% for question, field in registrationForm.userQuestions %}
-                        <div class="mt-5 group">
-                            <label class="block text-sm font-semibold text-gray-700 mb-1 transition-colors">{{ dynamic_questions[loop.index0] }}</label>
-                            {{ form_widget(field, {'attr': {
-                                'class': 'appearance-none block w-full px-4 py-2 border border-gray-200 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ease-in-out hover:border-indigo-300'
-                            }}) }}
-                            {{ form_errors(field) }}
-                        </div>
-                    {% endfor %}
-
-                    {% for field in registrationForm.taggableQuestions %}
-                        <div class="taggable-question mt-5 group">
-                            <label class="block text-sm font-semibold text-gray-700 mb-1 transition-colors">{{ taggable_questions[loop.index0] }}</label>
-                            <div class="relative w-full">
-                                <input type="text"
-                                       class="taggable-tag-search w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
-                                       placeholder="Rechercher un mot-clé..." autocomplete="off">
-                                <div class="taggable-tag-suggestions absolute left-0 right-0 bg-white border border-gray-200 rounded shadow z-10 mt-1 hidden"></div>
-                            </div>
-                            <div class="selected-tags mt-2 flex flex-wrap gap-2"></div>
-                            <div style="display: none;">
-                                {{ form_widget(field) }}
-                            </div>
-                            {{ form_errors(field) }}
-                        </div>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <input type="hidden" name="g-recaptcha-response" id="recaptchaResponse">
-
-
-            <div class="mt-8">
-                <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-base font-medium text-white  bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transform transition-all hover:-translate-y-0.5">
-                    Créer mon compte !
-                </button>
-            </div>
-            {{ form_end(registrationForm) }}
+{{ render(controller('App\\Controller\\NavbarController::navbar')) }}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-xl w-full mx-auto space-y-8">
+        <div>
+            <h1 class="mt-6 text-center text-4xl font-black text-gray-900 tracking-tight">Créer son compte</h1>
+            <p class="mt-2 text-center text-gray-600">Rejoignez notre communauté de chercheur·euse·s !</p>
         </div>
+
+        {{ form_errors(registrationForm) }}
+
+        {{ form_start(registrationForm, {'attr': {'class': 'mt-8 space-y-6 bg-white/50 backdrop-blur-sm p-8 rounded-xl shadow-xl border border-white/20', 'id': 'registration-form'}, 'enctype': 'multipart/form-data'}) }}
+        <div class="space-y-5">
+            {% set field_labels = {
+            'email': 'Adresse e-mail',
+            'lastName': 'Nom',
+            'firstName': 'Prénom',
+            'username': "Nom d'utilisateur",
+            'genre': 'Genre'
+            } %}
+            {% for field in [
+            registrationForm.email,
+            registrationForm.lastName,
+            registrationForm.firstName,
+            registrationForm.username,
+            registrationForm.genre
+            ] %}
+            <div class="group">
+                {{ form_label(field, field_labels[field.vars.name], {'label_attr': {'class': 'block text-sm font-semibold text-gray-700 mb-1'}}) }}
+                {{ form_widget(field, {'attr': {
+                'class': 'appearance-none block w-full px-4 py-2 border border-gray-200 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ease-in-out hover:border-indigo-300'
+                }}) }}
+                <div class="error-message text-red-600 text-sm mt-1 hidden"></div>
+            </div>
+            {% endfor %}
+
+            {# Ajout du champ d'upload de photo de profil #}
+            <div>
+                {{ form_label(registrationForm.profileImageFile, 'Photo de profil', {'label_attr': {'class': 'block text-sm font-semibold text-gray-700 mb-1'}}) }}
+                {{ form_widget(registrationForm.profileImageFile, {'attr': {
+                    'class': 'block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100'
+                }}) }}
+                {{ form_errors(registrationForm.profileImageFile) }}
+                <div class="error-message text-red-600 text-sm mt-1 hidden"></div>
+            </div>
+
+            <div>
+                {{ form_label(registrationForm.plainPassword, 'Mot de passe', {'label_attr': {'class': 'block text-sm font-semibold text-gray-700 mb-1'}}) }}
+                {{ form_widget(registrationForm.plainPassword, {'attr': {
+                    'class': 'appearance-none block w-full px-4 py-2 border border-gray-200 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ease-in-out hover:border-indigo-300'
+                }}) }}
+                <div class="error-message text-red-600 text-sm mt-1 hidden"></div>
+                <div id="password-requirements" class="mt-2 text-sm text-gray-600">
+                    <div class="requirement" data-requirement="length">✓ Au moins 6 caractères</div>
+                    <div class="requirement" data-requirement="uppercase">✓ Une lettre majuscule</div>
+                    <div class="requirement" data-requirement="lowercase">✓ Une lettre minuscule</div>
+                    <div class="requirement" data-requirement="number">✓ Un chiffre</div>
+                    <div class="requirement" data-requirement="special">✓ Un caractère spécial</div>
+                </div>
+            </div>
+
+            {% set field_labels2 = {
+            'affiliationLocation': "Lieu d'affiliation",
+            'specialization': 'Spécialisation',
+            'researchTopic': 'Sujet de recherche'
+            } %}
+            {% for field in [
+            registrationForm.affiliationLocation,
+            registrationForm.specialization,
+            registrationForm.researchTopic
+            ] %}
+            <div class="group">
+                {{ form_label(field, field_labels2[field.vars.name], {'label_attr': {'class': 'block text-sm font-semibold text-gray-700 mb-1 transition-colors'}}) }}
+                {{ form_widget(field, {'attr': {
+                'class': 'appearance-none block w-full px-4 py-2 border border-gray-200 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ease-in-out hover:border-indigo-300'
+                }}) }}
+                <div class="error-message text-red-600 text-sm mt-1 hidden"></div>
+            </div>
+            {% endfor %}
+
+            <div class="flex items-center group hover:bg-indigo-50 p-2 rounded-lg transition-colors">
+                {{ form_widget(registrationForm.agreeTerms, {'attr': {'class': 'h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded'}}) }}
+                {{ form_label(registrationForm.agreeTerms, null, {'label_attr': {'class': 'ml-3 block text-sm text-gray-700 transition-colors'}}) }}
+                <div class="error-message text-red-600 text-sm mt-1 ml-3 hidden"></div>
+            </div>
+
+            <div class="mt-10">
+                <h3 class="text-xl font-bold text-gray-900 mb-6">Questions additionnelles</h3>
+                <p class="text-sm text-gray-600 mb-4">Veuillez répondre à au moins <strong>3 questions</strong> de votre choix :</p>
+
+                {% for question, field in registrationForm.userQuestions %}
+                    <div class="mt-5 group">
+                        <label class="block text-sm font-semibold text-gray-700 mb-1 transition-colors">
+                            {{ dynamic_questions[loop.index0] }}
+                        </label>
+                        {{ form_widget(field, {'attr': {
+                            'class': 'appearance-none block w-full px-4 py-2 border border-gray-200 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ease-in-out hover:border-indigo-300 question-field'
+                        }}) }}
+                        {{ form_errors(field) }}
+                        <div class="error-message text-red-600 text-sm mt-1 hidden"></div>
+                    </div>
+                {% endfor %}
+
+                {% for field in registrationForm.taggableQuestions %}
+                    <div class="taggable-question mt-5 group">
+                        <label class="block text-sm font-semibold text-gray-700 mb-1 transition-colors">
+                            {{ taggable_questions[loop.index0] }}
+                            <span class="text-red-500">*</span>
+                            <span class="text-sm text-gray-500">(minimum {{ taggable_min_choices[loop.index0] }} tag(s))</span>
+                        </label>
+                        <div class="relative w-full">
+                            <input type="text"
+                                   class="taggable-tag-search w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                   placeholder="Rechercher un mot-clé..." autocomplete="off">
+                            <div class="taggable-tag-suggestions absolute left-0 right-0 bg-white border border-gray-200 rounded shadow z-10 mt-1 hidden"></div>
+                        </div>
+                        <div class="selected-tags mt-2 flex flex-wrap gap-2"></div>
+                        <div class="error-message text-red-600 text-sm mt-1 hidden"></div>
+                        <div style="display: none;">
+                            {{ form_widget(field) }}
+                        </div>
+                        {{ form_errors(field) }}
+                    </div>
+                {% endfor %}
+                {# Compteur de questions répondues #}
+                <div id="questions-counter" class="mt-4 p-3 bg-blue-50 rounded-lg hidden">
+                    <p class="text-sm text-blue-700">
+                        <span id="answered-count">0</span> sur <span id="min-required">{{ min_questions_required ?? 3 }}</span> questions répondues
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-8">
+            <button type="submit" id="submit-btn" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transform transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
+                Créer mon compte !
+            </button>
+        </div>
+        {{ form_end(registrationForm) }}
     </div>
+</div>
 
-    <script src="https://www.google.com/recaptcha/api.js?render=6Lfx-gIsAAAAAPDa-iFysykBq3ch90JB6_RxjpV1"></script>
-    <script>
-        grecaptcha.ready(function() {
-            grecaptcha.execute('6Lfx-gIsAAAAAPDa-iFysykBq3ch90JB6_RxjpV1', {action: 'register'}).then(function(token) {
-                document.getElementById('recaptchaResponse').value = token;
-            });
-        });
-    </script>
+<script>
+// Configuration des contraintes
+const MIN_QUESTIONS_REQUIRED = {{ min_questions_required ?? 3 }};
+const TAG_MIN_REQUIREMENTS = {{ taggable_min_choices|json_encode|raw }};
 
-    <script>
-        function debounce(fn, delay) {
-            let timeout;
-            return function(...args) {
-                clearTimeout(timeout);
-                timeout = setTimeout(() => fn.apply(this, args), delay);
-            };
+function debounce(fn, delay) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fn.apply(this, args), delay);
+    };
+}
+
+// Validation du mot de passe
+function validatePassword(password) {
+    const requirements = {
+        length: password.length >= 6,
+        uppercase: /[A-Z]/.test(password),
+        lowercase: /[a-z]/.test(password),
+        number: /[0-9]/.test(password),
+        special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+    };
+    
+    Object.keys(requirements).forEach(req => {
+        const element = document.querySelector(`[data-requirement="${req}"]`);
+        if (element) {
+            if (requirements[req]) {
+                element.classList.add('text-green-600');
+                element.classList.remove('text-red-600');
+                element.innerHTML = element.innerHTML.replace('✗', '✓');
+            } else {
+                element.classList.add('text-red-600');
+                element.classList.remove('text-green-600');
+                element.innerHTML = element.innerHTML.replace('✓', '✗');
+            }
         }
+    });
+    
+    return Object.values(requirements).every(Boolean);
+}
 
-        document.querySelectorAll('.taggable-question').forEach((container, idx) => {
-            const input = container.querySelector('.taggable-tag-search');
-            const suggestions = container.querySelector('.taggable-tag-suggestions');
-            const tagDisplay = container.querySelector('.selected-tags');
-            const hiddenSelect = container.querySelector('select');
-            let selectedTags = [];
+// Affichage des erreurs
+function showError(field, message) {
+    // Chercher l'élément error-message le plus proche
+    let errorElement = field.nextElementSibling;
+    while (errorElement && !errorElement.classList.contains('error-message')) {
+        errorElement = errorElement.nextElementSibling;
+    }
+    
+    // Si pas trouvé, chercher dans le parent
+    if (!errorElement) {
+        errorElement = field.closest('.group')?.querySelector('.error-message') || 
+                      field.closest('div')?.querySelector('.error-message');
+    }
+    
+    if (errorElement) {
+        errorElement.textContent = message;
+        errorElement.classList.remove('hidden');
+        field.classList.add('border-red-500');
+        field.classList.remove('border-gray-200');
+    }
+}
 
-            // Cache all tags from the select for local search fallback
-            let allTags = [];
-            if (hiddenSelect) {
-                allTags = Array.from(hiddenSelect.options)
-                    .filter(opt => opt.value)
-                    .map(opt => ({id: opt.value, name: opt.textContent}));
+function hideError(field) {
+    // Chercher l'élément error-message le plus proche
+    let errorElement = field.nextElementSibling;
+    while (errorElement && !errorElement.classList.contains('error-message')) {
+        errorElement = errorElement.nextElementSibling;
+    }
+    
+    // Si pas trouvé, chercher dans le parent
+    if (!errorElement) {
+        errorElement = field.closest('.group')?.querySelector('.error-message') || 
+                      field.closest('div')?.querySelector('.error-message');
+    }
+    
+    if (errorElement) {
+        errorElement.classList.add('hidden');
+        field.classList.remove('border-red-500');
+        field.classList.add('border-gray-200');
+    }
+}
+
+// Vérification de la disponibilité de l'email
+async function checkEmailAvailability(email) {
+    if (!email || email.length < 3) return { available: true };
+    
+    try {
+        const response = await fetch(`/api/check-email?email=${encodeURIComponent(email)}`);
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Erreur lors de la vérification de l\'email:', error);
+        return { available: true }; // En cas d'erreur, on considère que c'est disponible
+    }
+}
+
+// Vérification de la disponibilité du username
+async function checkUsernameAvailability(username) {
+    if (!username || username.length < 2) return { available: true };
+    
+    try {
+        const response = await fetch(`/api/check-username?username=${encodeURIComponent(username)}`);
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Erreur lors de la vérification du username:', error);
+        return { available: true };
+    }
+}
+
+// Validation améliorée des champs avec vérification de disponibilité
+async function validateFieldWithAvailability(field) {
+    const value = field.value.trim();
+    const name = field.name;
+    
+    hideError(field);
+    
+    // Validation des champs obligatoires
+    let isRequired = false;
+    
+    if (name.includes('email') || name.includes('lastName') || name.includes('firstName') || 
+        name.includes('plainPassword') || name.includes('genre') || name.includes('username')) {
+        isRequired = true;
+    }
+    
+    if (isRequired && !value) {
+        let message = 'Ce champ est obligatoire';
+        if (name.includes('genre')) message = 'Veuillez sélectionner votre genre';
+        if (name.includes('username')) message = 'Veuillez entrer votre nom d\'utilisateur';
+        showError(field, message);
+        return false;
+    }
+    
+    // Validation spécifique par type
+    if (name.includes('email') && value) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+            showError(field, 'Format d\'email invalide');
+            return false;
+        }
+        
+        // Vérification de la disponibilité de l'email
+        const emailCheck = await checkEmailAvailability(value);
+        if (emailCheck && !emailCheck.available) {
+            showError(field, emailCheck.message);
+            return false;
+        }
+    }
+    
+    if (name.includes('username') && value && value.length >= 2) {
+        // Vérification de la disponibilité du username
+        const usernameCheck = await checkUsernameAvailability(value);
+        if (usernameCheck && !usernameCheck.available) {
+            showError(field, usernameCheck.message);
+            return false;
+        }
+    }
+    
+    if (name.includes('plainPassword') && value && !validatePassword(value)) {
+        showError(field, 'Le mot de passe ne respecte pas les exigences de sécurité');
+        return false;
+    }
+    
+    return true;
+}
+
+// Comptage des questions répondues
+function countAnsweredQuestions() {
+    const questionFields = document.querySelectorAll('.question-field');
+    let answeredCount = 0;
+    
+    questionFields.forEach(field => {
+        if (field.value.trim() !== '') {
+            answeredCount++;
+        }
+    });
+    
+    return answeredCount;
+}
+
+// Mise à jour du compteur
+function updateQuestionsCounter() {
+    const answeredCount = countAnsweredQuestions();
+    const counterElement = document.getElementById('questions-counter');
+    const answeredCountElement = document.getElementById('answered-count');
+    
+    if (counterElement && answeredCountElement) {
+        answeredCountElement.textContent = answeredCount;
+        
+        if (answeredCount > 0) {
+            counterElement.classList.remove('hidden');
+            if (answeredCount >= MIN_QUESTIONS_REQUIRED) {
+                counterElement.classList.remove('bg-blue-50');
+                counterElement.classList.add('bg-green-50');
+                answeredCountElement.classList.add('text-green-700');
+            } else {
+                counterElement.classList.remove('bg-green-50');
+                counterElement.classList.add('bg-blue-50');
+                answeredCountElement.classList.remove('text-green-700');
             }
+        } else {
+            counterElement.classList.add('hidden');
+        }
+    }
+}
 
-            input.value = '';
-            suggestions.innerHTML = '';
-            suggestions.classList.add('hidden');
-            tagDisplay.innerHTML = '';
-
-            input.oninput = debounce(function() {
-                fetchTags(this.value.trim());
-            }, 200);
-
-            input.onfocus = function() {
-                fetchTags('');
-            };
-
-            function fetchTags(query) {
-                fetch('{{ path('app_tag_search') }}?q=' + encodeURIComponent(query))
-                    .then(r => r.json())
-                    .then(tags => {
-                        suggestions.innerHTML = '';
-                        tags.forEach(tag => {
-                            if (selectedTags.find(t => t.id == tag.id)) return;
-                            const div = document.createElement('div');
-                            div.className = 'px-4 py-2 hover:bg-blue-100 cursor-pointer';
-                            div.textContent = tag.name;
-                            div.onclick = () => {
-                                selectedTags.push({id: tag.id, name: tag.name});
-                                renderActiveTags();
-                                suggestions.innerHTML = '';
-                                suggestions.classList.add('hidden');
-                                input.value = '';
-                            };
-                            suggestions.appendChild(div);
-                        });
-                        if (tags.length > 0) {
-                            suggestions.classList.remove('hidden');
-                        } else {
-                            suggestions.classList.add('hidden');
-                        }
-                    });
+// Validation du nombre minimum de questions
+function validateMinimumQuestions() {
+    const answeredCount = countAnsweredQuestions();
+    const questionsContainer = document.querySelector('.mt-10'); // Conteneur des questions
+    
+    if (answeredCount < MIN_QUESTIONS_REQUIRED) {
+        // Afficher l'erreur générale
+        if (questionsContainer) {
+            let generalError = questionsContainer.querySelector('.general-questions-error');
+            if (!generalError) {
+                generalError = document.createElement('div');
+                generalError.className = 'general-questions-error mt-4 p-3 bg-red-50 rounded-lg';
+                generalError.innerHTML = `<p class="text-sm text-red-700">Vous devez répondre à au moins ${MIN_QUESTIONS_REQUIRED} questions.</p>`;
+                questionsContainer.appendChild(generalError);
             }
+            generalError.classList.remove('hidden');
+        }
+        return false;
+    } else {
+        // Cacher l'erreur générale si elle existe
+        const generalError = document.querySelector('.general-questions-error');
+        if (generalError) {
+            generalError.classList.add('hidden');
+        }
+        return true;
+    }
+}
 
-            function renderActiveTags() {
-                tagDisplay.innerHTML = '';
-                // Remove all hidden inputs from previous render
-                container.querySelectorAll('input[type="hidden"][name^="' + hiddenSelect.name.replace(/\[\]$/, '') + '"]').forEach(e => e.remove());
-                selectedTags.forEach(tag => {
-                    const span = document.createElement('span');
-                    span.className = 'bg-indigo-100 text-indigo-800 text-sm font-medium px-3 py-1 rounded-full flex items-center gap-1';
-                    span.innerHTML = `
-                ${tag.name}
-                <button type="button" class="remove-tag text-indigo-600 font-bold hover:text-red-500" data-tag-id="${tag.id}">&times;</button>
-            `;
-                    const hidden = document.createElement('input');
-                    hidden.type = 'hidden';
-                    hidden.name = hiddenSelect.name.replace(/\[\]$/, '') + '[]';
-                    hidden.value = tag.id;
-                    span.appendChild(hidden);
-                    span.querySelector('.remove-tag').onclick = () => {
-                        selectedTags = selectedTags.filter(t => t.id != tag.id);
+// Validation des tags
+function validateTags() {
+    let isValid = true;
+    
+    document.querySelectorAll('.taggable-question').forEach((container, index) => {
+        const selectedTags = container.querySelectorAll('.selected-tags input[type="hidden"]');
+        const minRequired = TAG_MIN_REQUIREMENTS[index] || 0;
+        const errorElement = container.querySelector('.error-message');
+        
+        if (selectedTags.length < minRequired) {
+            if (errorElement) {
+                errorElement.textContent = `Veuillez sélectionner au moins ${minRequired} tag(s)`;
+                errorElement.classList.remove('hidden');
+            }
+            isValid = false;
+        } else if (errorElement) {
+            errorElement.classList.add('hidden');
+        }
+    });
+    
+    return isValid;
+}
+
+// Validation des conditions
+function validateTerms() {
+    const termsCheckbox = document.querySelector('#registration_form_agreeTerms');
+    if (!termsCheckbox) return true;
+    
+    const groupElement = termsCheckbox.closest('.group');
+    const errorElement = groupElement ? groupElement.querySelector('.error-message') : null;
+    
+    if (!termsCheckbox.checked) {
+        if (errorElement) {
+            errorElement.textContent = 'Vous devez accepter les conditions d\'utilisation';
+            errorElement.classList.remove('hidden');
+        }
+        return false;
+    } else {
+        if (errorElement) {
+            errorElement.classList.add('hidden');
+        }
+    }
+    return true;
+}
+
+// Validation globale du formulaire
+async function validateForm() {
+    let isValid = true;
+    
+    // Validation des champs de base avec vérification de disponibilité
+    const formFields = document.querySelectorAll('#registration-form input, #registration-form select, #registration-form textarea');
+    
+    for (const field of formFields) {
+        const fieldValid = await validateFieldWithAvailability(field);
+        if (!fieldValid) {
+            isValid = false;
+        }
+    }
+    
+    // Validation du mot de passe
+    const passwordField = document.querySelector('#registration_form_plainPassword');
+    if (passwordField && passwordField.value) {
+        if (!validatePassword(passwordField.value)) {
+            isValid = false;
+        }
+    }
+    
+    // Validation du nombre minimum de questions
+    if (!validateMinimumQuestions()) {
+        isValid = false;
+    }
+    
+    // Validation des tags
+    if (!validateTags()) {
+        isValid = false;
+    }
+    
+    // Validation des conditions
+    if (!validateTerms()) {
+        isValid = false;
+    }
+    
+    return isValid;
+}
+
+// Événements de validation en temps réel
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('registration-form');
+    const submitBtn = document.getElementById('submit-btn');
+    
+    if (!form) return;
+    
+    // Validation en temps réel avec debounce
+    const validateFieldDebounced = debounce(async function(e) {
+        if (e.target.matches('.question-field')) {
+            updateQuestionsCounter();
+            validateMinimumQuestions();
+        }
+        
+        if (e.target.matches('input, select, textarea')) {
+            await validateFieldWithAvailability(e.target);
+        }
+    }, 800); // Délai augmenté pour éviter trop de requêtes
+    
+    form.addEventListener('input', validateFieldDebounced);
+    
+    // Validation sur le blur
+    form.addEventListener('blur', validateFieldDebounced, true);
+    
+    // Validation du mot de passe en temps réel
+    const passwordField = document.querySelector('#registration_form_plainPassword');
+    if (passwordField) {
+        passwordField.addEventListener('input', debounce(function() {
+            validatePassword(this.value);
+            validateFieldWithAvailability(this);
+        }, 300));
+    }
+    
+    // Validation à la soumission
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const isValid = await validateForm();
+        
+        if (!isValid) {
+            e.stopPropagation();
+            
+            // Scroll vers la première erreur
+            const firstError = document.querySelector('.error-message:not(.hidden)') || 
+                              document.querySelector('.general-questions-error:not(.hidden)');
+            if (firstError) {
+                firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        } else {
+            // Désactiver le bouton pendant l'envoi
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Création du compte...';
+            }
+            
+            // Soumission du formulaire
+            this.submit();
+        }
+    });
+    
+    // Validation initiale des tags
+    setTimeout(validateTags, 1000);
+    
+    // Initialisation du compteur
+    updateQuestionsCounter();
+});
+
+// Code pour les tags
+document.querySelectorAll('.taggable-question').forEach((container, idx) => {
+    const input = container.querySelector('.taggable-tag-search');
+    const suggestions = container.querySelector('.taggable-tag-suggestions');
+    const tagDisplay = container.querySelector('.selected-tags');
+    const hiddenSelect = container.querySelector('select');
+    let selectedTags = [];
+
+    let allTags = [];
+    if (hiddenSelect) {
+        allTags = Array.from(hiddenSelect.options)
+            .filter(opt => opt.value)
+            .map(opt => ({id: opt.value, name: opt.textContent}));
+    }
+
+    input.value = '';
+    suggestions.innerHTML = '';
+    suggestions.classList.add('hidden');
+    tagDisplay.innerHTML = '';
+
+    input.oninput = debounce(function() {
+        fetchTags(this.value.trim());
+    }, 200);
+
+    input.onfocus = function() {
+        fetchTags('');
+    };
+
+    function fetchTags(query) {
+        fetch('{{ path('app_tag_search') }}?q=' + encodeURIComponent(query))
+            .then(r => r.json())
+            .then(tags => {
+                suggestions.innerHTML = '';
+                tags.forEach(tag => {
+                    if (selectedTags.find(t => t.id == tag.id)) return;
+                    const div = document.createElement('div');
+                    div.className = 'px-4 py-2 hover:bg-blue-100 cursor-pointer';
+                    div.textContent = tag.name;
+                    div.onclick = () => {
+                        selectedTags.push({id: tag.id, name: tag.name});
                         renderActiveTags();
+                        suggestions.innerHTML = '';
+                        suggestions.classList.add('hidden');
+                        input.value = '';
+                        validateTags(); // Validation après ajout
                     };
-                    tagDisplay.appendChild(span);
+                    suggestions.appendChild(div);
                 });
-            }
-
-            document.addEventListener('click', function(e) {
-                if (!input.contains(e.target) && !suggestions.contains(e.target)) {
+                if (tags.length > 0) {
+                    suggestions.classList.remove('hidden');
+                } else {
                     suggestions.classList.add('hidden');
                 }
             });
+    }
 
-            // On submit, nothing to do: hidden inputs are already in place
+    function renderActiveTags() {
+        tagDisplay.innerHTML = '';
+        container.querySelectorAll('input[type="hidden"][name^="' + hiddenSelect.name.replace(/\[\]$/, '') + '"]').forEach(e => e.remove());
+        selectedTags.forEach(tag => {
+            const span = document.createElement('span');
+            span.className = 'bg-indigo-100 text-indigo-800 text-sm font-medium px-3 py-1 rounded-full flex items-center gap-1';
+            span.innerHTML = `
+                ${tag.name}
+                <button type="button" class="remove-tag text-indigo-600 font-bold hover:text-red-500" data-tag-id="${tag.id}">&times;</button>
+            `;
+            const hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = hiddenSelect.name.replace(/\[\]$/, '') + '[]';
+            hidden.value = tag.id;
+            span.appendChild(hidden);
+            span.querySelector('.remove-tag').onclick = () => {
+                selectedTags = selectedTags.filter(t => t.id != tag.id);
+                renderActiveTags();
+                validateTags(); // Validation après suppression
+            };
+            tagDisplay.appendChild(span);
         });
-    </script>
+    }
+
+    document.addEventListener('click', function(e) {
+        if (!input.contains(e.target) && !suggestions.contains(e.target)) {
+            suggestions.classList.add('hidden');
+        }
+    });
+});
+</script>
+
+<style>
+.requirement {
+    transition: color 0.3s ease;
+}
+</style>
+</script>
+
+<style>
+.requirement {
+    transition: color 0.3s ease;
+}
+</style>
 {% endblock %}
