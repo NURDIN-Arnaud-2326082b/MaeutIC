@@ -3,40 +3,382 @@
     <div class="bg-white/95 text-gray-700 p-5 rounded-lg w-[90%] max-w-[500px] shadow-lg relative">
         <span class="absolute top-2 right-2 text-2xl cursor-pointer" onclick="closePostCreateModal()">&times;</span>
         <h2 class="text-xl font-bold mb-4">Créer une publication</h2>
-        {{ form_start(form, {
-            'attr': {'id': 'post-create-form'},
-            'action': path('app_post_add', { category: category })
-        }) }}
-            <div class="mb-4">
-                {{ form_label(form.name) }}
-                {{ form_widget(form.name, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2', 'multiple': false}}) }}
-                <span class="text-red-500">{{ form_errors(form.name) }}</span>
-            </div>
 
-            <div class="mb-4">
-                {{ form_label(form.description) }}
-                {{ form_widget(form.description, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2', 'multiple': false}}) }}
-                <span class="text-red-500">{{ form_errors(form.description) }}</span>
-            </div>
+        <div class="form-container">
+            {# Conteneur pour les alertes de prévention #}
+            <div id="prevention-alerts" class="space-y-2 mb-4 max-h-40 overflow-y-auto"></div>
 
-            <div class="mb-4">
-                {{ form_label(form.forum) }}
-                {{ form_widget(form.forum, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2', 'multiple': false}}) }}
-                <span class="text-red-500">{{ form_errors(form.forum) }}</span>
-            </div>
+            {{ form_start(form, {
+                'attr': {'id': 'post-create-form'},
+                'action': path('app_post_add', { category: category })
+            }) }}
+                <div class="mb-4">
+                    {{ form_label(form.name) }}
+                    {{ form_widget(form.name, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2', 'multiple': false, 'id': 'post-title'}}) }}
+                    <span class="text-red-500">{{ form_errors(form.name) }}</span>
+                </div>
 
-            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Publier</button>
-        {{ form_end(form) }}
+                <div class="mb-4">
+                    {{ form_label(form.description) }}
+                    {{ form_widget(form.description, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2', 'multiple': false, 'id': 'post-description'}}) }}
+                    <span class="text-red-500">{{ form_errors(form.description) }}</span>
+                </div>
+
+                <div class="mb-4">
+                    {{ form_label(form.forum) }}
+                    {{ form_widget(form.forum, {'attr': {'class': 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2', 'multiple': false}}) }}
+                    <span class="text-red-500">{{ form_errors(form.forum) }}</span>
+                </div>
+
+                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Publier</button>
+            {{ form_end(form) }}
+        </div>
     </div>
 </div>
+
+<style>
+
+.form-container {
+    max-height: 90vh;
+    overflow-y: auto;
+    padding-right: 8px; /* Pour éviter que le contenu soit caché derrière la scrollbar */
+}
+.form-container::-webkit-scrollbar {
+    width: 8px;
+}
+.form-container::-webkit-scrollbar-thumb {
+    background-color: rgba(100, 100, 100, 0.5);
+    border-radius: 4px;
+}
+.form-container::-webkit-scrollbar-track {
+    background-color: rgba(200, 200, 200, 0.2);
+    border-radius: 4px;
+}
+</style>
+
 <script>
     function openPostCreateModal() {
         document.getElementById('post-create-modal').classList.remove('hidden');
-        // setupForumSelect() peut être appelé ici si besoin
+        setTimeout(setupContentMonitoring, 200);
     }
+    
     function closePostCreateModal() {
         document.getElementById('post-create-modal').classList.add('hidden');
+        const alertsContainer = document.getElementById('prevention-alerts');
+        if (alertsContainer) {
+            alertsContainer.innerHTML = '';
+        }
     }
+
+    function setupContentMonitoring() {
+        const descriptionInput = document.getElementById('post-description');
+        const titleInput = document.getElementById('post-title');
+        const alertsContainer = document.getElementById('prevention-alerts');
+        
+        let descInput = descriptionInput;
+        let titInput = titleInput;
+        
+        // Recherche alternative si les IDs directs ne fonctionnent pas
+        if (!descInput) {
+            descInput = document.querySelector('[name*="description"], textarea');
+        }
+        
+        if (!titInput) {
+            titInput = document.querySelector('[name*="name"], input[type="text"]');
+        }
+        
+        if (!descInput || !alertsContainer) {
+            return; // Éléments essentiels manquants
+        }
+        
+        const warningPatterns = {
+            suicide: {
+                keywords: [
+                    'suicide', 'suicidaire', 'me tuer', 'en finir', 'mort', 'mourir', 'je veux mourir', 
+                    'plus envie de vivre', 'vie ne vaut plus la peine', 'suicider', 'passage à l\'acte',
+                    'idées noires', 'pensées suicidaires', 'envie de disparaître', 'fini ma vie',
+                    'plus la force', 'veux en finir', 'désespéré', 'désespoir total', 'souhaite mourir',
+                    'préférerais être mort', 'ça sert à rien', 'plus d\'espoir', 'sans issue',
+                    'solution finale', 'défenestration', 'pendaison', 'overdose volontaire',
+                    'crise suicidaire', 'geste ultime', 'abandonner la vie', 'lâcher prise',
+                    'fatigue de vivre', 'épuisement vital', 'ras-le-bol général', 'burn out total',
+                    'cry à l\'aide', 'plus goût à rien', 'vide existentiel', 'néant',
+                    'suicidologie', 'automutilation', 'scarification', 'blessures volontaires',
+                    'tentative suicide', 'TS', 'idée suicidaire', 'projet suicide', 'plan suicide',
+                    'lettre d\'adieu', 'testament', 'don d\'organes', 'préparatifs funéraires',
+                    'au revoir', 'dernier message', 'cry de détresse', 'détresse aiguë',
+                    'urgence vitale', 'risque immédiat', 'danger imminent', 'point de non-retour',
+                    'abandon', 'renoncement', 'capitulation', 'défaite', 'échec total',
+                    'honte insurmontable', 'culpabilité écrasante', 'remords', 'regrets',
+                    'solitude extrême', 'isolement total', 'rejet massif', 'incompréhension',
+                    'maladie incurable', 'douleur chronique', 'handicap lourd', 'diagnostic fatal',
+                    'faillite', 'ruine', 'endettement', 'expulsion', 'sans-abri', 'précarité extrême'
+                ],
+                message: '💙 Besoin d\'aide ? Appelez le 3114 - Service national de prévention du suicide. Des professionnels sont là pour vous écouter 24h/24.',
+                link: 'https://www.suicide-ecoute.fr/'
+            },
+            depression: {
+                keywords: [
+                    'déprimé', 'dépression', 'tristesse', 'désespoir', 'vide', 'solitude', 'isolement', 
+                    'plus d\'énergie', 'cafard', 'mal être', 'blues', 'mélancolie', 'déprime', 'coup de mou',
+                    'baisse de moral', 'humeur dépressive', 'perte d\'intérêt', 'anhédonie', 'apathie',
+                    'léthargie', 'fatigue chronique', 'insomnie', 'hypersomnie', 'perte d\'appétit',
+                    'crise existentielle', 'mal de vivre', 'détresse psychologique', 'désarroi',
+                    'abattement', 'accablement', 'découragement', 'démoralisation', 'perte d\'estime',
+                    'culpabilité', 'honte', 'sentiment d\'échec', 'impuissance', 'désillusion',
+                    'crise de nerfs', 'décompensation', 'épuisement nerveux', 'surmenage',
+                    'bore out', 'burn out', 'effondrement', 'crise de larmes',
+                    'dépression majeure', 'trouble dépressif', 'épisode dépressif', 'dysthymie',
+                    'dépression saisonnière', 'dépression post-partum', 'baby blues sévère',
+                    'deuil compliqué', 'deuil pathologique', 'perte insurmontable', 'deuil impossible',
+                    'chagrin d\'amour', 'rupture douloureuse', 'trahison', 'abandon affectif',
+                    'nostalgie', 'regret du passé', 'rumination', 'pensées obsessionnelles',
+                    'auto-dépréciation', 'dénigrement de soi', 'critique interne', 'juge intérieur',
+                    'incapacité à aimer', 'incapacité à ressentir', 'émotions plates', 'affect aplati',
+                    'ralentissement psychomoteur', 'difficulté concentration', 'trouble mémoire',
+                    'indécision', 'incapacité choisir', 'paralysie décisionnelle', 'évitement',
+                    'repli sur soi', 'isolement social', 'phobie sociale', 'évitement relationnel',
+                    'perte libido', 'trouble sexuel', 'désintérêt relation', 'conflit conjugal',
+                    'échec professionnel', 'chômage longue durée', 'reconversion difficile'
+                ],
+                message: '💚 Vous traversez une période difficile ? Contactez SOS Amitié au 09 72 39 40 50. Parler peut vous aider.',
+                link: 'https://www.sos-amitie.com/'
+            },
+            harassment: {
+                keywords: [
+                    'harcèlement', 'harcèle', 'intimidation', 'menace', 'cyberharcèlement', 'moquerie', 
+                    'humiliation', 'persécution', 'bullying', 'brimade', 'maltraitance', 'abus de pouvoir',
+                    'chantage', 'chantage affectif', 'manipulation', 'emprise', 'emprise mentale',
+                    'stalking', 'harcèlement moral', 'harcèlement sexuel', 'harcèlement scolaire',
+                    'harcèlement professionnel', 'harcèlement téléphonique', 'cyberintimidation',
+                    'revenge porn', 'diffamation', 'calomnie', 'médisance', 'ragots', 'rumeurs',
+                    'mise à l\'écart', 'ostracisme', 'rejet', 'exclusion', 'discrimination',
+                    'sexisme', 'racisme', 'homophobie', 'transphobie', 'discrimination handicap',
+                    'agression verbale', 'insulte', 'injures', 'menaces de mort', 'chantage au suicide',
+                    'harcèlement de rue', 'harcèlement transports', 'harcèlement numérique',
+                    'doxing', 'usurpation identité', 'faux profil', 'piratage compte',
+                    'chantage sexuel', 'sextorsion', 'photo intime', 'vidéo compromettante',
+                    'mobbing', 'harcèlement institutionnel', 'harcèlement administratif',
+                    'discrimination systémique', 'préjugés', 'stéréotypes', 'micro-agressions',
+                    'gaslighting', 'manipulation psychologique', 'contrôle coercitif',
+                    'violence économique', 'privation ressources', 'contrôle financier',
+                    'isolement social', 'coupure familiale', 'aliénation parentale',
+                    'harcèlement procédurier', 'poursuite abusive', 'procédure harassante',
+                    'représailles', 'vengeance', 'campagne diffamatoire', 'dénigrement public',
+                    'atteinte réputation', 'honte publique', 'humiliation collective'
+                ],
+                message: '🛡️ Victime de harcèlement ? Appelez le 3020 (harcèlement scolaire), le 3018 (cyberharcèlement) ou le 3919 (violences femmes). Vous n\'êtes pas seul(e).',
+                link: 'https://www.education.gouv.fr/non-au-harcelement'
+            },
+            violence: {
+                keywords: [
+                    'violence', 'violent', 'agress', 'battre', 'frapper', 'abus', 'maltraitance', 
+                    'coups', 'brimade', 'agression', 'violence conjugale', 'violence domestique',
+                    'violence psychologique', 'violence verbale', 'violence physique', 'violence sexuelle',
+                    'viol', 'agression sexuelle', 'attouchements', 'inceste', 'pédophilie',
+                    'mariage forcé', 'mutilation génitale', 'crime d\'honneur', 'fémicide',
+                    'conjoint violent', 'partenaire violent', 'tyran domestique', 'bourreau',
+                    'sévices', 'torture', 'séquestration', 'privation de liberté', 'enlèvement',
+                    'arme blanche', 'arme à feu', 'couteau', 'revolver', 'passage à tabac',
+                    'lynchage', 'bastonnade', 'violence policière', 'brutalité', 'barbarie',
+                    'cruauté', 'sadisme', 'traitement inhumain',
+                    'violence économique', 'contrôle financier', 'privation argent', 'dette forcée',
+                    'violence administrative', 'menace expulsion', 'chantage administratif',
+                    'violence gynécologique', 'obstétrique violente', 'accouchement traumatique',
+                    'violence obstétricale', 'médicalisation forcée', 'traitement imposé',
+                    'maltraitance infantile', 'enfant battu', 'négligence enfant', 'carence soins',
+                    'violence éducative', 'punition corporelle', 'fessée', 'gifle éducative',
+                    'violence symbolique', 'mépris de classe', 'discrimination sociale',
+                    'violence linguistique', 'interdiction langue', 'humiliation culturelle',
+                    'traite êtres humains', 'esclavage moderne', 'travail forcé', 'exploitation',
+                    'mutilation', 'blessure volontaire', 'marquage', 'tatouage forcé',
+                    'prison domestique', 'confinement', 'interdiction sortir', 'contrôle déplacements'
+                ],
+                message: '🛡️ En cas de violence, appelez le 3919 (Violences Femmes Info) ou le 119 (Enfance en danger). Des aides existent.',
+                link: 'https://arretonslesviolences.gouv.fr/'
+            },
+            addiction: {
+                keywords: [
+                    'drogue', 'alcool', 'addiction', 'dépendance', 'sevrage', 'overdose', 'ivre', 
+                    'saoul', 'déchet', 'cuite', 'cannabis', 'héroïne', 'cocaïne', 'tabac', 'jeu', 
+                    'jeux d\'argent', 'substance', 'psychotrope', 'stupéfiant', 'drogage',
+                    'toxicomanie', 'alcoolisme', 'éthylisme', 'binge drinking', 'biture express',
+                    'défonce', 'trip', 'bad trip', 'manque', 'craving', 'rechute', 'désintoxication',
+                    'sevrage brutal', 'delirium tremens', 'overdose', 'OD', 'shoot', 'injection',
+                    'sniff', 'fumer', 'joint', 'pipe à crack', 'paraphernalie', 'dopage',
+                    'médicament détourné', 'benzodiazépine', 'opiacé', 'amphétamine', 'ecstasy',
+                    'LSD', 'champignons', 'addiction sexuelle', 'addiction affective', 'addiction au travail',
+                    'addiction aux écrans', 'nomophobie', 'cyberdépendance', 'addiction aux jeux vidéo',
+                    'paris sportifs', 'poker', 'casino', 'machines à sous', 'endettement jeu', 'addict',
+                    'crystal meth', 'methamphétamine', 'crack', 'opioïde', 'morphine', 'fentanyl',
+                    'tramadol', 'codéine', 'buprénorphine', 'méthadone', 'subutex', 'suboxone',
+                    'ghb', 'kétamine', 'poppers', 'solvants', 'colle', 'éther', 'protoxyde azote',
+                    'ballon', 'gaz hilarant', 'nitrite amyl', 'ritaline', 'concerta', 'adderall',
+                    'modafinil', 'steroides', 'hormones', 'dopage sportif', 'complément alimentaire',
+                    'plante psychoactive', 'salvia', 'kratom', 'ayahuasca', 'mescaline', 'peyotl',
+                    'dépendance affective', 'relation toxique', 'codépendance', 'attachement anxieux',
+                    'addiction relationnelle', 'besoin fusionnel', 'peur abandon', 'jalousie maladive',
+                    'addiction travail', 'workaholisme', 'surinvestissement professionnel',
+                    'addiction sport', 'bigorexie', 'dysmorphie musculaire', 'exercice compulsif',
+                    'addiction achats', 'oniomanie', 'dépense compulsive', 'carte crédit',
+                    'dépendance médicamenteuse', 'iatrogène', 'médicament addiction'
+                ],
+                message: '🧠 Besoin d\'aide pour une addiction ? Appelez Drogues Info Service au 0 800 23 13 13 (appel gratuit), Alcool Info Service au 09 80 98 09 30, ou Joueurs Info Service au 09 74 75 13 13 (jeu d\'argent).',
+                link: 'https://www.drogues-info-service.fr/'
+            },
+            eating_disorder: {
+                keywords: [
+                    'anorexie', 'boulimie', 'tca', 'trouble alimentaire', 'je me prive de manger', 
+                    'crise de boulimie', 'hyperphagie', 'orthorexie', 'mérycisme', 'pica',
+                    'restriction alimentaire', 'jeûne', 'diète', 'régime strict', 'calories',
+                    'compter les calories', 'peur de grossir', 'dysmorphophobie', 'image corporelle',
+                    'vomissements provoqués', 'laxatifs', 'diurétiques', 'crise de compulsion',
+                    'grignotage pathologique', 'fringales', 'honte alimentaire', 'culpabilité repas',
+                    'pesée obsessionnelle', 'mirror checking', 'évitement social repas',
+                    'rituels alimentaires', 'aliments interdits', 'aliments safe', 'body checking',
+                    'dénutrition', 'amaigrissement', 'perte de poids rapide', 'IMC bas',
+                    'aménorrhée', 'perte règles', 'trouble hormonal', 'carences nutritionnelles',
+                    'anorexie mentale', 'boulimie nerveuse', 'hyperphagie boulimique',
+                    'trouble alimentaire nocturne', 'syndrome d\'alimentation nocturne',
+                    'phagophobie', 'peur avaler', 'trouble sélectif', 'ARFID', 'alimentation évitante',
+                    'néophobie alimentaire', 'peur nouveaux aliments', 'régime monotone',
+                    'comportement compensatoire', 'exercice excessif', 'sport compulsif',
+                    'jeûne intermittent extrême', 'détox abusive', 'régime hypocalorique',
+                    'calcul obsessionnel', 'application calories', 'tracking alimentaire',
+                    'comparaison corps', 'complexe physique', 'dégoût corps', 'honte corporelle',
+                    'dysmorphie corporelle', 'obsession musculaire', 'muscle dysmorphia',
+                    'trouble image corporelle', 'perception déformée', 'miroir déformant',
+                    'évitement miroir', 'photoshop corps', 'filtre apparence', 'retouche photo'
+                ],
+                message: '🍎 Besoin d\'aide pour un trouble alimentaire ? Contactez Fil Santé Jeunes au 0 800 235 236.',
+                link: 'https://www.filsantejeunes.com/'
+            }
+        };
+        
+        function checkSensitiveContent(text) {
+            if (!text || text.trim().length === 0) return [];
+            
+            const detectedWarnings = [];
+            
+            // Fonction pour normaliser le texte (supprimer les accents)
+            const normalizeText = (str) => {
+                return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+            };
+            
+            const normalizedText = normalizeText(text);
+            
+            for (const [category, pattern] of Object.entries(warningPatterns)) {
+                const hasMatch = pattern.keywords.some(keyword => {
+                    const normalizedKeyword = normalizeText(keyword);
+                    return normalizedText.includes(normalizedKeyword);
+                });
+                
+                if (hasMatch && !detectedWarnings.some(w => w.message === pattern.message)) {
+                    detectedWarnings.push(pattern);
+                }
+            }
+            
+            return detectedWarnings;
+        }
+        
+        function displayAlerts(warnings) {
+            alertsContainer.innerHTML = '';
+            
+            if (warnings.length === 0) {
+                return;
+            }
+            
+            // Animation d'apparition
+            alertsContainer.style.opacity = '0';
+            alertsContainer.style.transform = 'translateY(-10px)';
+            
+            // Alerte générale
+            const generalAlert = document.createElement('div');
+            generalAlert.className = 'bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm mb-3';
+            generalAlert.innerHTML = `
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 mt-0.5">💙</div>
+                    <div class="ml-3 flex-1">
+                        <h3 class="font-medium text-blue-800">Nous avons détecté du contenu sensible</h3>
+                        <p class="text-blue-700 mt-1 text-xs">
+                            Votre bien-être est important. Voici des ressources qui peuvent vous aider
+                        </p>
+                    </div>
+                </div>
+            `;
+            alertsContainer.appendChild(generalAlert);
+            
+            // Alertes spécifiques
+            warnings.forEach((warning, index) => {
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm mb-2';
+                alertDiv.style.animationDelay = `${index * 100}ms`;
+                alertDiv.innerHTML = `
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0 mt-0.5">⚠️</div>
+                        <div class="ml-3 flex-1">
+                            <p class="text-yellow-800 text-xs leading-relaxed">
+                                ${warning.message}
+                                ${warning.link ? `<br><a href="${warning.link}" target="_blank" class="underline text-yellow-900 hover:text-yellow-700 text-xs mt-1 inline-block">Plus d'informations</a>` : ''}
+                            </p>
+                        </div>
+                    </div>
+                `;
+                alertsContainer.appendChild(alertDiv);
+            });
+            
+            // Message de soutien
+            const supportMessage = document.createElement('div');
+            supportMessage.className = 'bg-green-50 border border-green-200 rounded-lg p-3 text-sm mt-3';
+            supportMessage.innerHTML = `
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 mt-0.5">🤝</div>
+                    <div class="ml-3">
+                        <p class="text-green-800 text-xs">
+                            <strong>Vous n'êtes pas seul(e).</strong> Demander de l'aide est un signe de force.
+                        </p>
+                    </div>
+                </div>
+            `;
+            alertsContainer.appendChild(supportMessage);
+            
+            // Animation
+            setTimeout(() => {
+                alertsContainer.style.opacity = '1';
+                alertsContainer.style.transform = 'translateY(0)';
+                alertsContainer.style.transition = 'all 0.3s ease-in-out';
+            }, 50);
+        }
+        
+        // Détection intelligente avec debounce
+        let monitoringTimeout;
+        function monitorContent() {
+            clearTimeout(monitoringTimeout);
+            monitoringTimeout = setTimeout(() => {
+                const title = titInput ? titInput.value : '';
+                const description = descInput ? descInput.value : '';
+                const fullText = (title + ' ' + description).trim();
+                
+                const warnings = checkSensitiveContent(fullText);
+                displayAlerts(warnings);
+            }, 300); // Délai de 300ms pour éviter les traitements trop fréquents
+        }
+        
+        // Écouteurs d'événements
+        if (descInput) {
+            descInput.addEventListener('input', monitorContent);
+            descInput.addEventListener('paste', monitorContent);
+        }
+        
+        if (titInput) {
+            titInput.addEventListener('input', monitorContent);
+            titInput.addEventListener('paste', monitorContent);
+        }
+        
+        // Vérification initiale
+        monitorContent();
+    }
+
     window.openPostCreateModal = openPostCreateModal;
     window.closePostCreateModal = closePostCreateModal;
 </script>
