@@ -37,68 +37,80 @@
             {% endif %}
 
             <div class="mt-4">
-                {# --- NEW placement: réseau AU-DESSUS des boutons d'action --- #}
+                {# --- NEW placement: réseau AU-DESSUS des boutons d'action (label et groupe rapprochés) --- #}
                 {% set showNetwork = (not isMutuallyBlocked) or (app.user and app.user.id == user.id) %}
 
-                {# Afficher le bloc réseau si on n'est pas mutuellement bloqué OU si c'est notre propre profil #}
-                {% if showNetwork %}
-                <div class="mb-3">
-                    <div class="text-sm text-gray-600 mb-1">Réseau</div>
-                    <div id="network-avatars" class="flex items-center gap-2">
-                        {# JS remplira ce conteneur avec les avatars des connexions #}
-                        <div class="text-sm text-gray-400">Chargement du réseau...</div>
-                    </div>
-                </div>
-                {% endif %}
+                <div class="mt-4">
+                    {% if showNetwork %}
+                    <div class="mb-3">
+                        {# label et groupe alignés à gauche et rapprochés #}
+                        <div class="flex items-center justify-start gap-3">
+                            <div class="text-sm text-gray-600 mr-2">Réseau</div>
 
-                {# Bloc des boutons d'action (Envoyer un message / Ajouter au réseau / etc.) — rester sur une ligne #}
-                <div class="flex gap-2 items-center">
-                    {% if app.user and app.user.id == user.id %}
-                        <a href="{{ path('app_profile_edit', {username : user.username}) }}" class="inline-block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition">Éditer mon profil</a>
-                        <form method="post" action="{{ path('app_profile_delete') }}" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible.');" style="display:inline;">
-                            <input type="hidden" name="_token" value="{{ csrf_token('delete-user') }}">
-                            <button type="submit" class="inline-block px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition">Supprimer mon compte</button>
-                        </form>
-                    {% endif %}
-                    {% if app.user and app.user.id != user.id %}
-                        {% set isBlocked = app.user and app.user.isBlocked(user.id) %}
-                        {% set isInNetwork = app.user and app.user.isInNetwork(user.id) %}
+                            {# Groupe avatars + total rapproché (#network-avatars et #network-total collés) #}
+                            <div class="flex items-center gap-1">
+                                <div id="network-avatars" class="flex items-center -space-x-2">
+                                    <div class="text-sm text-gray-400">Chargement du réseau...</div>
+                                </div>
 
-                        {# Si blocage mutuel/unilatéral : ne pas afficher de boutons interactifs #}
-                        {% if isMutuallyBlocked %}
-                            {# on affiche uniquement le bouton "Débloquer" si le visiteur a bloqué l'utilisateur,
-                               sinon on n'affiche rien d'interactif (profil inaccessible) #}
-                            {% if app.user.isBlocked(user.id) %}
-                                <button id="block-btn" type="button" onclick="toggleBlock({{ user.id }})" class="inline-block px-4 py-2 rounded text-white bg-red-600 hover:bg-red-700 transition">Débloquer</button>
-                            {% endif %}
-                        {% else %}
-                            {# Non bloqué : afficher message et réseau, et un burger contenant "Bloquer" #}
-                            <a id="message-btn" href="{{ path('private_message_new', {userId: user.id}) }}" class="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">Envoyer un message</a>
-
-                            <button id="network-toggle-btn"
-                                    type="button"
-                                    onclick="addToNetwork({{ user.id }})"
-                                    class="inline-block px-4 py-2 rounded text-white transition {{ isInNetwork ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700' }}">
-                                {{ isInNetwork ? 'Supprimer du réseau' : 'Ajouter au réseau' }}
-                            </button>
-
-                            {# Burger menu minimal contenant l'action "Bloquer" #}
-                            <div class="relative inline-block">
-                                <button id="profile-actions-btn" type="button" class="inline-flex items-center px-3 py-2 bg-gray-100 rounded hover:bg-gray-200 focus:outline-none">
-                                    &#9776;
-                                </button>
-                                <div id="profile-actions-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded shadow-lg z-40">
-                                    <button id="block-btn"
-                                            type="button"
-                                            onclick="toggleBlock({{ user.id }})"
-                                            class="w-full text-left px-4 py-2 text-sm text-gray-700">
-                                        Bloquer
-                                    </button>
+                                <div id="network-total" class="text-sm text-gray-600 ml-1 whitespace-nowrap">
+                                    {# JS mettra le nombre total ici #}
                                 </div>
                             </div>
-                        {% endif %}
+                        </div>
+                    </div>
                     {% endif %}
+
+                    {# Bloc des boutons d'action (Envoyer un message / Ajouter au réseau / etc.) — rester sur une ligne #}
+                    <div class="flex gap-2 items-center">
+                        {% if app.user and app.user.id == user.id %}
+                            <a href="{{ path('app_profile_edit', {username : user.username}) }}" class="inline-block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition">Éditer mon profil</a>
+                            <form method="post" action="{{ path('app_profile_delete') }}" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible.');" style="display:inline;">
+                                <input type="hidden" name="_token" value="{{ csrf_token('delete-user') }}">
+                                <button type="submit" class="inline-block px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition">Supprimer mon compte</button>
+                            </form>
+                        {% endif %}
+                        {% if app.user and app.user.id != user.id %}
+                            {% set isBlocked = app.user and app.user.isBlocked(user.id) %}
+                            {% set isInNetwork = app.user and app.user.isInNetwork(user.id) %}
+
+                            {# Si blocage mutuel/unilatéral : ne pas afficher de boutons interactifs #}
+                            {% if isMutuallyBlocked %}
+                                {# on affiche uniquement le bouton "Débloquer" si le visiteur a bloqué l'utilisateur,
+                                   sinon on n'affiche rien d'interactif (profil inaccessible) #}
+                                {% if app.user.isBlocked(user.id) %}
+                                    <button id="block-btn" type="button" onclick="toggleBlock({{ user.id }})" class="inline-block px-4 py-2 rounded text-white bg-red-600 hover:bg-red-700 transition">Débloquer</button>
+                                {% endif %}
+                            {% else %}
+                                {# Non bloqué : afficher message et réseau, et un burger contenant "Bloquer" #}
+                                <a id="message-btn" href="{{ path('private_message_new', {userId: user.id}) }}" class="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">Envoyer un message</a>
+
+                                <button id="network-toggle-btn"
+                                        type="button"
+                                        onclick="addToNetwork({{ user.id }})"
+                                        class="inline-block px-4 py-2 rounded text-white transition {{ isInNetwork ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700' }}">
+                                    {{ isInNetwork ? 'Supprimer du réseau' : 'Ajouter au réseau' }}
+                                </button>
+
+                                {# Burger menu minimal contenant l'action "Bloquer" #}
+                                <div class="relative inline-block">
+                                    <button id="profile-actions-btn" type="button" class="inline-flex items-center px-3 py-2 bg-gray-100 rounded hover:bg-gray-200 focus:outline-none">
+                                        &#9776;
+                                    </button>
+                                    <div id="profile-actions-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded shadow-lg z-40">
+                                        <button id="block-btn"
+                                                type="button"
+                                                onclick="toggleBlock({{ user.id }})"
+                                                class="w-full text-left px-4 py-2 text-sm text-gray-700">
+                                            Bloquer
+                                        </button>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
                 </div>
+
             </div>
 
         </div>
@@ -269,11 +281,12 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Charger la liste des connexions pour afficher leurs avatars
+    // Charger la liste des connexions pour afficher leurs avatars (seulement les 3 derniers) et le total
     function fetchNetwork(userId) {
         const container = document.getElementById('network-avatars');
-        if (!container) return;
-        // template URL serveur -> on remplacera le placeholder par l'ID réel
+        const totalEl = document.getElementById('network-total');
+        if (!container || !totalEl) return;
+
         const networkListTemplate = '{{ path('network_list', {'userId': '___ID___'}) }}';
         const profileBaseTemplate = '{{ path('app_profile_show', {'username': '___USERNAME___'}) }}';
         const profileImagesBase = '{{ asset('profile_images/') }}';
@@ -289,25 +302,28 @@ document.addEventListener('DOMContentLoaded', function () {
                 return r.json();
             })
             .then(j => {
+                const all = Array.isArray(j.connections) ? j.connections : [];
+                const total = all.length;
+
+                // afficher nombre total à droite
+                totalEl.textContent = total > 0 ? total + ' membre' + (total > 1 ? 's' : '') : 'Aucun membre';
+
+                // ne garder que les 3 derniers éléments de la liste
+                const tail = total <= 3 ? all : all.slice(-3);
+
                 container.innerHTML = '';
-                if (j && Array.isArray(j.connections) && j.connections.length > 0) {
-                    j.connections.slice(0,6).forEach(conn => {
+                if (tail.length > 0) {
+                    tail.forEach(conn => {
                         const a = document.createElement('a');
                         a.href = profileBaseTemplate.replace('___USERNAME___', encodeURIComponent(conn.username));
-                        a.title = (conn.firstName || '') + ' ' + (conn.lastName || conn.username);
-                        a.className = 'w-8 h-8 rounded-full overflow-hidden border';
+                        a.title = ((conn.firstName || '') + ' ' + (conn.lastName || conn.username)).trim();
+                        a.className = 'w-10 h-10 rounded-full overflow-hidden border';
                         const img = document.createElement('img');
                         img.src = conn.profileImage ? (profileImagesBase + conn.profileImage) : defaultProfileImg;
                         img.className = 'w-full h-full object-cover';
                         a.appendChild(img);
                         container.appendChild(a);
                     });
-                    if (j.connections.length > 6) {
-                        const more = document.createElement('span');
-                        more.className = 'text-sm text-gray-500';
-                        more.textContent = '+' + (j.connections.length - 6);
-                        container.appendChild(more);
-                    }
                 } else {
                     container.innerHTML = '<div class="text-gray-400 text-sm">Aucun membre connecté.</div>';
                 }
@@ -315,6 +331,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .catch((err) => {
                 console.error('fetchNetwork error', err);
                 container.innerHTML = '<div class="text-red-500 text-sm">Erreur chargement réseau.</div>';
+                totalEl.textContent = '';
             });
     }
 
