@@ -18,6 +18,9 @@
             <div class="text-xl mb-2">
                 {{ user.firstName|default('Nom') }} {{ user.lastName|default('Prénom') }}
             </div>
+            <div class="text-indigo-700 font-semibold text-lg mb-1">
+                {{ user.getResearcherTitle()|capitalize }}
+            </div>
             <div class="text-indigo-500 text-base">
                 {{ user.affiliationLocation}}
                 {% if user.specialization %}

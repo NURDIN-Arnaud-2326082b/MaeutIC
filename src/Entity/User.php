@@ -91,6 +91,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     // Persist the blocked users as JSON in the database (list of user ids this user has blocked)
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $blocked = [];
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $genre = null;
 
     public function __construct()
     {
@@ -499,5 +501,28 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         // If you store any temporary, sensitive data on the user, clear it here
         // $this->plainPassword = null;
+    }
+
+    public function getGenre(): ?string
+    {
+        return $this->genre;
+    }
+
+    public function setGenre(?string $genre): static
+    {
+        $this->genre = $genre;
+
+        return $this;
+    }
+
+    // Méthode utilitaire pour afficher "chercheur" ou "chercheuse"
+    public function getResearcherTitle(): string
+    {
+        return match($this->genre) {
+            'female' => 'chercheuse',
+            'male' => 'chercheur',
+            'other' => 'chercheur·euse',
+            default => 'chercheur·euse'
+        };
     }
 }
