@@ -15,11 +15,12 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\String\Slugger\SluggerInterface;
 use Symfony\Component\HttpFoundation\File\Exception\FileException;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class RegistrationController extends AbstractController
 {
     #[Route('/register', name: 'app_register')]
-    public function register(Request $request, UserPasswordHasherInterface $userPasswordHasher, Security $security, EntityManagerInterface $entityManager, TagRepository $tagRepository, SluggerInterface $slugger): Response
+    public function register(Request $request, UserPasswordHasherInterface $userPasswordHasher, Security $security, EntityManagerInterface $entityManager, TagRepository $tagRepository, SluggerInterface $slugger, HttpClientInterface $httpClient): Response
     {
         $user = new User();
         // Définir les questions dynamiques
@@ -62,6 +63,29 @@ class RegistrationController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            $recaptchaResponse = $request->request->get('g-recaptcha-response');
+
+            if (!$recaptchaResponse) {
+                $this->addFlash('error', 'Veuillez confirmer que vous n’êtes pas un robot.');
+                return $this->redirectToRoute('app_register');
+            }
+
+            // Appel l’API Google pour valider le token
+            $response = $httpClient->request('POST', 'https://www.google.com/recaptcha/api/siteverify', [
+                'body' => [
+                    'secret' => $_ENV['6Lfx-gIsAAAAADs2WiCDrn0kn74HyGrdVtLb637C'],
+                    'response' => $recaptchaResponse,
+                    'remoteip' => $request->getClientIp(),
+                ],
+            ]);
+
+            $data = $response->toArray();
+
+            if (!$data['success'] || ($data['score'] ?? 0) < 0.5) {
+                $this->addFlash('error', 'La vérification reCAPTCHA a échoué. Veuillez réessayer.');
+                return $this->redirectToRoute('app_register');
+            }
+
             /** @var string $plainPassword */
             $plainPassword = $form->get('plainPassword')->getData();
 
