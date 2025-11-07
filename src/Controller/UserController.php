@@ -192,4 +192,235 @@ class UserController extends AbstractController
             'blockedUsers' => $blockedUsers,
         ]);
     }
+
+    #[Route('/network/toggle/{userId}', name: 'network_toggle', methods: ['POST'])]
+    public function toggleNetwork(int $userId, \Doctrine\ORM\EntityManagerInterface $entityManager): \Symfony\Component\HttpFoundation\JsonResponse
+    {
+        $me = $this->getUser();
+        if (!$me) {
+            return $this->json(['error' => 'Unauthorized'], 401);
+        }
+        if ($me->getId() === (int) $userId) {
+            return $this->json(['error' => 'Cannot add yourself to network'], 400);
+        }
+
+        $userRepo = $entityManager->getRepository(\App\Entity\User::class);
+        $other = $userRepo->find($userId);
+        if (!$other) {
+            return $this->json(['error' => 'User not found'], 404);
+        }
+
+        // Respecter les blocages : refuser l'action si l'un bloque l'autre
+        if ($me->isBlocked($other->getId()) || $other->isBlocked($me->getId())) {
+            return $this->json(['error' => 'Blocked'], 403);
+        }
+
+        $notifRepo = $entityManager->getRepository(\App\Entity\Notification::class);
+
+        // 1) Si déjà en réseau -> suppression mutuelle
+        if ($me->isInNetwork($other->getId())) {
+            $me->removeFromNetwork($other->getId());
+            $other->removeFromNetwork($me->getId());
+            $entityManager->persist($me);
+            $entityManager->persist($other);
+            $entityManager->flush();
+
+            return $this->json(['success' => true, 'removed' => true]);
+        }
+
+        // 2) Si demande sortante pendante existante -> annuler la demande
+        $outgoing = $notifRepo->findOneBy([
+            'sender' => $me,
+            'recipient' => $other,
+            'type' => 'network_request',
+            'status' => 'pending'
+        ]);
+        if ($outgoing) {
+            $entityManager->remove($outgoing);
+            $entityManager->flush();
+            return $this->json(['success' => true, 'cancelled' => true]);
+        }
+
+        // 3) Si il y a une demande entrante (other -> me) -> accepter la demande
+        $incoming = $notifRepo->findOneBy([
+            'sender' => $other,
+            'recipient' => $me,
+            'type' => 'network_request',
+            'status' => 'pending'
+        ]);
+        if ($incoming) {
+            // créer la connexion mutuelle
+            $me->addToNetwork($other->getId());
+            $other->addToNetwork($me->getId());
+
+            // supprimer la notification entrante (accepte)
+            $entityManager->remove($incoming);
+
+            // créer conversation si nécessaire
+            $convRepo = $entityManager->getRepository(\App\Entity\Conversation::class);
+            $qb = $convRepo->createQueryBuilder('c');
+            $qb->where('(c.user1 = :a AND c.user2 = :b) OR (c.user1 = :b AND c.user2 = :a)')
+               ->setParameter('a', $me)
+               ->setParameter('b', $other)
+               ->setMaxResults(1);
+            $conv = $qb->getQuery()->getOneOrNullResult();
+
+            if (!$conv) {
+                $conv = new \App\Entity\Conversation();
+                if (method_exists($conv, 'setUser1') && method_exists($conv, 'setUser2')) {
+                    $conv->setUser1($me);
+                    $conv->setUser2($other);
+                } elseif (method_exists($conv, 'setUser')) {
+                    // fallback minimal — adapte si nécessaire
+                    $conv->setUser($me);
+                }
+                $entityManager->persist($conv);
+            }
+
+            $entityManager->persist($me);
+            $entityManager->persist($other);
+            $entityManager->flush();
+
+            return $this->json([
+                'success' => true,
+                'accepted' => true,
+                'conversationId' => $conv->getId() ?? null
+            ]);
+        }
+
+        // 4) Sinon : créer une notification de demande (pending) — l'autre devra accepter via notifications
+        $notification = new \App\Entity\Notification();
+        $notification->setType('network_request');
+        $notification->setSender($me);
+        $notification->setRecipient($other);
+        $notification->setStatus('pending');
+        $notification->setData(['message' => sprintf('%s souhaite rejoindre votre réseau', $me->getUsername() ?? 'Quelqu\'un')]);
+
+        $entityManager->persist($notification);
+        $entityManager->flush();
+
+        return $this->json([
+            'success' => true,
+            'pending' => true
+        ]);
+    }
+
+    // --- Notifications API: lister / accepter / refuser ---
+    #[Route('/notifications', name: 'notifications_list', methods: ['GET'])]
+    public function listNotifications(\Symfony\Component\HttpFoundation\Request $request, \Doctrine\ORM\EntityManagerInterface $entityManager): JsonResponse
+    {
+        $me = $this->getUser();
+        if (!$me) {
+            return $this->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $notifRepo = $entityManager->getRepository(Notification::class);
+        $notifications = $notifRepo->findBy(['recipient' => $me], ['createdAt' => 'DESC']);
+
+        $out = [];
+        $unread = 0;
+        foreach ($notifications as $n) {
+            $sender = $n->getSender();
+            $data = $n->getData();
+            $out[] = [
+                'id' => $n->getId(),
+                'type' => $n->getType(),
+                'data' => $data,
+                'status' => $n->getStatus(),
+                'isRead' => $n->isRead(),
+                'sender' => $sender ? ['id' => $sender->getId(), 'username' => $sender->getUsername()] : null,
+                'createdAt' => $n->getCreatedAt()->format(\DateTime::ATOM),
+            ];
+            if (!$n->isRead()) $unread++;
+        }
+
+        return $this->json(['notifications' => $out, 'count' => count($out), 'unread' => $unread]);
+    }
+
+    #[Route('/notifications/accept/{id}', name: 'notifications_accept', methods: ['POST'])]
+    public function acceptNotification(int $id, \Doctrine\ORM\EntityManagerInterface $entityManager): JsonResponse
+    {
+        $me = $this->getUser();
+        if (!$me) {
+            return $this->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $notifRepo = $entityManager->getRepository(Notification::class);
+        $notification = $notifRepo->find($id);
+        if (!$notification) {
+            return $this->json(['error' => 'Notification not found'], 404);
+        }
+        if ($notification->getRecipient()->getId() !== $me->getId()) {
+            return $this->json(['error' => 'Forbidden'], 403);
+        }
+
+        if ($notification->getType() !== 'network_request' || $notification->getStatus() !== 'pending') {
+            return $this->json(['error' => 'Invalid notification'], 400);
+        }
+
+        $sender = $notification->getSender();
+        if (!$sender) {
+            // sender missing, just remove notification
+            $entityManager->remove($notification);
+            $entityManager->flush();
+            return $this->json(['success' => true]);
+        }
+
+        // créer connexion mutuelle
+        if (!$me->isInNetwork($sender->getId())) $me->addToNetwork($sender->getId());
+        if (!$sender->isInNetwork($me->getId())) $sender->addToNetwork($me->getId());
+
+        // supprimer la notification (ou marquer acceptée)
+        $entityManager->remove($notification);
+
+        // créer conversation si nécessaire
+        $convRepo = $entityManager->getRepository(Conversation::class);
+        $qb = $convRepo->createQueryBuilder('c');
+        $qb->where('(c.user1 = :a AND c.user2 = :b) OR (c.user1 = :b AND c.user2 = :a)')
+           ->setParameter('a', $me)
+           ->setParameter('b', $sender)
+           ->setMaxResults(1);
+        $conv = $qb->getQuery()->getOneOrNullResult();
+
+        if (!$conv) {
+            $conv = new Conversation();
+            if (method_exists($conv, 'setUser1') && method_exists($conv, 'setUser2')) {
+                $conv->setUser1($me);
+                $conv->setUser2($sender);
+            } elseif (method_exists($conv, 'setUser')) {
+                $conv->setUser($me); // fallback pour entités différentes
+            }
+            $entityManager->persist($conv);
+        }
+
+        $entityManager->persist($me);
+        $entityManager->persist($sender);
+        $entityManager->flush();
+
+        return $this->json(['success' => true, 'accepted' => true, 'conversationId' => $conv->getId() ?? null]);
+    }
+
+    #[Route('/notifications/decline/{id}', name: 'notifications_decline', methods: ['POST'])]
+    public function declineNotification(int $id, \Doctrine\ORM\EntityManagerInterface $entityManager): JsonResponse
+    {
+        $me = $this->getUser();
+        if (!$me) {
+            return $this->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $notifRepo = $entityManager->getRepository(Notification::class);
+        $notification = $notifRepo->find($id);
+        if (!$notification) {
+            return $this->json(['error' => 'Notification not found'], 404);
+        }
+        if ($notification->getRecipient()->getId() !== $me->getId()) {
+            return $this->json(['error' => 'Forbidden'], 403);
+        }
+
+        // Pour une déclinaison simple, on supprime la notification
+        $entityManager->remove($notification);
+        $entityManager->flush();
+
+        return $this->json(['success' => true, 'declined' => true]);
+    }
 }

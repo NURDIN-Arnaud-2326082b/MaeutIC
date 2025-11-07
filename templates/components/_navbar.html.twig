@@ -99,8 +99,12 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchNotifications() {
         if (!notifItems) return;
         try {
-            // utilise l'URL fournie par le contrôleur (générée ou fallback)
-            const res = await fetch('{{ notificationsUrl }}', { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+            // fallback si la variable notificationsUrl n'est pas fournie par le controller
+            const notificationsUrl = '{{ notificationsUrl|default('/notifications') }}';
+            const res = await fetch(notificationsUrl, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin' // permet d'envoyer le cookie de session
+            });
             if (!res.ok) throw new Error('network');
             const json = await res.json();
             const arr = json.notifications || [];
@@ -127,11 +131,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     const id = e.currentTarget.dataset.id;
                     e.currentTarget.disabled = true;
                     try {
-                        const r = await fetch('/notifications/accept/' + encodeURIComponent(id), { method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}});
+                        const r = await fetch('/notifications/accept/' + encodeURIComponent(id), {
+                            method: 'POST',
+                            headers: {'X-Requested-With': 'XMLHttpRequest'},
+                            credentials: 'same-origin'
+                        });
                         const j = await r.json();
                         if (j.success) {
-                            // Rester sur la page actuelle : on rafraîchit simplement la liste des notifications
-                            // et on met éventuellement à jour l'UI côté client (fetchNotifications le gère).
+                            // rafraîchir la liste
                         }
                     } catch (err) {
                         console.error(err);
@@ -146,7 +153,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     const id = e.currentTarget.dataset.id;
                     e.currentTarget.disabled = true;
                     try {
-                        await fetch('/notifications/decline/' + encodeURIComponent(id), { method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}});
+                        await fetch('/notifications/decline/' + encodeURIComponent(id), {
+                            method: 'POST',
+                            headers: {'X-Requested-With': 'XMLHttpRequest'},
+                            credentials: 'same-origin'
+                        });
                     } catch (err) {
                         console.error(err);
                     } finally {
