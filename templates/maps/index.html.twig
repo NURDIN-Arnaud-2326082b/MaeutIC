@@ -11,67 +11,198 @@
 } %}
 
 <div class="w-screen h-[80vh] relative overflow-hidden flex items-center justify-center" id="bubble-container">
+    <!-- SVG pour les liens -->
+    <svg id="connection-lines" class="absolute top-0 left-0 w-full h-full pointer-events-none z-0"></svg>
+    
     {% for user in users %}
-        <div class="bubble absolute shadow-lg bg-white rounded-full flex items-center justify-center cursor-grab transition duration-300 opacity-100 scale-100 group focus:outline-none focus:ring-4 focus:ring-blue-400" data-id="{{ user.id }}" style="width:80px;height:80px;" tabindex="0" onclick="window.location.href='{{ path('app_profile_show', {'username': user.username}) }}'" aria-label="Profil de {{ user.firstName }} {{ user.lastName }}">
-            <img src="{% if user.profileImage %}{{ asset('profile_images/' ~ user.profileImage) }}{% else %}{{ asset('images/default-profile.png') }}{% endif %}" alt="profile" class="w-full h-full object-cover rounded-full pointer-events-none" />
+        <div class="bubble absolute shadow-lg bg-white rounded-full flex items-center justify-center cursor-grab transition duration-300 opacity-100 scale-100 group focus:outline-none focus:ring-4 focus:ring-blue-400 
+            {% if current_user_id and user.id == current_user_id %}current-user-bubble
+            {% elseif current_user_id and user.id in friend_ids %}friend-bubble
+            {% endif %}" 
+            data-id="{{ user.id }}" 
+            style="width:80px;height:80px;" 
+            tabindex="0" 
+            onclick="window.location.href='{{ path('app_profile_show', {'username': user.username}) }}'" 
+            aria-label="Profil de {{ user.firstName }} {{ user.lastName }}">
+            <img src="{% if user.profileImage %}{{ asset('profile_images/' ~ user.profileImage) }}{% else %}{{ asset('images/default-profile.png') }}{% endif %}" 
+                alt="profile" 
+                class="w-full h-full object-cover rounded-full pointer-events-none" />
+            {% if current_user_id and user.id in friend_ids and user.id != current_user_id %}
+                <div class="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+            {% endif %}
+            
+            <div class="bubble-label hidden group-hover:flex group-focus:flex absolute left-1/2 -translate-x-1/2 -bottom-10 bg-black/90 text-white px-3 py-1 rounded-xl text-sm whitespace-nowrap z-50 pointer-events-none shadow-lg border border-white">
+                {{ user.firstName }} {{ user.lastName }}
+                {% if current_user_id and user.id in friend_ids and user.id != current_user_id %}
+                    <span class="ml-1 text-green-400">✓</span>
+                {% endif %}
+            </div>
         </div>
     {% endfor %}
 </div>
 
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script>
+// Variables globales pour stocker les données des liens
+let connectionData = {
+    currentUserId: {{ current_user_id ?? 'null' }},
+    friendIds: {{ friend_ids|json_encode|raw }},
+    links: []
+};
+
 function renderBubbles() {
-    const width = document.getElementById('bubble-container').offsetWidth;
-    const height = document.getElementById('bubble-container').offsetHeight;
-    const nodes = Array.from(document.querySelectorAll('.bubble')).map((el, i) => ({
-        id: el.dataset.id,
-        el: el,
-        x: width / 2 + 100 * Math.cos(2 * Math.PI * i / document.querySelectorAll('.bubble').length),
-        y: height / 2 + 100 * Math.sin(2 * Math.PI * i / document.querySelectorAll('.bubble').length),
-    }));
+    const container = document.getElementById('bubble-container');
+    const width = container.offsetWidth;
+    const height = container.offsetHeight;
+    const bubbles = document.querySelectorAll('.bubble');
+    
+    // Calculer un rayon basé sur le nombre de bulles et la taille du conteneur
+    const baseRadius = Math.min(width, height) * 0.3;
+    const spacing = (2 * Math.PI) / bubbles.length;
+    
+    const nodes = Array.from(bubbles).map((el, i) => {
+        const angle = i * spacing;
+        const radius = baseRadius + (Math.random() * baseRadius * 0.3);
+        return {
+            id: parseInt(el.dataset.id),
+            el: el,
+            x: width / 2 + radius * Math.cos(angle),
+            y: height / 2 + radius * Math.sin(angle),
+            isFriend: connectionData.friendIds.includes(parseInt(el.dataset.id)),
+            isCurrentUser: parseInt(el.dataset.id) === connectionData.currentUserId
+        };
+    });
+
+    // Réinitialiser les liens
+    connectionData.links = [];
+
+    // Mettre à jour les données des liens
+    updateConnectionData(nodes);
 
     const simulation = d3.forceSimulation(nodes)
         .alpha(1)
-        .alphaDecay(0.01)
-        .velocityDecay(0.15)
-        .force("x", d3.forceX(width / 2).strength(0.1))
-        .force("y", d3.forceY(height / 2).strength(0.1))
-        .force("charge", d3.forceManyBody().strength(5))
-        .force("collision", d3.forceCollide().radius(45))
+        .alphaDecay(0.02)
+        .velocityDecay(0.25) // Plus de friction pour stabiliser plus vite
+        .force("x", d3.forceX(width / 2).strength(0.03)) // Très faible attraction au centre
+        .force("y", d3.forceY(height / 2).strength(0.03))
+        .force("charge", d3.forceManyBody().strength(-80)) // Répulsion forte
+        .force("collision", d3.forceCollide().radius(70).strength(0.8)) // Collision plus forte
+        .force("center", d3.forceCenter(width / 2, height / 2))
         .on("tick", () => {
+            // Garder les bulles dans les limites
             nodes.forEach(node => {
+                node.x = Math.max(50, Math.min(width - 50, node.x));
+                node.y = Math.max(50, Math.min(height - 50, node.y));
+                
                 node.el.style.left = (node.x - 40) + "px";
                 node.el.style.top = (node.y - 40) + "px";
             });
+            updateConnections(nodes);
         });
 
     function drag(simulation) {
         return d3.drag()
             .on("start", (event, d) => {
                 if (!event.active) simulation.alphaTarget(0.3).restart();
-                d.vx = 0; d.vy = 0;
+                d.fx = d.x; // Fixer la position pendant le drag
+                d.fy = d.y;
                 d.el.style.zIndex = 1000;
             })
             .on("drag", (event, d) => {
-                d.vx = event.dx;
-                d.vy = event.dy;
-                d.x = event.x;
-                d.y = event.y;
+                d.fx = event.x;
+                d.fy = event.y;
             })
             .on("end", (event, d) => {
                 if (!event.active) simulation.alphaTarget(0);
+                d.fx = null; // Libérer la position
+                d.fy = null;
                 d.el.style.zIndex = '';
             });
     }
 
     d3.selectAll('.bubble').data(nodes).call(drag(simulation));
+    
+    // Initialiser les connexions
+    initializeConnections();
+    
+    // Forcer un redémarrage après un court délai pour mieux répartir
+    setTimeout(() => {
+        simulation.alpha(0.5).restart();
+    }, 100);
 }
+
+function initializeConnections() {
+    const svg = d3.select('#connection-lines');
+    svg.selectAll('*').remove(); // Nettoyer les anciens liens
+}
+
+function updateConnectionData(nodes) {
+    if (!connectionData.currentUserId) return;
+    
+    const currentUserNode = nodes.find(node => node.isCurrentUser);
+    if (!currentUserNode) return;
+    
+    connectionData.links = nodes
+        .filter(node => node.isFriend && !node.isCurrentUser)
+        .map(friendNode => ({
+            source: currentUserNode,
+            target: friendNode
+        }));
+}
+
+function updateConnections(nodes) {
+    if (!connectionData.currentUserId) return;
+    
+    const svg = d3.select('#connection-lines');
+    const lines = svg.selectAll('.connection-line')
+        .data(connectionData.links);
+    
+    // Entrée
+    lines.enter()
+        .append('line')
+        .attr('class', 'connection-line')
+        .attr('stroke', '#3B82F6')
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '5,5')
+        .attr('opacity', 0.6);
+    
+    // Mise à jour
+    lines.attr('x1', d => d.source.x)
+        .attr('y1', d => d.source.y)
+        .attr('x2', d => d.target.x)
+        .attr('y2', d => d.target.y);
+    
+    // Sortie
+    lines.exit().remove();
+}
+
+// Fonction pour recalculer les connexions
+function refreshConnections() {
+    const bubbles = document.querySelectorAll('.bubble');
+    const nodes = Array.from(bubbles).map(el => ({
+        id: parseInt(el.dataset.id),
+        el: el,
+        x: parseFloat(el.style.left) + 40,
+        y: parseFloat(el.style.top) + 40,
+        isFriend: connectionData.friendIds.includes(parseInt(el.dataset.id)),
+        isCurrentUser: parseInt(el.dataset.id) === connectionData.currentUserId
+    }));
+    
+    updateConnectionData(nodes);
+    updateConnections(nodes);
+}
+
 renderBubbles();
 
 // Permet de re-render les bulles après filtrage AJAX
-window.renderUserBubbles = renderBubbles;
+window.renderUserBubbles = function() {
+    renderBubbles();
+    setBubbleZIndexHandlers();
+};
 
-// --- Ajout : bulle toujours devant au hover/focus ---
+// Rafraîchir les connexions après filtrage
+window.refreshConnections = refreshConnections;
+
 document.addEventListener('DOMContentLoaded', () => {
     function setBubbleZIndexHandlers() {
         document.querySelectorAll('.bubble').forEach(bubble => {
@@ -90,11 +221,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     setBubbleZIndexHandlers();
-    // Si AJAX recharge les bulles, réappliquer les handlers
-    window.renderUserBubbles = function() {
-        renderBubbles();
-        setBubbleZIndexHandlers();
-    }
+});
+
+// Redimensionnement de la fenêtre
+window.addEventListener('resize', () => {
+    refreshConnections();
 });
 
 // Fonction utilitaire pour créer conversation / ajouter au réseau et ouvrir la messagerie
@@ -133,7 +264,13 @@ function addToNetwork(userId) {
         } else if (j.error) {
             alert('Erreur : ' + j.error);
         } else {
-            alert('Action terminée.');
+            // Mettre à jour les connexions après ajout/suppression du réseau
+            if (connectionData.friendIds.includes(parseInt(userId))) {
+                connectionData.friendIds = connectionData.friendIds.filter(id => id !== parseInt(userId));
+            } else {
+                connectionData.friendIds.push(parseInt(userId));
+            }
+            refreshConnections();
         }
     })
     .catch(err => {
@@ -144,4 +281,20 @@ function addToNetwork(userId) {
     });
 }
 </script>
+
+<style>
+.connection-line {
+    transition: all 0.3s ease;
+}
+
+.current-user-bubble {
+    border: 3px solid #10B981;
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+}
+
+.friend-bubble {
+    border: 3px solid #3B82F6;
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+}
+</style>
 {% endblock %}
