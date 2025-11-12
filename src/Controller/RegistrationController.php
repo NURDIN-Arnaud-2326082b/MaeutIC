@@ -73,7 +73,7 @@ class RegistrationController extends AbstractController
             // Appel l’API Google pour valider le token
             $response = $httpClient->request('POST', 'https://www.google.com/recaptcha/api/siteverify', [
                 'body' => [
-                    'secret' => $_ENV['6Lfx-gIsAAAAADs2WiCDrn0kn74HyGrdVtLb637C'],
+                    'secret' => $_ENV['RECAPTCHA_SECRET_KEY'],
                     'response' => $recaptchaResponse,
                     'remoteip' => $request->getClientIp(),
                 ],

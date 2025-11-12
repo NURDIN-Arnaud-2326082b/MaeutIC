@@ -155,8 +155,11 @@
         });
     </script>
 
+    <script src="https://www.google.com/recaptcha/api.js?render={{ '6Lfx-gIsAAAAAPDa-iFysykBq3ch90JB6_RxjpV1' }}"></script>
 
-<script>
+
+
+    <script>
 // Configuration des contraintes
 const MIN_QUESTIONS_REQUIRED = {{ min_questions_required ?? 3 }};
 const TAG_MIN_REQUIREMENTS = {{ taggable_min_choices|json_encode|raw }};

@@ -20,9 +20,15 @@ security:
                 login_path: app_login
                 check_path: app_login
                 enable_csrf: true
+                default_target_path: app_profile
             logout:
                 path: app_logout
+                target: app_login
                 # where to redirect after logout
+            remember_me:
+                secret: '0e3a6fd51e8610aac977290c5340811f'
+                lifetime: 604800  # 7 jours
+                path: /
 
             # activate different ways to authenticate
             # https://symfony.com/doc/current/security.html#the-firewall
@@ -33,6 +39,21 @@ security:
     # Easy way to control access for large sections of your site
     # Note: Only the *first* access control that matches will be used
     access_control:
+        - { path: ^/login$, roles: PUBLIC_ACCESS }
+        - { path: ^/register, roles: PUBLIC_ACCESS }
+        - { path: ^/reset-password, roles: PUBLIC_ACCESS }
+        - { path: ^/$, roles: PUBLIC_ACCESS }
+
+        # Les pages utilisateur
+        - { path: ^/profile, roles: ROLE_USER }
+        - { path: ^/chat, roles: ROLE_USER }
+        - { path: ^/forum, roles: ROLE_USER }
+
+        # Espace d’administration
+        - { path: ^/admin, roles: ROLE_ADMIN }
+
+        # Par défaut, tout le reste nécessite une connexion
+        - { path: ^/, roles: ROLE_USER }
         # - { path: ^/admin, roles: ROLE_ADMIN }
         # - { path: ^/profile, roles: ROLE_USER }
 
