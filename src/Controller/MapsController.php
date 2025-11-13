@@ -127,6 +127,93 @@ final class MapsController extends AbstractController
         ]);
     }
 
+    #[Route('/maps/filter-by-type', name: 'app_maps_filter_by_type')]
+    public function filterByType(
+        Request $request,
+        UserRepository $userRepository, 
+        NetworkService $networkService,
+        OptimizedRecommendationService $recommendationService
+    ): Response {
+        $currentUser = $this->getUser();
+        $showFriends = $request->query->get('friends', 'true') === 'true';
+        $showRecommendations = $request->query->get('recommendations', 'true') === 'true';
+        
+        // Récupérer les IDs des amis si l'utilisateur est connecté
+        $friendIds = [];
+        $friends = [];
+        $recommendedUsers = [];
+        $userScores = [];
+
+        if ($currentUser) {
+            // Récupérer les amis
+            $friends = $networkService->getUserNetwork($currentUser);
+            $friendIds = array_map(fn($friend) => $friend->getId(), $friends);
+            
+            // Récupérer les recommandations si demandé
+            if ($showRecommendations) {
+                $allUsers = $userRepository->findAll();
+                $nonFriendUsers = array_filter($allUsers, function($user) use ($currentUser, $friendIds) {
+                    return $user->getId() !== $currentUser->getId() && !in_array($user->getId(), $friendIds);
+                });
+
+                $recommendationService->clearUserCache($currentUser);
+                $recommendationScores = $recommendationService->calculateRecommendationScores($currentUser, 1000);
+                
+                foreach ($recommendationScores as $userId => $scoreData) {
+                    $userScores[$userId] = $scoreData['score'];
+                }
+                
+                $topRecommendedUsers = array_slice($recommendationScores, 0, 40, true);
+                $recommendedUsers = array_map(fn($scoreData) => $scoreData['user'], $topRecommendedUsers);
+                
+                if (count($recommendedUsers) < 40) {
+                    $usedIds = array_merge($friendIds, [$currentUser->getId()], array_map(fn($u) => $u->getId(), $recommendedUsers));
+                    $availableUsers = array_filter($nonFriendUsers, function($user) use ($usedIds) {
+                        return !in_array($user->getId(), $usedIds);
+                    });
+                    
+                    $needed = 40 - count($recommendedUsers);
+                    $randomUsers = array_slice($availableUsers, 0, $needed);
+                    $recommendedUsers = array_merge($recommendedUsers, $randomUsers);
+                    
+                    foreach ($randomUsers as $randomUser) {
+                        if (!isset($userScores[$randomUser->getId()])) {
+                            $userScores[$randomUser->getId()] = 0.05;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Construire la liste des utilisateurs à afficher selon les filtres
+        $usersToDisplay = [];
+        
+        if ($currentUser) {
+            // Toujours afficher l'utilisateur courant
+            $usersToDisplay[] = $currentUser;
+            
+            // Afficher les amis si demandé
+            if ($showFriends) {
+                $usersToDisplay = array_merge($usersToDisplay, $friends);
+            }
+            
+            // Afficher les recommandations si demandé
+            if ($showRecommendations) {
+                $usersToDisplay = array_merge($usersToDisplay, $recommendedUsers);
+            }
+        } else {
+            // Si pas connecté, afficher tous les utilisateurs
+            $usersToDisplay = $userRepository->findAll();
+        }
+
+        return $this->render('maps/_bubbles.html.twig', [
+            'users' => $usersToDisplay,
+            'friend_ids' => $friendIds,
+            'current_user_id' => $currentUser ? $currentUser->getId() : null,
+            'user_scores' => $userScores,
+        ]);
+    }
+
     /**
      * Affiche les détails des scores dans la console pour le debug
      */

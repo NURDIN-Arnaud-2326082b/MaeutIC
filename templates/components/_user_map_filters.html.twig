@@ -1,0 +1,157 @@
+<div class="bg-white/90 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-100 mb-6">
+    <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+        <!-- Partie gauche : Barres de recherche -->
+        <div class="flex-1 w-full lg:w-auto">
+            <div class="flex flex-row gap-6">
+                <!-- Recherche par nom -->
+                <div class="flex-1">
+                    <input 
+                        type="text" 
+                        id="user-search" 
+                        placeholder="Rechercher par pseudo, nom, prénom..." 
+                        class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50/50 transition-all duration-200"
+                        disabled
+                        title="Fonctionnalité à venir"
+                    >
+                </div>
+                
+                <!-- Recherche par tags -->
+                <div class="flex-1">
+                    <input 
+                        type="text" 
+                        id="tag-search" 
+                        placeholder="Rechercher par tags..." 
+                        class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50/50 transition-all duration-200"
+                        disabled
+                        title="Fonctionnalité à venir"
+                    >
+                </div>
+            </div>
+        </div>
+
+        <!-- Partie droite : Filtres par type -->
+        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div class="flex items-center gap-20 bg-gray-50/50 rounded-xl p-4 border border-gray-200">
+                <label class="flex flex-col gap-1 cursor-pointer group px-4">
+                    <div class="flex items-center gap-3">
+                        <input 
+                            type="checkbox" 
+                            id="filter-friends" 
+                            class="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 transition-all duration-200"
+                            checked
+                            onchange="updateUserMapFilters()"
+                        >
+                        <span class="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors">Réseau</span>
+                    </div>
+                </label>
+                
+                <div class="h-8 w-px bg-gray-300/50"></div>
+                
+                <label class="flex flex-col gap-1 cursor-pointer group px-4">
+                    <div class="flex items-center gap-3">
+                        <input 
+                            type="checkbox" 
+                            id="filter-recommendations" 
+                            class="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 transition-all duration-200"
+                            checked
+                            onchange="updateUserMapFilters()"
+                        >
+                        <span class="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors">Recommandations</span>
+                    </div>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- État de chargement -->
+    <div id="filter-loading" class="hidden mt-4">
+        <div class="flex items-center justify-center gap-2 text-blue-600">
+            <div class="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+            <span class="text-sm font-medium">Mise à jour de la carte...</span>
+        </div>
+    </div>
+</div>
+
+<script>
+function updateUserMapFilters() {
+    const showFriends = document.getElementById('filter-friends').checked;
+    const showRecommendations = document.getElementById('filter-recommendations').checked;
+    
+    // Mettre à jour l'URL sans recharger la page
+    const url = new URL(window.location);
+    url.searchParams.set('friends', showFriends);
+    url.searchParams.set('recommendations', showRecommendations);
+    window.history.replaceState({}, '', url);
+    
+    // Afficher l'indicateur de chargement
+    const loadingIndicator = document.getElementById('filter-loading');
+    const container = document.getElementById('bubble-container');
+    const originalContent = container.innerHTML;
+    
+    loadingIndicator.classList.remove('hidden');
+    container.style.opacity = '0.7';
+    container.style.transform = 'scale(0.98)';
+    container.style.transition = 'all 0.3s ease';
+    
+    // Faire la requête AJAX
+    fetch(`/maps/filter-by-type?friends=${showFriends}&recommendations=${showRecommendations}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Erreur réseau: ' + response.status);
+        }
+        return response.text();
+    })
+    .then(html => {
+        // Remplacer directement le contenu du conteneur
+        container.innerHTML = html;
+        
+        // Cacher l'indicateur de chargement et restaurer l'apparence
+        setTimeout(() => {
+            loadingIndicator.classList.add('hidden');
+            container.style.opacity = '1';
+            container.style.transform = 'scale(1)';
+            
+            // Réinitialiser complètement les bulles
+            if (window.renderUserBubbles) {
+                window.renderUserBubbles();
+            }
+        }, 300);
+    })
+    .catch(error => {
+        console.error('Erreur lors du filtrage:', error);
+        container.innerHTML = originalContent;
+        loadingIndicator.classList.add('hidden');
+        container.style.opacity = '1';
+        container.style.transform = 'scale(1)';
+        
+        // Afficher une notification d'erreur
+        const notification = document.createElement('div');
+        notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+        notification.textContent = 'Erreur lors du filtrage des utilisateurs';
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.remove();
+        }, 3000);
+    });
+}
+
+// Initialiser les filtres au chargement
+document.addEventListener('DOMContentLoaded', function() {
+    // Vérifier si on a des paramètres dans l'URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const friendsParam = urlParams.get('friends');
+    const recommendationsParam = urlParams.get('recommendations');
+    
+    if (friendsParam !== null) {
+        document.getElementById('filter-friends').checked = friendsParam === 'true';
+    }
+    if (recommendationsParam !== null) {
+        document.getElementById('filter-recommendations').checked = recommendationsParam === 'true';
+    }
+});
+</script>

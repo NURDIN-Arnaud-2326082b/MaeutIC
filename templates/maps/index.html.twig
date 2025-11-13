@@ -5,59 +5,16 @@
 {% block body %}
 {{ render(controller('App\\Controller\\NavbarController::navbar')) }}
 
-<!-- Tag Filter Bar -->
-{% include 'components/_tag_filter_bar.html.twig' with {
-    tag_filter_context: 'user_map'
-} %}
+<!-- User Map Filters -->
+{% include 'components/_user_map_filters.html.twig' %}
 
-<div class="w-screen h-[80vh] relative overflow-hidden flex items-center justify-center" id="bubble-container">
-    <!-- SVG pour les liens -->
-    <svg id="connection-lines" class="absolute top-0 left-0 w-full h-full pointer-events-none z-0"></svg>
-    
-    {% for user in users %}
-        {# Récupérer le score depuis le tableau simplifié #}
-        {% set user_score = user_scores[user.id] is defined ? user_scores[user.id] : null %}
-        
-        {# Calculer le pourcentage d'affichage #}
-        {% set display_percentage = user_score ? (user_score * 100)|round(0) : 0 %}
-        
-        {# Déterminer la couleur en fonction du score #}
-        {% set score_color = user_score >= 0.7 ? 'text-green-400' : user_score >= 0.4 ? 'text-yellow-400' : 'text-orange-400' %}
-        
-        <div class="bubble absolute shadow-lg bg-white rounded-full flex items-center justify-center cursor-grab transition duration-300 opacity-100 scale-100 group focus:outline-none focus:ring-4 focus:ring-blue-400 
-            {% if current_user_id and user.id == current_user_id %}current-user-bubble
-            {% elseif current_user_id and user.id in friend_ids %}friend-bubble
-            {% endif %}" 
-            data-id="{{ user.id }}" 
-            style="width:80px;height:80px;" 
-            tabindex="0" 
-            onclick="window.location.href='{{ path('app_profile_show', {'username': user.username}) }}'" 
-            aria-label="Profil de {{ user.firstName }} {{ user.lastName }} - Recommandation: {{ display_percentage }}%">
-            
-            <img src="{% if user.profileImage %}{{ asset('profile_images/' ~ user.profileImage) }}{% else %}{{ asset('images/default-profile.png') }}{% endif %}" 
-                alt="profile" 
-                class="w-full h-full object-cover rounded-full pointer-events-none" />
-            
-            {% if current_user_id and user.id in friend_ids and user.id != current_user_id %}
-                <div class="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
-            {% endif %}
-            
-            <div class="bubble-label hidden group-hover:flex group-focus:flex absolute left-1/2 -translate-x-1/2 -bottom-10 bg-black/90 text-white px-3 py-1 rounded-xl text-sm whitespace-nowrap z-50 pointer-events-none shadow-lg border border-white">
-                {{ user.firstName }} {{ user.lastName }}
-                
-                {# Afficher le pourcentage de recommandation #}
-                {% if user_score and not (current_user_id and user.id in friend_ids) and user.id != current_user_id %}
-                    <span class="ml-1 {{ score_color }} font-semibold">{{ display_percentage }}%</span>
-                {% endif %}
-                
-                {# Icône ami #}
-                {% if current_user_id and user.id in friend_ids and user.id != current_user_id %}
-                    <span class="ml-1 text-green-400">✓</span>
-                {% endif %}
-            </div>
-        </div>
-    {% endfor %}
-</div>
+<!-- Tag Filter Bar -->
+{# {% include 'components/_tag_filter_bar.html.twig' with {
+    tag_filter_context: 'user_map'
+} %} #}
+
+<!-- Le contenu des bulles est maintenant inclus via le template partiel complet -->
+{% include 'maps/_bubbles.html.twig' %}
 
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script>
@@ -68,11 +25,36 @@ let connectionData = {
     links: []
 };
 
+let simulation = null;
+
+// Déplacer setBubbleZIndexHandlers dans le scope global
+function setBubbleZIndexHandlers() {
+    document.querySelectorAll('.bubble').forEach(bubble => {
+        bubble.addEventListener('mouseenter', () => {
+            bubble.style.zIndex = 9999;
+        });
+        bubble.addEventListener('mouseleave', () => {
+            bubble.style.zIndex = '';
+        });
+        bubble.addEventListener('focus', () => {
+            bubble.style.zIndex = 9999;
+        });
+        bubble.addEventListener('blur', () => {
+            bubble.style.zIndex = '';
+        });
+    });
+}
+
 function renderBubbles() {
     const container = document.getElementById('bubble-container');
     const width = container.offsetWidth;
     const height = container.offsetHeight;
     const bubbles = document.querySelectorAll('.bubble');
+    
+    // Arrêter la simulation précédente si elle existe
+    if (simulation) {
+        simulation.stop();
+    }
     
     // Calculer un rayon basé sur le nombre de bulles et la taille du conteneur
     const baseRadius = Math.min(width, height) * 0.3;
@@ -81,11 +63,16 @@ function renderBubbles() {
     const nodes = Array.from(bubbles).map((el, i) => {
         const angle = i * spacing;
         const radius = baseRadius + (Math.random() * baseRadius * 0.3);
+        
+        // Position initiale aléatoire si pas déjà positionnée
+        const currentLeft = parseFloat(el.style.left);
+        const currentTop = parseFloat(el.style.top);
+        
         return {
             id: parseInt(el.dataset.id),
             el: el,
-            x: width / 2 + radius * Math.cos(angle),
-            y: height / 2 + radius * Math.sin(angle),
+            x: !isNaN(currentLeft) ? currentLeft + 40 : width / 2 + radius * Math.cos(angle),
+            y: !isNaN(currentTop) ? currentTop + 40 : height / 2 + radius * Math.sin(angle),
             isFriend: connectionData.friendIds.includes(parseInt(el.dataset.id)),
             isCurrentUser: parseInt(el.dataset.id) === connectionData.currentUserId
         };
@@ -97,23 +84,24 @@ function renderBubbles() {
     // Mettre à jour les données des liens
     updateConnectionData(nodes);
 
-    const simulation = d3.forceSimulation(nodes)
+    simulation = d3.forceSimulation(nodes)
         .alpha(1)
         .alphaDecay(0.02)
-        .velocityDecay(0.25) // Plus de friction pour stabiliser plus vite
-        .force("x", d3.forceX(width / 2).strength(0.03)) // Très faible attraction au centre
+        .velocityDecay(0.25)
+        .force("x", d3.forceX(width / 2).strength(0.03))
         .force("y", d3.forceY(height / 2).strength(0.03))
-        .force("charge", d3.forceManyBody().strength(-80)) // Répulsion forte
-        .force("collision", d3.forceCollide().radius(70).strength(0.8)) // Collision plus forte
+        .force("charge", d3.forceManyBody().strength(-80))
+        .force("collision", d3.forceCollide().radius(70).strength(0.8))
         .force("center", d3.forceCenter(width / 2, height / 2))
         .on("tick", () => {
-            // Garder les bulles dans les limites
             nodes.forEach(node => {
                 node.x = Math.max(50, Math.min(width - 50, node.x));
                 node.y = Math.max(50, Math.min(height - 50, node.y));
                 
-                node.el.style.left = (node.x - 40) + "px";
-                node.el.style.top = (node.y - 40) + "px";
+                if (node.el) {
+                    node.el.style.left = (node.x - 40) + "px";
+                    node.el.style.top = (node.y - 40) + "px";
+                }
             });
             updateConnections(nodes);
         });
@@ -122,9 +110,9 @@ function renderBubbles() {
         return d3.drag()
             .on("start", (event, d) => {
                 if (!event.active) simulation.alphaTarget(0.3).restart();
-                d.fx = d.x; // Fixer la position pendant le drag
+                d.fx = d.x;
                 d.fy = d.y;
-                d.el.style.zIndex = 1000;
+                if (d.el) d.el.style.zIndex = 1000;
             })
             .on("drag", (event, d) => {
                 d.fx = event.x;
@@ -132,9 +120,9 @@ function renderBubbles() {
             })
             .on("end", (event, d) => {
                 if (!event.active) simulation.alphaTarget(0);
-                d.fx = null; // Libérer la position
+                d.fx = null;
                 d.fy = null;
-                d.el.style.zIndex = '';
+                if (d.el) d.el.style.zIndex = '';
             });
     }
 
@@ -143,7 +131,9 @@ function renderBubbles() {
     // Initialiser les connexions
     initializeConnections();
     
-    // Forcer un redémarrage après un court délai pour mieux répartir
+    // Appliquer les gestionnaires d'événements pour les z-index
+    setBubbleZIndexHandlers();
+    
     setTimeout(() => {
         simulation.alpha(0.5).restart();
     }, 100);
@@ -151,7 +141,7 @@ function renderBubbles() {
 
 function initializeConnections() {
     const svg = d3.select('#connection-lines');
-    svg.selectAll('*').remove(); // Nettoyer les anciens liens
+    svg.selectAll('*').remove();
 }
 
 function updateConnectionData(nodes) {
@@ -161,7 +151,7 @@ function updateConnectionData(nodes) {
     if (!currentUserNode) return;
     
     connectionData.links = nodes
-        .filter(node => node.isFriend && !node.isCurrentUser)
+        .filter(node => node.isFriend && !node.isCurrentUser && node.el)
         .map(friendNode => ({
             source: currentUserNode,
             target: friendNode
@@ -185,63 +175,63 @@ function updateConnections(nodes) {
         .attr('opacity', 0.6);
     
     // Mise à jour
-    lines.attr('x1', d => d.source.x)
-        .attr('y1', d => d.source.y)
-        .attr('x2', d => d.target.x)
-        .attr('y2', d => d.target.y);
+    lines.attr('x1', d => {
+        if (!d.source || typeof d.source.x !== 'number' || isNaN(d.source.x)) return 0;
+        return d.source.x;
+    })
+    .attr('y1', d => {
+        if (!d.source || typeof d.source.y !== 'number' || isNaN(d.source.y)) return 0;
+        return d.source.y;
+    })
+    .attr('x2', d => {
+        if (!d.target || typeof d.target.x !== 'number' || isNaN(d.target.x)) return 0;
+        return d.target.x;
+    })
+    .attr('y2', d => {
+        if (!d.target || typeof d.target.y !== 'number' || isNaN(d.target.y)) return 0;
+        return d.target.y;
+    });
     
     // Sortie
     lines.exit().remove();
 }
 
-// Fonction pour recalculer les connexions
 function refreshConnections() {
     const bubbles = document.querySelectorAll('.bubble');
-    const nodes = Array.from(bubbles).map(el => ({
-        id: parseInt(el.dataset.id),
-        el: el,
-        x: parseFloat(el.style.left) + 40,
-        y: parseFloat(el.style.top) + 40,
-        isFriend: connectionData.friendIds.includes(parseInt(el.dataset.id)),
-        isCurrentUser: parseInt(el.dataset.id) === connectionData.currentUserId
-    }));
+    const nodes = Array.from(bubbles).map(el => {
+        const rect = el.getBoundingClientRect();
+        const containerRect = document.getElementById('bubble-container').getBoundingClientRect();
+        
+        return {
+            id: parseInt(el.dataset.id),
+            el: el,
+            x: rect.left - containerRect.left + 40,
+            y: rect.top - containerRect.top + 40,
+            isFriend: connectionData.friendIds.includes(parseInt(el.dataset.id)),
+            isCurrentUser: parseInt(el.dataset.id) === connectionData.currentUserId
+        };
+    });
     
     updateConnectionData(nodes);
     updateConnections(nodes);
 }
 
+// Initialiser
 renderBubbles();
 
 // Permet de re-render les bulles après filtrage AJAX
 window.renderUserBubbles = function() {
     renderBubbles();
-    setBubbleZIndexHandlers();
 };
 
-// Rafraîchir les connexions après filtrage
 window.refreshConnections = refreshConnections;
+window.setBubbleZIndexHandlers = setBubbleZIndexHandlers;
 
-document.addEventListener('DOMContentLoaded', () => {
-    function setBubbleZIndexHandlers() {
-        document.querySelectorAll('.bubble').forEach(bubble => {
-            bubble.addEventListener('mouseenter', () => {
-                bubble.style.zIndex = 9999;
-            });
-            bubble.addEventListener('mouseleave', () => {
-                bubble.style.zIndex = '';
-            });
-            bubble.addEventListener('focus', () => {
-                bubble.style.zIndex = 9999;
-            });
-            bubble.addEventListener('blur', () => {
-                bubble.style.zIndex = '';
-            });
-        });
-    }
+// Initialiser les gestionnaires d'événements au chargement
+document.addEventListener('DOMContentLoaded', function() {
     setBubbleZIndexHandlers();
 });
 
-// Redimensionnement de la fenêtre
 window.addEventListener('resize', () => {
     refreshConnections();
 });
@@ -282,12 +272,25 @@ function addToNetwork(userId) {
         } else if (j.error) {
             alert('Erreur : ' + j.error);
         } else {
-            // Mettre à jour les connexions après ajout/suppression du réseau
+            // Mettre à jour la liste des amis
             if (connectionData.friendIds.includes(parseInt(userId))) {
                 connectionData.friendIds = connectionData.friendIds.filter(id => id !== parseInt(userId));
             } else {
                 connectionData.friendIds.push(parseInt(userId));
             }
+            
+            // Mettre à jour l'apparence de la bulle
+            const bubble = document.querySelector(`.bubble[data-id="${userId}"]`);
+            if (bubble) {
+                if (connectionData.friendIds.includes(parseInt(userId))) {
+                    bubble.classList.add('friend-bubble');
+                    bubble.classList.remove('recommended-bubble');
+                } else {
+                    bubble.classList.remove('friend-bubble');
+                    bubble.classList.add('recommended-bubble');
+                }
+            }
+            
             refreshConnections();
         }
     })
@@ -298,31 +301,6 @@ function addToNetwork(userId) {
         }
     });
 }
-</script>
-
-{# À la fin de maps/index.html.twig, avant </body> #}
-<script>
-// Debug côté client - Affichage final
-console.log('=== DEBUG CLIENT - AFFICHAGE FINAL ===');
-
-// Compter les bulles affichées
-const bubbles = document.querySelectorAll('.bubble');
-console.log(`📊 Bulles affichées: ${bubbles.length}`);
-
-// Analyser chaque bulle
-bubbles.forEach((bubble, index) => {
-    const userId = bubble.dataset.id;
-    const isCurrentUser = {{ current_user_id ?? 'null' }} === parseInt(userId);
-    const isFriend = {{ friend_ids|json_encode|raw }}.includes(parseInt(userId));
-    
-    let type = 'RECOMMANDATION';
-    if (isCurrentUser) type = 'MOI';
-    else if (isFriend) type = 'AMI';
-    
-    console.log(`${index + 1}. ${type} - ID: ${userId}`);
-});
-
-console.log('================================');
 </script>
 
 <style>
@@ -338,6 +316,10 @@ console.log('================================');
 .friend-bubble {
     border: 3px solid #10B981;
     box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+}
+
+.recommended-bubble {
+    transition: border 0.3s ease, box-shadow 0.3s ease;
 }
 </style>
 {% endblock %}
