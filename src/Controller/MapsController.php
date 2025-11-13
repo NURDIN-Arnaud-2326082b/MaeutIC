@@ -24,7 +24,7 @@ final class MapsController extends AbstractController
         $friendIds = [];
         $friends = [];
         $recommendedUsers = [];
-        $recommendationScores = [];
+        $userScores = []; // NOUVEAU : Stocke les scores par utilisateur
 
         if ($currentUser) {
             // Récupérer les amis (toujours affichés)
@@ -36,9 +36,17 @@ final class MapsController extends AbstractController
             $nonFriendUsers = array_filter($allUsers, function($user) use ($currentUser, $friendIds) {
                 return $user->getId() !== $currentUser->getId() && !in_array($user->getId(), $friendIds);
             });
+
+            // VIDER LE CACHE des recommandations pour forcer le recalcul
+            $recommendationService->clearUserCache($currentUser);
             
             // Calculer les scores pour tous les non-amis
-            $recommendationScores = $recommendationService->calculateRecommendationScores($currentUser, 1000); // Grand nombre pour avoir tous les scores
+            $recommendationScores = $recommendationService->calculateRecommendationScores($currentUser, 1000);
+            
+            // CRÉER UN TABLEAU SIMPLIFIÉ DES SCORES
+            foreach ($recommendationScores as $userId => $scoreData) {
+                $userScores[$userId] = $scoreData['score'];
+            }
             
             // Prendre les 40 meilleurs scores
             $topRecommendedUsers = array_slice($recommendationScores, 0, 40, true);
@@ -54,13 +62,21 @@ final class MapsController extends AbstractController
                 $needed = 40 - count($recommendedUsers);
                 $randomUsers = array_slice($availableUsers, 0, $needed);
                 $recommendedUsers = array_merge($recommendedUsers, $randomUsers);
+                
+                // Ajouter des scores de base pour les utilisateurs aléatoires
+                foreach ($randomUsers as $randomUser) {
+                    if (!isset($userScores[$randomUser->getId()])) {
+                        $userScores[$randomUser->getId()] = 0.05; // Score minimum
+                    }
+                }
             }
             
-            // Afficher les détails des scores dans la console (pour le debug)
+            // Afficher les détails des scores dans la console
             $this->displayScoreDetails($recommendationScores);
             
             // DEBUG
             echo "<script>console.log('DEBUG: Amis: " . count($friends) . ", Recommandés: " . count($recommendedUsers) . "');</script>";
+            echo "<script>console.log('DEBUG SCORES: " . count($userScores) . " scores calculés');</script>";
         }
 
         // Combiner amis + recommandations pour l'affichage
@@ -82,7 +98,7 @@ final class MapsController extends AbstractController
             'users' => $usersToDisplay,
             'friend_ids' => $friendIds,
             'current_user_id' => $currentUser ? $currentUser->getId() : null,
-            'recommendation_scores' => $recommendationScores,
+            'user_scores' => $userScores, // NOUVEAU : Tableau simplifié des scores
         ]);
     }
 
@@ -117,7 +133,7 @@ final class MapsController extends AbstractController
     private function displayScoreDetails(array $recommendationScores): void
     {
         echo "<script>";
-        echo "console.log('=== DÉTAILS DES SCORES DE RECOMMANDATION ===');";
+        echo "console.log('=== DÉTAILS DES SCORES DE RECOMMANDATION AVEC IA ===');";
         
         $counter = 0;
         foreach ($recommendationScores as $userId => $scoreData) {
@@ -126,14 +142,18 @@ final class MapsController extends AbstractController
             
             echo "console.log('Utilisateur: {$user->getFirstName()} {$user->getLastName()} (ID: {$user->getId()})');";
             echo "console.log('Score total: {$scoreData['score']}');";
+            echo "console.log('  - IA Comportementale: " . ($details['behavioral']['score'] ?? 0) . "');";
             echo "console.log('  - Spécialisation: " . ($details['specialization']['score'] ?? 0) . "');";
             echo "console.log('  - Sujet de recherche: " . ($details['research_topic']['score'] ?? 0) . "');";
             echo "console.log('  - Localisation: " . ($details['affiliation_location']['score'] ?? 0) . "');";
             echo "console.log('  - Questions taggables: " . ($details['taggable_questions']['score'] ?? 0) . "');";
+            if (isset($details['diversity_boost'])) {
+                echo "console.log('  - Boost Diversité: " . $details['diversity_boost'] . "');";
+            }
             echo "console.log('---');";
             
             $counter++;
-            if ($counter >= 10) { // Limiter à 10 pour ne pas surcharger la console
+            if ($counter >= 8) {
                 break;
             }
         }
