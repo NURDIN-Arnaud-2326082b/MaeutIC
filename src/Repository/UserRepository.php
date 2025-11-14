@@ -27,10 +27,13 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         $this->getEntityManager()->flush();
     }
 
-    public function findByTaggableQuestion1Tags(array $tagIds): array
+    public function findByTaggableQuestion1Tags(array $tagIds, int $limit = 1000): array
     {
         if (empty($tagIds)) {
-            return $this->findAll();
+            return $this->createQueryBuilder('u')
+                ->setMaxResults($limit)
+                ->getQuery()
+                ->getResult();
         }
 
         $tagNames = $this->getEntityManager()
@@ -48,7 +51,7 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
             return [];
         }
 
-        $qb = $this->createQueryBuilder('u')
+        return $this->createQueryBuilder('u')
             ->join('u.userQuestions', 'uq')
             ->where('uq.question = :question')
             ->andWhere('uq.answer IN (:tagNames)')
@@ -56,15 +59,19 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
             ->setParameter('tagNames', $tagNames)
             ->groupBy('u.id')
             ->having('COUNT(DISTINCT uq.answer) = :nbTags')
-            ->setParameter('nbTags', count($tagNames));
-
-        return $qb->getQuery()->getResult();
+            ->setParameter('nbTags', count($tagNames))
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
     }
 
-    public function findBySearchQuery(string $query): array
+    public function findBySearchQuery(string $query, int $limit = 1000): array
     {
         if (empty(trim($query))) {
-            return $this->findAll();
+            return $this->createQueryBuilder('u')
+                ->setMaxResults($limit)
+                ->getQuery()
+                ->getResult();
         }
 
         $searchTerms = $this->extractSearchTerms($query);
@@ -86,9 +93,54 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
                 ->setParameter('term_' . $key, '%' . $term . '%');
         }
 
-        $qb->orderBy('u.username', 'ASC');
+        return $qb
+            ->orderBy('u.username', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
 
-        return $qb->getQuery()->getResult();
+    /**
+     * Récupère les utilisateurs non-amis pour les recommandations
+     */
+    public function findNonFriendUsers(User $currentUser, array $friendIds, int $limit = 500): array
+    {
+        $qb = $this->createQueryBuilder('u')
+            ->where('u.id != :currentUserId')
+            ->setParameter('currentUserId', $currentUser->getId());
+
+        if (!empty($friendIds)) {
+            $qb->andWhere('u.id NOT IN (:friendIds)')
+               ->setParameter('friendIds', $friendIds);
+        }
+
+        return $qb
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Compte le nombre total d'utilisateurs (pour la pagination)
+     */
+    public function countAll(): int
+    {
+        return $this->createQueryBuilder('u')
+            ->select('COUNT(u.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * Récupère les utilisateurs avec pagination
+     */
+    public function findPaginated(int $page = 1, int $limit = 20): array
+    {
+        return $this->createQueryBuilder('u')
+            ->setFirstResult(($page - 1) * $limit)
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
     }
 
     private function extractSearchTerms(string $searchQuery): array

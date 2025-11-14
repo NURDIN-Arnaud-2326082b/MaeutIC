@@ -14,6 +14,11 @@ use App\Service\OptimizedRecommendationService;
 
 final class MapsController extends AbstractController
 {
+    private const MAX_USERS_DISPLAY = 100;
+    private const USERS_PER_PAGE = 20;
+    private const MAX_RECOMMENDATIONS = 50;
+    private const MAX_SEARCH_RESULTS = 200;
+
     #[Route('/maps', name: 'app_maps')]
     public function index(
         UserRepository $userRepository, 
@@ -31,13 +36,11 @@ final class MapsController extends AbstractController
             $friends = $networkService->getUserNetwork($currentUser);
             $friendIds = array_map(fn($friend) => $friend->getId(), $friends);
             
-            $allUsers = $userRepository->findAll();
-            $nonFriendUsers = array_filter($allUsers, function($user) use ($currentUser, $friendIds) {
-                return $user->getId() !== $currentUser->getId() && !in_array($user->getId(), $friendIds);
-            });
+            // ✅ OPTIMISÉ: Récupère seulement les utilisateurs nécessaires
+            $nonFriendUsers = $userRepository->findNonFriendUsers($currentUser, $friendIds, 200);
 
-            $recommendationService->clearUserCache($currentUser);
-            $recommendationScores = $recommendationService->calculateRecommendationScores($currentUser, 1000);
+            // ✅ OPTIMISÉ: Limite le nombre de calculs
+            $recommendationScores = $recommendationService->calculateRecommendationScores($currentUser, self::MAX_RECOMMENDATIONS);
             
             foreach ($recommendationScores as $userId => $scoreData) {
                 $userScores[$userId] = $scoreData['score'];
@@ -46,14 +49,14 @@ final class MapsController extends AbstractController
             $topRecommendedUsers = array_slice($recommendationScores, 0, 40, true);
             $recommendedUsers = array_map(fn($scoreData) => $scoreData['user'], $topRecommendedUsers);
             
-            if (count($recommendedUsers) < 40) {
+            if (count($recommendedUsers) < 40 && count($nonFriendUsers) > 0) {
                 $usedIds = array_merge($friendIds, [$currentUser->getId()], array_map(fn($u) => $u->getId(), $recommendedUsers));
                 $availableUsers = array_filter($nonFriendUsers, function($user) use ($usedIds) {
                     return !in_array($user->getId(), $usedIds);
                 });
                 
                 $needed = 40 - count($recommendedUsers);
-                $randomUsers = array_slice($availableUsers, 0, $needed);
+                $randomUsers = array_slice($availableUsers, 0, min($needed, count($availableUsers)));
                 $recommendedUsers = array_merge($recommendedUsers, $randomUsers);
                 
                 foreach ($randomUsers as $randomUser) {
@@ -71,8 +74,12 @@ final class MapsController extends AbstractController
             $usersToDisplay[] = $currentUser;
             $usersToDisplay = array_merge($usersToDisplay, $friends);
             $usersToDisplay = array_merge($usersToDisplay, $recommendedUsers);
+            
+            // ✅ LIMITE STRICTE
+            $usersToDisplay = array_slice($usersToDisplay, 0, self::MAX_USERS_DISPLAY);
         } else {
-            $usersToDisplay = $userRepository->findAll();
+            // ✅ OPTIMISÉ: Limite pour les utilisateurs non connectés
+            $usersToDisplay = $userRepository->findPaginated(1, self::MAX_USERS_DISPLAY);
         }
 
         return $this->render('maps/index.html.twig', [
@@ -123,7 +130,7 @@ final class MapsController extends AbstractController
         $showFriends = $request->query->get('friends', 'true') === 'true';
         $showRecommendations = $request->query->get('recommendations', 'true') === 'true';
         $page = $request->query->getInt('page', 1);
-        $limit = $request->query->getInt('limit', 20);
+        $limit = min($request->query->getInt('limit', self::USERS_PER_PAGE), 100);
         
         $friendIds = [];
         $friends = [];
@@ -134,7 +141,8 @@ final class MapsController extends AbstractController
             $friendIds = array_map(fn($friend) => $friend->getId(), $friends);
         }
 
-        $searchedUsers = $userRepository->findBySearchQuery($searchQuery);
+        // ✅ OPTIMISÉ: Limite intégrée dans la requête
+        $searchedUsers = $userRepository->findBySearchQuery($searchQuery, self::MAX_SEARCH_RESULTS);
         $totalUsers = count($searchedUsers);
 
         $offset = ($page - 1) * $limit;
@@ -163,7 +171,8 @@ final class MapsController extends AbstractController
                 $usersToDisplay = array_merge($usersToDisplay, $otherUsers);
                 
                 if (!empty($otherUsers)) {
-                    $recommendationScores = $recommendationService->calculateRecommendationScores($currentUser, 1000);
+                    // ✅ OPTIMISÉ: Calcul seulement si nécessaire avec limite
+                    $recommendationScores = $recommendationService->calculateRecommendationScores($currentUser, 30);
                     foreach ($recommendationScores as $userId => $scoreData) {
                         $userScores[$userId] = $scoreData['score'];
                     }
@@ -210,13 +219,11 @@ final class MapsController extends AbstractController
             $friendIds = array_map(fn($friend) => $friend->getId(), $friends);
             
             if ($showRecommendations) {
-                $allUsers = $userRepository->findAll();
-                $nonFriendUsers = array_filter($allUsers, function($user) use ($currentUser, $friendIds) {
-                    return $user->getId() !== $currentUser->getId() && !in_array($user->getId(), $friendIds);
-                });
+                // ✅ OPTIMISÉ: Récupère seulement les utilisateurs nécessaires
+                $nonFriendUsers = $userRepository->findNonFriendUsers($currentUser, $friendIds, 150);
 
-                $recommendationService->clearUserCache($currentUser);
-                $recommendationScores = $recommendationService->calculateRecommendationScores($currentUser, 1000);
+                // ✅ OPTIMISÉ: Limite le nombre de calculs
+                $recommendationScores = $recommendationService->calculateRecommendationScores($currentUser, self::MAX_RECOMMENDATIONS);
                 
                 foreach ($recommendationScores as $userId => $scoreData) {
                     $userScores[$userId] = $scoreData['score'];
@@ -225,14 +232,14 @@ final class MapsController extends AbstractController
                 $topRecommendedUsers = array_slice($recommendationScores, 0, 40, true);
                 $recommendedUsers = array_map(fn($scoreData) => $scoreData['user'], $topRecommendedUsers);
                 
-                if (count($recommendedUsers) < 40) {
+                if (count($recommendedUsers) < 40 && count($nonFriendUsers) > 0) {
                     $usedIds = array_merge($friendIds, [$currentUser->getId()], array_map(fn($u) => $u->getId(), $recommendedUsers));
                     $availableUsers = array_filter($nonFriendUsers, function($user) use ($usedIds) {
                         return !in_array($user->getId(), $usedIds);
                     });
                     
                     $needed = 40 - count($recommendedUsers);
-                    $randomUsers = array_slice($availableUsers, 0, $needed);
+                    $randomUsers = array_slice($availableUsers, 0, min($needed, count($availableUsers)));
                     $recommendedUsers = array_merge($recommendedUsers, $randomUsers);
                     
                     foreach ($randomUsers as $randomUser) {
@@ -256,8 +263,12 @@ final class MapsController extends AbstractController
             if ($showRecommendations) {
                 $usersToDisplay = array_merge($usersToDisplay, $recommendedUsers);
             }
+            
+            // ✅ LIMITE STRICTE
+            $usersToDisplay = array_slice($usersToDisplay, 0, self::MAX_USERS_DISPLAY);
         } else {
-            $usersToDisplay = $userRepository->findAll();
+            // ✅ OPTIMISÉ: Limite pour les utilisateurs non connectés
+            $usersToDisplay = $userRepository->findPaginated(1, self::MAX_USERS_DISPLAY);
         }
 
         return $this->render('maps/_bubbles.html.twig', [
@@ -280,7 +291,7 @@ final class MapsController extends AbstractController
         $showFriends = $request->query->get('friends', 'true') === 'true';
         $showRecommendations = $request->query->get('recommendations', 'true') === 'true';
         $page = $request->query->getInt('page', 1);
-        $limit = $request->query->getInt('limit', 20);
+        $limit = min($request->query->getInt('limit', self::USERS_PER_PAGE), 100);
         
         $friendIds = [];
         $friends = [];
@@ -292,7 +303,8 @@ final class MapsController extends AbstractController
             $friendIds = array_map(fn($friend) => $friend->getId(), $friends);
         }
 
-        $taggedUsers = $userRepository->findByTaggableQuestion1Tags($tagIds);
+        // ✅ OPTIMISÉ: Limite intégrée dans la requête
+        $taggedUsers = $userRepository->findByTaggableQuestion1Tags($tagIds, self::MAX_SEARCH_RESULTS);
         $totalUsers = count($taggedUsers);
 
         $offset = ($page - 1) * $limit;
@@ -320,9 +332,12 @@ final class MapsController extends AbstractController
                 });
                 $usersToDisplay = array_merge($usersToDisplay, $otherUsers);
                 
-                $recommendationScores = $recommendationService->calculateRecommendationScores($currentUser, 1000);
-                foreach ($recommendationScores as $userId => $scoreData) {
-                    $userScores[$userId] = $scoreData['score'];
+                // ✅ OPTIMISÉ: Calcul seulement si nécessaire avec limite
+                if (!empty($otherUsers)) {
+                    $recommendationScores = $recommendationService->calculateRecommendationScores($currentUser, 30);
+                    foreach ($recommendationScores as $userId => $scoreData) {
+                        $userScores[$userId] = $scoreData['score'];
+                    }
                 }
             }
         } else {
@@ -347,34 +362,36 @@ final class MapsController extends AbstractController
 
     private function displayScoreDetails(array $recommendationScores): void
     {
-        echo "<script>";
-        echo "console.log('=== DÉTAILS DES SCORES DE RECOMMANDATION AVEC IA ===');";
-        
-        $counter = 0;
-        foreach ($recommendationScores as $userId => $scoreData) {
-            $user = $scoreData['user'];
-            $details = $scoreData['details'];
+        // ✅ OPTIMISÉ: Log seulement en mode debug
+        if ($_ENV['APP_ENV'] === 'dev') {
+            echo "<script>";
+            echo "console.log('=== DÉTAILS DES SCORES DE RECOMMANDATION AVEC IA ===');";
             
-            echo "console.log('Utilisateur: {$user->getFirstName()} {$user->getLastName()} (ID: {$user->getId()})');";
-            echo "console.log('Score total: {$scoreData['score']}');";
-            echo "console.log('  - IA Comportementale: " . ($details['behavioral']['score'] ?? 0) . "');";
-            echo "console.log('  - Spécialisation: " . ($details['specialization']['score'] ?? 0) . "');";
-            echo "console.log('  - Sujet de recherche: " . ($details['research_topic']['score'] ?? 0) . "');";
-            echo "console.log('  - Localisation: " . ($details['affiliation_location']['score'] ?? 0) . "');";
-            echo "console.log('  - Questions taggables: " . ($details['taggable_questions']['score'] ?? 0) . "');";
-            if (isset($details['diversity_boost'])) {
-                echo "console.log('  - Boost Diversité: " . $details['diversity_boost'] . "');";
+            $counter = 0;
+            foreach ($recommendationScores as $userId => $scoreData) {
+                if ($counter >= 5) break; // ✅ LIMITE les logs
+                
+                $user = $scoreData['user'];
+                $details = $scoreData['details'];
+                
+                echo "console.log('Utilisateur: {$user->getFirstName()} {$user->getLastName()} (ID: {$user->getId()})');";
+                echo "console.log('Score total: {$scoreData['score']}');";
+                echo "console.log('  - IA Comportementale: " . ($details['behavioral']['score'] ?? 0) . "');";
+                echo "console.log('  - Spécialisation: " . ($details['specialization']['score'] ?? 0) . "');";
+                echo "console.log('  - Sujet de recherche: " . ($details['research_topic']['score'] ?? 0) . "');";
+                echo "console.log('  - Localisation: " . ($details['affiliation_location']['score'] ?? 0) . "');";
+                echo "console.log('  - Questions taggables: " . ($details['taggable_questions']['score'] ?? 0) . "');";
+                if (isset($details['diversity_boost'])) {
+                    echo "console.log('  - Boost Diversité: " . $details['diversity_boost'] . "');";
+                }
+                echo "console.log('---');";
+                
+                $counter++;
             }
-            echo "console.log('---');";
             
-            $counter++;
-            if ($counter >= 8) {
-                break;
-            }
+            echo "console.log('Total des recommandations calculées: " . count($recommendationScores) . "');";
+            echo "console.log('================================');";
+            echo "</script>";
         }
-        
-        echo "console.log('Total des recommandations calculées: " . count($recommendationScores) . "');";
-        echo "console.log('================================');";
-        echo "</script>";
     }
 }
