@@ -1,8 +1,58 @@
-{% for user in users %}
-    <div class="bubble absolute shadow-lg bg-white rounded-full flex items-center justify-center cursor-grab transition duration-300 opacity-100 scale-100 group focus:outline-none focus:ring-4 focus:ring-blue-400" data-id="{{ user.id }}" style="width:80px;height:80px;" tabindex="0" onclick="window.location.href='{{ path('app_profile_show', {'username': user.username}) }}'" aria-label="Profil de {{ user.firstName }} {{ user.lastName }}">
-        <img src="{% if user.profileImage %}{{ asset('profile_images/' ~ user.profileImage) }}{% else %}{{ asset('images/default-profile.png') }}{% endif %}" alt="profile" class="w-full h-full object-cover rounded-full pointer-events-none" />
-        <div class="bubble-label hidden group-hover:flex group-focus:flex absolute left-1/2 -translate-x-1/2 -bottom-10 bg-black/90 text-white px-3 py-1 rounded-xl text-sm whitespace-nowrap z-50 pointer-events-none shadow-lg border border-white">
-            {{ user.firstName }} {{ user.lastName }}
+<div class="w-screen h-[80vh] relative overflow-hidden flex items-center justify-center" id="bubble-container">
+    <svg id="connection-lines" class="absolute top-0 left-0 w-full h-full pointer-events-none z-0"></svg>
+    
+    {% for user in users %}
+        {% set user_score = user_scores[user.id] is defined ? user_scores[user.id] : null %}
+        {% set display_percentage = user_score ? (user_score * 100)|round(0) : 0 %}
+        {% set score_color = user_score >= 0.7 ? 'text-green-400' : user_score >= 0.4 ? 'text-yellow-400' : 'text-orange-400' %}
+        {% set border_color = user_score >= 0.7 ? '#ff00ff' : user_score >= 0.4 ? '#ffcc00' : '#ff4500' %}
+        
+        <div class="bubble absolute shadow-lg bg-white rounded-full flex items-center justify-center cursor-grab transition duration-300 opacity-100 scale-100 group focus:outline-none focus:ring-4 focus:ring-blue-400
+            {% if current_user_id and user.id == current_user_id %} current-user-bubble
+            {% elseif current_user_id and user.id in friend_ids %} friend-bubble
+            {% elseif user_score is not null %} recommended-bubble
+            {% endif %}"
+            data-id="{{ user.id }}"
+            style="width:80px;height:80px;
+                {% if user_score is not null %}
+                    border: 3px dashed {{ border_color }};
+                    box-shadow: 0 0 15px {{ border_color }}66;
+                {% endif %}"
+            tabindex="0" 
+            onclick="window.location.href='{{ path('app_profile_show', {'username': user.username}) }}'" 
+            aria-label="Profil de {{ user.firstName }} {{ user.lastName }} - Recommandation: {{ display_percentage }}%">
+            
+            <img src="{% if user.profileImage %}{{ asset('profile_images/' ~ user.profileImage) }}{% else %}{{ asset('images/default-profile.png') }}{% endif %}" 
+                alt="profile" 
+                class="w-full h-full object-cover rounded-full pointer-events-none" />
+            
+            {% if current_user_id and user.id in friend_ids and user.id != current_user_id %}
+                <div class="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+            {% endif %}
+            
+            <div class="bubble-label hidden group-hover:flex group-focus:flex absolute left-1/2 -translate-x-1/2 -bottom-10 bg-black/90 text-white px-3 py-1 rounded-xl text-sm whitespace-nowrap z-50 pointer-events-none shadow-lg border border-white">
+                {{ user.firstName }} {{ user.lastName }}
+                
+                {% if user_score and not (current_user_id and user.id in friend_ids) and user.id != current_user_id %}
+                    <span class="ml-1 {{ score_color }} font-semibold">{{ display_percentage }}%</span>
+                {% endif %}
+                
+                {% if current_user_id and user.id in friend_ids and user.id != current_user_id %}
+                    <span class="ml-1 text-green-400">✓</span>
+                {% endif %}
+            </div>
         </div>
-    </div>
-{% endfor %}
+    {% endfor %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const totalUsers = {{ app.request.headers.get('X-Total-Users') ?? 0 }};
+    const totalPages = {{ app.request.headers.get('X-Total-Pages') ?? 1 }};
+    const currentPage = {{ app.request.headers.get('X-Current-Page') ?? 1 }};
+    
+    if (totalUsers > 0 && window.updateTagPagination) {
+        window.updateTagPagination(totalUsers, totalPages);
+    }
+});
+</script>
