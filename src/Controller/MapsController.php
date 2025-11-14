@@ -4,9 +4,11 @@ namespace App\Controller;
 
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\HttpFoundation\Request;
 use App\Repository\UserRepository;
+use App\Repository\TagRepository;
 use App\Service\NetworkService;
 use App\Service\OptimizedRecommendationService;
 
@@ -20,39 +22,30 @@ final class MapsController extends AbstractController
     ): Response {
         $currentUser = $this->getUser();
         
-        // Récupérer les IDs des amis si l'utilisateur est connecté
         $friendIds = [];
         $friends = [];
         $recommendedUsers = [];
-        $userScores = []; // NOUVEAU : Stocke les scores par utilisateur
+        $userScores = [];
 
         if ($currentUser) {
-            // Récupérer les amis (toujours affichés)
             $friends = $networkService->getUserNetwork($currentUser);
             $friendIds = array_map(fn($friend) => $friend->getId(), $friends);
             
-            // Récupérer TOUS les utilisateurs sauf l'utilisateur courant et ses amis
             $allUsers = $userRepository->findAll();
             $nonFriendUsers = array_filter($allUsers, function($user) use ($currentUser, $friendIds) {
                 return $user->getId() !== $currentUser->getId() && !in_array($user->getId(), $friendIds);
             });
 
-            // VIDER LE CACHE des recommandations pour forcer le recalcul
             $recommendationService->clearUserCache($currentUser);
-            
-            // Calculer les scores pour tous les non-amis
             $recommendationScores = $recommendationService->calculateRecommendationScores($currentUser, 1000);
             
-            // CRÉER UN TABLEAU SIMPLIFIÉ DES SCORES
             foreach ($recommendationScores as $userId => $scoreData) {
                 $userScores[$userId] = $scoreData['score'];
             }
             
-            // Prendre les 40 meilleurs scores
             $topRecommendedUsers = array_slice($recommendationScores, 0, 40, true);
             $recommendedUsers = array_map(fn($scoreData) => $scoreData['user'], $topRecommendedUsers);
             
-            // Si on a moins de 40 recommandations, compléter avec des utilisateurs aléatoires
             if (count($recommendedUsers) < 40) {
                 $usedIds = array_merge($friendIds, [$currentUser->getId()], array_map(fn($u) => $u->getId(), $recommendedUsers));
                 $availableUsers = array_filter($nonFriendUsers, function($user) use ($usedIds) {
@@ -63,33 +56,22 @@ final class MapsController extends AbstractController
                 $randomUsers = array_slice($availableUsers, 0, $needed);
                 $recommendedUsers = array_merge($recommendedUsers, $randomUsers);
                 
-                // Ajouter des scores de base pour les utilisateurs aléatoires
                 foreach ($randomUsers as $randomUser) {
                     if (!isset($userScores[$randomUser->getId()])) {
-                        $userScores[$randomUser->getId()] = 0.05; // Score minimum
+                        $userScores[$randomUser->getId()] = 0.05;
                     }
                 }
             }
             
-            // Afficher les détails des scores dans la console
             $this->displayScoreDetails($recommendationScores);
-            
-            // DEBUG
-            echo "<script>console.log('DEBUG: Amis: " . count($friends) . ", Recommandés: " . count($recommendedUsers) . "');</script>";
-            echo "<script>console.log('DEBUG SCORES: " . count($userScores) . " scores calculés');</script>";
         }
 
-        // Combiner amis + recommandations pour l'affichage
         $usersToDisplay = [];
         if ($currentUser) {
-            // Ajouter l'utilisateur courant (toujours affiché)
             $usersToDisplay[] = $currentUser;
-            // Ajouter les amis (toujours affichés)
             $usersToDisplay = array_merge($usersToDisplay, $friends);
-            // Ajouter les recommandations
             $usersToDisplay = array_merge($usersToDisplay, $recommendedUsers);
         } else {
-            // Si pas connecté, afficher tous les utilisateurs
             $usersToDisplay = $userRepository->findAll();
         }
 
@@ -98,8 +80,36 @@ final class MapsController extends AbstractController
             'users' => $usersToDisplay,
             'friend_ids' => $friendIds,
             'current_user_id' => $currentUser ? $currentUser->getId() : null,
-            'user_scores' => $userScores, // NOUVEAU : Tableau simplifié des scores
+            'user_scores' => $userScores,
         ]);
+    }
+
+    #[Route('/tag/search', name: 'app_tag_search')]
+    public function searchTags(Request $request, TagRepository $tagRepository): JsonResponse
+    {
+        $query = $request->query->get('q', '');
+        
+        if (strlen($query) < 2) {
+            return $this->json([]);
+        }
+
+        // Recherche réelle dans la table tag
+        $tags = $tagRepository->createQueryBuilder('t')
+            ->where('t.name LIKE :query')
+            ->setParameter('query', '%' . $query . '%')
+            ->orderBy('t.name', 'ASC')
+            ->setMaxResults(10)
+            ->getQuery()
+            ->getResult();
+
+        $formattedTags = array_map(function($tag) {
+            return [
+                'id' => $tag->getId(),
+                'name' => $tag->getName(),
+            ];
+        }, $tags);
+
+        return $this->json($formattedTags);
     }
 
     #[Route('/maps/filter', name: 'app_user_map_filter')]
@@ -113,7 +123,6 @@ final class MapsController extends AbstractController
         
         $users = $userRepository->findByTaggableQuestion1Tags($tagIds);
         
-        // Récupérer les IDs des amis si l'utilisateur est connecté
         $friendIds = [];
         if ($currentUser) {
             $friends = $networkService->getUserNetwork($currentUser);
@@ -138,18 +147,15 @@ final class MapsController extends AbstractController
         $showFriends = $request->query->get('friends', 'true') === 'true';
         $showRecommendations = $request->query->get('recommendations', 'true') === 'true';
         
-        // Récupérer les IDs des amis si l'utilisateur est connecté
         $friendIds = [];
         $friends = [];
         $recommendedUsers = [];
         $userScores = [];
 
         if ($currentUser) {
-            // Récupérer les amis
             $friends = $networkService->getUserNetwork($currentUser);
             $friendIds = array_map(fn($friend) => $friend->getId(), $friends);
             
-            // Récupérer les recommandations si demandé
             if ($showRecommendations) {
                 $allUsers = $userRepository->findAll();
                 $nonFriendUsers = array_filter($allUsers, function($user) use ($currentUser, $friendIds) {
@@ -185,24 +191,19 @@ final class MapsController extends AbstractController
             }
         }
 
-        // Construire la liste des utilisateurs à afficher selon les filtres
         $usersToDisplay = [];
         
         if ($currentUser) {
-            // Toujours afficher l'utilisateur courant
             $usersToDisplay[] = $currentUser;
             
-            // Afficher les amis si demandé
             if ($showFriends) {
                 $usersToDisplay = array_merge($usersToDisplay, $friends);
             }
             
-            // Afficher les recommandations si demandé
             if ($showRecommendations) {
                 $usersToDisplay = array_merge($usersToDisplay, $recommendedUsers);
             }
         } else {
-            // Si pas connecté, afficher tous les utilisateurs
             $usersToDisplay = $userRepository->findAll();
         }
 
@@ -214,9 +215,83 @@ final class MapsController extends AbstractController
         ]);
     }
 
-    /**
-     * Affiche les détails des scores dans la console pour le debug
-     */
+    #[Route('/maps/filter-by-tags', name: 'app_maps_filter_by_tags')]
+    public function filterByTags(
+        Request $request,
+        UserRepository $userRepository, 
+        NetworkService $networkService,
+        OptimizedRecommendationService $recommendationService
+    ): Response {
+        $currentUser = $this->getUser();
+        $tagIds = $request->query->all('tags');
+        $showFriends = $request->query->get('friends', 'true') === 'true';
+        $showRecommendations = $request->query->get('recommendations', 'true') === 'true';
+        $page = $request->query->getInt('page', 1);
+        $limit = $request->query->getInt('limit', 20);
+        
+        $friendIds = [];
+        $friends = [];
+        $userScores = [];
+        $totalUsers = 0;
+
+        if ($currentUser) {
+            $friends = $networkService->getUserNetwork($currentUser);
+            $friendIds = array_map(fn($friend) => $friend->getId(), $friends);
+        }
+
+        $taggedUsers = $userRepository->findByTaggableQuestion1Tags($tagIds);
+        $totalUsers = count($taggedUsers);
+
+        $offset = ($page - 1) * $limit;
+        $paginatedUsers = array_slice($taggedUsers, $offset, $limit);
+        $totalPages = ceil($totalUsers / $limit);
+
+        $usersToDisplay = [];
+        
+        if ($currentUser) {
+            $currentUserInResults = array_filter($paginatedUsers, fn($user) => $user->getId() === $currentUser->getId());
+            if (count($currentUserInResults) > 0) {
+                $usersToDisplay[] = $currentUser;
+            }
+            
+            if ($showFriends) {
+                $friendsInResults = array_filter($paginatedUsers, function($user) use ($friendIds) {
+                    return in_array($user->getId(), $friendIds);
+                });
+                $usersToDisplay = array_merge($usersToDisplay, $friendsInResults);
+            }
+            
+            if ($showRecommendations) {
+                $otherUsers = array_filter($paginatedUsers, function($user) use ($currentUser, $friendIds) {
+                    return $user->getId() !== $currentUser->getId() && !in_array($user->getId(), $friendIds);
+                });
+                $usersToDisplay = array_merge($usersToDisplay, $otherUsers);
+                
+                $recommendationScores = $recommendationService->calculateRecommendationScores($currentUser, 1000);
+                foreach ($recommendationScores as $userId => $scoreData) {
+                    $userScores[$userId] = $scoreData['score'];
+                }
+            }
+        } else {
+            $usersToDisplay = $paginatedUsers;
+        }
+
+        $usersToDisplay = array_unique($usersToDisplay, SORT_REGULAR);
+
+        $response = $this->render('maps/_bubbles.html.twig', [
+            'users' => $usersToDisplay,
+            'friend_ids' => $friendIds,
+            'current_user_id' => $currentUser ? $currentUser->getId() : null,
+            'user_scores' => $userScores,
+        ]);
+
+        $response->headers->set('X-Total-Users', $totalUsers);
+        $response->headers->set('X-Total-Pages', $totalPages);
+        $response->headers->set('X-Current-Page', $page);
+
+        return $response;
+    }
+
     private function displayScoreDetails(array $recommendationScores): void
     {
         echo "<script>";

@@ -34,26 +34,66 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
     }
 
     /**
-     * Retourne les utilisateurs ayant au moins un des tags sélectionnés sur la première question taggable.
-     * @param array $tagNames
-     * @return User[]
-     */
-    public function findByTaggableQuestion1Tags(array $tagNames): array
-    {
-        if (empty($tagNames)) {
-            return $this->findAll();
-        }
-        $qb = $this->createQueryBuilder('u')
-            ->join('u.userQuestions', 'uq')
-            ->where('uq.question = :question')
-            ->andWhere('uq.answer IN (:tagNames)')
-            ->setParameter('question', 'Taggable Question 0')
-            ->setParameter('tagNames', $tagNames)
-            ->groupBy('u.id')
-            ->having('COUNT(DISTINCT uq.answer) = :nbTags')
-            ->setParameter('nbTags', count($tagNames));
-        return $qb->getQuery()->getResult();
+ * Retourne les utilisateurs ayant au moins un des tags sélectionnés sur la première question taggable.
+ * @param array $tagIds
+ * @return User[]
+ */
+public function findByTaggableQuestion1Tags(array $tagIds): array
+{
+    if (empty($tagIds)) {
+        return $this->findAll();
     }
+
+    // Récupérer d'abord les noms de tags correspondant aux IDs
+    $tagNames = $this->getEntityManager()
+        ->createQueryBuilder()
+        ->select('t.name')
+        ->from('App\Entity\Tag', 't')
+        ->where('t.id IN (:tagIds)')
+        ->setParameter('tagIds', $tagIds)
+        ->getQuery()
+        ->getResult();
+
+    $tagNames = array_column($tagNames, 'name');
+
+    if (empty($tagNames)) {
+        return [];
+    }
+
+    $qb = $this->createQueryBuilder('u')
+        ->join('u.userQuestions', 'uq')
+        ->where('uq.question = :question')
+        ->andWhere('uq.answer IN (:tagNames)')
+        ->setParameter('question', 'Taggable Question 0')
+        ->setParameter('tagNames', $tagNames)
+        ->groupBy('u.id')
+        ->having('COUNT(DISTINCT uq.answer) = :nbTags')
+        ->setParameter('nbTags', count($tagNames));
+
+    return $qb->getQuery()->getResult();
+}
+
+    // /**
+    //  * Retourne les utilisateurs ayant au moins un des tags sélectionnés sur la première question taggable.
+    //  * @param array $tagNames
+    //  * @return User[]
+    //  */
+    // public function findByTaggableQuestion1Tags(array $tagNames): array
+    // {
+    //     if (empty($tagNames)) {
+    //         return $this->findAll();
+    //     }
+    //     $qb = $this->createQueryBuilder('u')
+    //         ->join('u.userQuestions', 'uq')
+    //         ->where('uq.question = :question')
+    //         ->andWhere('uq.answer IN (:tagNames)')
+    //         ->setParameter('question', 'Taggable Question 0')
+    //         ->setParameter('tagNames', $tagNames)
+    //         ->groupBy('u.id')
+    //         ->having('COUNT(DISTINCT uq.answer) = :nbTags')
+    //         ->setParameter('nbTags', count($tagNames));
+    //     return $qb->getQuery()->getResult();
+    // }
 
     //    /**
     //     * @return User[] Returns an array of User objects

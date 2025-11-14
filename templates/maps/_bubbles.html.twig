@@ -1,23 +1,11 @@
 <div class="w-screen h-[80vh] relative overflow-hidden flex items-center justify-center" id="bubble-container">
-    <!-- SVG pour les liens -->
     <svg id="connection-lines" class="absolute top-0 left-0 w-full h-full pointer-events-none z-0"></svg>
     
     {% for user in users %}
-        {# Récupérer le score depuis le tableau simplifié #}
         {% set user_score = user_scores[user.id] is defined ? user_scores[user.id] : null %}
-        
-        {# Calculer le pourcentage d'affichage #}
         {% set display_percentage = user_score ? (user_score * 100)|round(0) : 0 %}
-        
-        {# Déterminer la couleur en fonction du score #}
         {% set score_color = user_score >= 0.7 ? 'text-green-400' : user_score >= 0.4 ? 'text-yellow-400' : 'text-orange-400' %}
-
-        {# Déterminer la couleur de la bordure selon le score #}
-        {% set border_color =
-            user_score >= 0.7 ? '#ff00ff' :          # rose/violet vif pour très bon score
-            user_score >= 0.4 ? '#ffcc00' :          # jaune/orangé pour moyen
-            '#ff4500'                                # rouge-orangé pour faible
-        %}
+        {% set border_color = user_score >= 0.7 ? '#ff00ff' : user_score >= 0.4 ? '#ffcc00' : '#ff4500' %}
         
         <div class="bubble absolute shadow-lg bg-white rounded-full flex items-center justify-center cursor-grab transition duration-300 opacity-100 scale-100 group focus:outline-none focus:ring-4 focus:ring-blue-400
             {% if current_user_id and user.id == current_user_id %} current-user-bubble
@@ -45,12 +33,10 @@
             <div class="bubble-label hidden group-hover:flex group-focus:flex absolute left-1/2 -translate-x-1/2 -bottom-10 bg-black/90 text-white px-3 py-1 rounded-xl text-sm whitespace-nowrap z-50 pointer-events-none shadow-lg border border-white">
                 {{ user.firstName }} {{ user.lastName }}
                 
-                {# Afficher le pourcentage de recommandation #}
                 {% if user_score and not (current_user_id and user.id in friend_ids) and user.id != current_user_id %}
                     <span class="ml-1 {{ score_color }} font-semibold">{{ display_percentage }}%</span>
                 {% endif %}
                 
-                {# Icône ami #}
                 {% if current_user_id and user.id in friend_ids and user.id != current_user_id %}
                     <span class="ml-1 text-green-400">✓</span>
                 {% endif %}
@@ -58,3 +44,15 @@
         </div>
     {% endfor %}
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const totalUsers = {{ app.request.headers.get('X-Total-Users') ?? 0 }};
+    const totalPages = {{ app.request.headers.get('X-Total-Pages') ?? 1 }};
+    const currentPage = {{ app.request.headers.get('X-Current-Page') ?? 1 }};
+    
+    if (totalUsers > 0 && window.updateTagPagination) {
+        window.updateTagPagination(totalUsers, totalPages);
+    }
+});
+</script>
