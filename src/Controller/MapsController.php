@@ -93,7 +93,6 @@ final class MapsController extends AbstractController
             return $this->json([]);
         }
 
-        // Recherche réelle dans la table tag
         $tags = $tagRepository->createQueryBuilder('t')
             ->where('t.name LIKE :query')
             ->setParameter('query', '%' . $query . '%')
@@ -112,28 +111,82 @@ final class MapsController extends AbstractController
         return $this->json($formattedTags);
     }
 
-    #[Route('/maps/filter', name: 'app_user_map_filter')]
-    public function filter(
-        Request $request, 
+    #[Route('/maps/search-users', name: 'app_maps_search_users')]
+    public function searchUsers(
+        Request $request,
         UserRepository $userRepository, 
-        NetworkService $networkService
+        NetworkService $networkService,
+        OptimizedRecommendationService $recommendationService
     ): Response {
         $currentUser = $this->getUser();
-        $tagIds = $request->query->all('tags');
-        
-        $users = $userRepository->findByTaggableQuestion1Tags($tagIds);
+        $searchQuery = $request->query->get('q', '');
+        $showFriends = $request->query->get('friends', 'true') === 'true';
+        $showRecommendations = $request->query->get('recommendations', 'true') === 'true';
+        $page = $request->query->getInt('page', 1);
+        $limit = $request->query->getInt('limit', 20);
         
         $friendIds = [];
+        $friends = [];
+        $userScores = [];
+
         if ($currentUser) {
             $friends = $networkService->getUserNetwork($currentUser);
             $friendIds = array_map(fn($friend) => $friend->getId(), $friends);
         }
 
-        return $this->render('maps/_bubbles.html.twig', [
-            'users' => $users,
+        $searchedUsers = $userRepository->findBySearchQuery($searchQuery);
+        $totalUsers = count($searchedUsers);
+
+        $offset = ($page - 1) * $limit;
+        $paginatedUsers = array_slice($searchedUsers, $offset, $limit);
+        $totalPages = ceil($totalUsers / $limit);
+
+        $usersToDisplay = [];
+        
+        if ($currentUser) {
+            $currentUserInResults = array_filter($paginatedUsers, fn($user) => $user->getId() === $currentUser->getId());
+            if (count($currentUserInResults) > 0) {
+                $usersToDisplay[] = $currentUser;
+            }
+            
+            if ($showFriends) {
+                $friendsInResults = array_filter($paginatedUsers, function($user) use ($friendIds) {
+                    return in_array($user->getId(), $friendIds);
+                });
+                $usersToDisplay = array_merge($usersToDisplay, $friendsInResults);
+            }
+            
+            if ($showRecommendations) {
+                $otherUsers = array_filter($paginatedUsers, function($user) use ($currentUser, $friendIds) {
+                    return $user->getId() !== $currentUser->getId() && !in_array($user->getId(), $friendIds);
+                });
+                $usersToDisplay = array_merge($usersToDisplay, $otherUsers);
+                
+                if (!empty($otherUsers)) {
+                    $recommendationScores = $recommendationService->calculateRecommendationScores($currentUser, 1000);
+                    foreach ($recommendationScores as $userId => $scoreData) {
+                        $userScores[$userId] = $scoreData['score'];
+                    }
+                }
+            }
+        } else {
+            $usersToDisplay = $paginatedUsers;
+        }
+
+        $usersToDisplay = array_unique($usersToDisplay, SORT_REGULAR);
+
+        $response = $this->render('maps/_bubbles.html.twig', [
+            'users' => $usersToDisplay,
             'friend_ids' => $friendIds,
             'current_user_id' => $currentUser ? $currentUser->getId() : null,
+            'user_scores' => $userScores,
         ]);
+
+        $response->headers->set('X-Total-Users', $totalUsers);
+        $response->headers->set('X-Total-Pages', $totalPages);
+        $response->headers->set('X-Current-Page', $page);
+
+        return $response;
     }
 
     #[Route('/maps/filter-by-type', name: 'app_maps_filter_by_type')]

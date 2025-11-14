@@ -9,9 +9,6 @@ use Symfony\Component\Security\Core\Exception\UnsupportedUserException;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\PasswordUpgraderInterface;
 
-/**
- * @extends ServiceEntityRepository<User>
- */
 class UserRepository extends ServiceEntityRepository implements PasswordUpgraderInterface
 {
     public function __construct(ManagerRegistry $registry)
@@ -19,9 +16,6 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         parent::__construct($registry, User::class);
     }
 
-    /**
-     * Used to upgrade (rehash) the user's password automatically over time.
-     */
     public function upgradePassword(PasswordAuthenticatedUserInterface $user, string $newHashedPassword): void
     {
         if (!$user instanceof User) {
@@ -33,90 +27,77 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         $this->getEntityManager()->flush();
     }
 
-    /**
- * Retourne les utilisateurs ayant au moins un des tags sélectionnés sur la première question taggable.
- * @param array $tagIds
- * @return User[]
- */
-public function findByTaggableQuestion1Tags(array $tagIds): array
-{
-    if (empty($tagIds)) {
-        return $this->findAll();
+    public function findByTaggableQuestion1Tags(array $tagIds): array
+    {
+        if (empty($tagIds)) {
+            return $this->findAll();
+        }
+
+        $tagNames = $this->getEntityManager()
+            ->createQueryBuilder()
+            ->select('t.name')
+            ->from('App\Entity\Tag', 't')
+            ->where('t.id IN (:tagIds)')
+            ->setParameter('tagIds', $tagIds)
+            ->getQuery()
+            ->getResult();
+
+        $tagNames = array_column($tagNames, 'name');
+
+        if (empty($tagNames)) {
+            return [];
+        }
+
+        $qb = $this->createQueryBuilder('u')
+            ->join('u.userQuestions', 'uq')
+            ->where('uq.question = :question')
+            ->andWhere('uq.answer IN (:tagNames)')
+            ->setParameter('question', 'Taggable Question 0')
+            ->setParameter('tagNames', $tagNames)
+            ->groupBy('u.id')
+            ->having('COUNT(DISTINCT uq.answer) = :nbTags')
+            ->setParameter('nbTags', count($tagNames));
+
+        return $qb->getQuery()->getResult();
     }
 
-    // Récupérer d'abord les noms de tags correspondant aux IDs
-    $tagNames = $this->getEntityManager()
-        ->createQueryBuilder()
-        ->select('t.name')
-        ->from('App\Entity\Tag', 't')
-        ->where('t.id IN (:tagIds)')
-        ->setParameter('tagIds', $tagIds)
-        ->getQuery()
-        ->getResult();
+    public function findBySearchQuery(string $query): array
+    {
+        if (empty(trim($query))) {
+            return $this->findAll();
+        }
 
-    $tagNames = array_column($tagNames, 'name');
+        $searchTerms = $this->extractSearchTerms($query);
 
-    if (empty($tagNames)) {
-        return [];
+        if (empty($searchTerms)) {
+            return [];
+        }
+
+        $qb = $this->createQueryBuilder('u');
+
+        foreach ($searchTerms as $key => $term) {
+            $qb
+                ->orWhere('u.username LIKE :term_' . $key)
+                ->orWhere('u.firstName LIKE :term_' . $key)
+                ->orWhere('u.lastName LIKE :term_' . $key)
+                ->orWhere('u.affiliationLocation LIKE :term_' . $key)
+                ->orWhere('u.specialization LIKE :term_' . $key)
+                ->orWhere('u.researchTopic LIKE :term_' . $key)
+                ->setParameter('term_' . $key, '%' . $term . '%');
+        }
+
+        $qb->orderBy('u.username', 'ASC');
+
+        return $qb->getQuery()->getResult();
     }
 
-    $qb = $this->createQueryBuilder('u')
-        ->join('u.userQuestions', 'uq')
-        ->where('uq.question = :question')
-        ->andWhere('uq.answer IN (:tagNames)')
-        ->setParameter('question', 'Taggable Question 0')
-        ->setParameter('tagNames', $tagNames)
-        ->groupBy('u.id')
-        ->having('COUNT(DISTINCT uq.answer) = :nbTags')
-        ->setParameter('nbTags', count($tagNames));
+    private function extractSearchTerms(string $searchQuery): array
+    {
+        $searchQuery = trim(preg_replace('/[[:space:]]+/', ' ', $searchQuery));
+        $terms = array_unique(explode(' ', $searchQuery));
 
-    return $qb->getQuery()->getResult();
-}
-
-    // /**
-    //  * Retourne les utilisateurs ayant au moins un des tags sélectionnés sur la première question taggable.
-    //  * @param array $tagNames
-    //  * @return User[]
-    //  */
-    // public function findByTaggableQuestion1Tags(array $tagNames): array
-    // {
-    //     if (empty($tagNames)) {
-    //         return $this->findAll();
-    //     }
-    //     $qb = $this->createQueryBuilder('u')
-    //         ->join('u.userQuestions', 'uq')
-    //         ->where('uq.question = :question')
-    //         ->andWhere('uq.answer IN (:tagNames)')
-    //         ->setParameter('question', 'Taggable Question 0')
-    //         ->setParameter('tagNames', $tagNames)
-    //         ->groupBy('u.id')
-    //         ->having('COUNT(DISTINCT uq.answer) = :nbTags')
-    //         ->setParameter('nbTags', count($tagNames));
-    //     return $qb->getQuery()->getResult();
-    // }
-
-    //    /**
-    //     * @return User[] Returns an array of User objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('u')
-    //            ->andWhere('u.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('u.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
-
-    //    public function findOneBySomeField($value): ?User
-    //    {
-    //        return $this->createQueryBuilder('u')
-    //            ->andWhere('u.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+        return array_filter($terms, function ($term) {
+            return 2 <= mb_strlen($term);
+        });
+    }
 }
