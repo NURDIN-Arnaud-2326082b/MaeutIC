@@ -16,6 +16,9 @@
 <!-- Le contenu des bulles est maintenant inclus via le template partiel complet -->
 {% include 'maps/_bubbles.html.twig' %}
 
+<!-- Portail pour les dropdowns - à ajouter juste avant </body> -->
+<div id="dropdowns-portal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999;"></div>
+
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script>
 // Variables globales pour stocker les données des liens
