@@ -207,6 +207,9 @@ class ForumController extends AbstractController
             $posts = $postRepository->findByForum($category);
         }
 
+        // Retirer les posts dont l'auteur est bloqué / nous a bloqué
+        $posts = $this->filterPostsByBlock($posts, $this->getUser());
+
         // Initialiser les données de likes pour TOUS les posts (toujours)
         $postLikes = [];
         $userPostLikes = [];
@@ -236,58 +239,64 @@ class ForumController extends AbstractController
         if ($postId) {
             $selectedPost = $postRepository->find($postId);
             if ($selectedPost) {
-                $comments = $commentRepository->findByPost($postId);
-                $likes = [];
-                $userLikes = [];
+                // Si l'auteur du post est dans une relation de blocage avec l'utilisateur courant -> masquer
+                if ($this->isBlockedRelation($this->getUser(), $selectedPost->getUser())) {
+                    $this->addFlash('error', 'Ce post est inaccessible en raison d\'un blocage.');
+                    $selectedPost = null;
+                } else {
+                    $comments = $commentRepository->findByPost($postId);
+                    $likes = [];
+                    $userLikes = [];
 
-                // Ajouter les likes du post sélectionné
-                $selectedPostLikes = $postLikeRepository->countByPost($selectedPost);
-                $userSelectedPostLike = $this->getUser() 
-                    ? $postLikeRepository->isLikedByUser($selectedPost, $this->getUser()) 
-                    : false;
-
-                foreach ($comments as $comment) {
-                    $likes[] = $userLikeRepository->countByCommentId($comment->getId());
-                    $userLikes[$comment->getId()] = $this->getUser() 
-                        ? $userLikeRepository->hasUserLikedComment($this->getUser()->getId(), $comment->getId()) 
+                    // Ajouter les likes du post sélectionné
+                    $selectedPostLikes = $postLikeRepository->countByPost($selectedPost);
+                    $userSelectedPostLike = $this->getUser() 
+                        ? $postLikeRepository->isLikedByUser($selectedPost, $this->getUser()) 
                         : false;
-                }
 
-                // Récupérer les réponses au post
-                $replies = $postRepository->findBy(['parentPost' => $selectedPost], ['id' => 'ASC']);
-                
-                // Initialiser les likes pour les réponses
-                foreach ($replies as $reply) {
-                    $postLikes[$reply->getId()] = $postLikeRepository->countByPost($reply);
-                    $userPostLikes[$reply->getId()] = $this->getUser() 
-                        ? $postLikeRepository->isLikedByUser($reply, $this->getUser()) 
-                        : false;
-                }
+                    foreach ($comments as $comment) {
+                        $likes[] = $userLikeRepository->countByCommentId($comment->getId());
+                        $userLikes[$comment->getId()] = $this->getUser() 
+                            ? $userLikeRepository->hasUserLikedComment($this->getUser()->getId(), $comment->getId()) 
+                            : false;
+                    }
 
-                // Traitement du formulaire de création de post
-                $form->handleRequest($request);
-                if ($form->isSubmitted() && $form->isValid()) {
-                    $post = $form->getData();
-                    $post->setUser($this->getUser());
-                    $post->setCreationDate(new \DateTime());
-                    $post->setLastActivity(new \DateTime());
-                    $postRepository->addPost($post);
-                    return $this->redirectToRoute('app_forums', [
-                        'category' => $post->getForum()->getTitle(),
-                        'postId' => $post->getId(),
-                    ]);
-                }
+                    // Récupérer les réponses au post
+                    $replies = $postRepository->findBy(['parentPost' => $selectedPost], ['id' => 'ASC']);
+                    
+                    // Initialiser les likes pour les réponses
+                    foreach ($replies as $reply) {
+                        $postLikes[$reply->getId()] = $postLikeRepository->countByPost($reply);
+                        $userPostLikes[$reply->getId()] = $this->getUser() 
+                            ? $postLikeRepository->isLikedByUser($reply, $this->getUser()) 
+                            : false;
+                    }
 
-                // Traitement des commentaires
-                if ($request->isMethod('POST') && $request->request->has('comment') && $this->getUser()) {
-                    $commentBody = $request->request->get('comment');
-                    if ($commentBody) {
-                        $commentRepository->addComment($commentBody, $selectedPost, $this->getUser());
-                        
+                    // Traitement du formulaire de création de post
+                    $form->handleRequest($request);
+                    if ($form->isSubmitted() && $form->isValid()) {
+                        $post = $form->getData();
+                        $post->setUser($this->getUser());
+                        $post->setCreationDate(new \DateTime());
+                        $post->setLastActivity(new \DateTime());
+                        $postRepository->addPost($post);
                         return $this->redirectToRoute('app_forums', [
-                            'category' => $category,
-                            'postId' => $postId,
+                            'category' => $post->getForum()->getTitle(),
+                            'postId' => $post->getId(),
                         ]);
+                    }
+
+                    // Traitement des commentaires
+                    if ($request->isMethod('POST') && $request->request->has('comment') && $this->getUser()) {
+                        $commentBody = $request->request->get('comment');
+                        if ($commentBody) {
+                            $commentRepository->addComment($commentBody, $selectedPost, $this->getUser());
+                            
+                            return $this->redirectToRoute('app_forums', [
+                                'category' => $category,
+                                'postId' => $postId,
+                            ]);
+                        }
                     }
                 }
             }
@@ -346,6 +355,9 @@ class ForumController extends AbstractController
             }
             $posts = $postRepository->findBy(['forum' => $currentForum], ['creationDate' => 'DESC']);
         }
+
+        // filter posts authored by blocked users
+        $posts = $this->filterPostsByBlock($posts, $this->getUser());
 
         // Initialiser les données de likes pour TOUS les posts
         $postLikes = [];
@@ -750,36 +762,6 @@ class ForumController extends AbstractController
         ]);
     }
 
-    // // Méthode utilitaire pour les noms d'auteurs anonymes
-    // private function getRandomAuthorName(): string
-    // {
-    //     $authors = [
-    //         'Victor Hugo', 'Platon', 'René Descartes', 'Jean-Paul Sartre', 'Voltaire', 'Friedrich Nietzsche',
-    //         'Albert Camus', 'Michel de Montaigne', 'Jean-Jacques Rousseau', 'Honoré de Balzac', 'Socrates', 'Aristote',
-    //         'Emmanuel Kant', 'Sigmund Freud', 'John Locke', 'Thomas Hobbes', 'Karl Marx', 'Georg Wilhelm Friedrich Hegel', 'Sören Kierkegaard'
-    //     ];
-        
-    //     return $authors[array_rand($authors)];
-    // }
-
-    private function generateAnonymousId(): string
-    {
-        $letters = 'abcdefghijklmnopqrstuvwxyz';
-        $numbers = '0123456789';
-        
-        $randomLetters = '';
-        for ($i = 0; $i < 3; $i++) {
-            $randomLetters .= $letters[random_int(0, strlen($letters) - 1)];
-        }
-        
-        $randomNumbers = '';
-        for ($i = 0; $i < 3; $i++) {
-            $randomNumbers .= $numbers[random_int(0, strlen($numbers) - 1)];
-        }
-        
-        return $randomLetters . '.' . $randomNumbers;
-    }
-
     #[Route('/administratif-forums', name: 'app_administratif_forums')]
     #[Route('/administratif-forums/{category}', name: 'app_administratif_forums_category')]
     #[Route('/administratif-forums/{category}/{postId}', name: 'app_administratif_forums_post', requirements: ['postId' => '\d+'])]
@@ -1138,6 +1120,9 @@ class ForumController extends AbstractController
             $posts = $postRepository->findBy(['forum' => $currentForum], ['creationDate' => 'DESC']);
         }
 
+        // Retirer les posts dont l'auteur est bloqué / nous a bloqué
+        $posts = $this->filterPostsByBlock($posts, $this->getUser());
+
         // Initialiser les données de likes pour TOUS les posts
         $postLikes = [];
         $userPostLikes = [];
@@ -1393,6 +1378,9 @@ class ForumController extends AbstractController
             }
             $posts = $postRepository->findBy(['forum' => $currentForum], ['creationDate' => 'DESC']);
         }
+
+        // Retirer les posts dont l'auteur est bloqué / nous a bloqué
+        $posts = $this->filterPostsByBlock($posts, $this->getUser());
 
         // Initialiser les données de likes pour TOUS les posts
         $postLikes = [];
@@ -1767,7 +1755,30 @@ private function setupForumSelection(Post $post, array $forums, string $currentC
                 $post->setForum($forum);
                 break;
             }
-        }
+ }
     }
 }
+
+    // Helper: retourne true si $currentUser bloque ou est bloqué par $otherUser
+    private function isBlockedRelation(?User $currentUser, ?User $otherUser): bool
+    {
+        if (!$currentUser || !$otherUser) return false;
+        if ($currentUser->getId() === $otherUser->getId()) return false;
+        return $currentUser->isBlocked($otherUser->getId()) || $currentUser->isBlockedBy($otherUser->getId());
+    }
+
+    // Helper: filtre une liste de Post pour retirer ceux dont l'auteur est bloqué / bloque le visiteur
+    private function filterPostsByBlock(array $posts, ?User $currentUser): array
+    {
+        if (!$currentUser) return $posts;
+        $out = [];
+        foreach ($posts as $p) {
+            $author = $p->getUser();
+            if ($author && $this->isBlockedRelation($currentUser, $author)) {
+                continue;
+            }
+            $out[] = $p;
+        }
+        return array_values($out);
+    }
 }

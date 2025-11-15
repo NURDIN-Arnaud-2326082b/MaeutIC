@@ -35,6 +35,10 @@ final class MapsController extends AbstractController
         if ($currentUser) {
             $friends = $networkService->getUserNetwork($currentUser);
             $friendIds = array_map(fn($friend) => $friend->getId(), $friends);
+            // retirer des friends les users bloqués / qui nous ont bloqué
+            $friendIds = array_values(array_filter($friendIds, fn($id) => !$currentUser->isBlocked($id) && !$currentUser->isBlockedBy($id)));
+            // filtrer la liste d'amis retournée aussi
+            $friends = array_values(array_filter($friends, fn($f) => !$currentUser->isBlocked($f->getId()) && !$currentUser->isBlockedBy($f->getId())));
             
             // ✅ OPTIMISÉ: Récupère seulement les utilisateurs nécessaires
             $nonFriendUsers = $userRepository->findNonFriendUsers($currentUser, $friendIds, 200);
@@ -49,6 +53,9 @@ final class MapsController extends AbstractController
             $topRecommendedUsers = array_slice($recommendationScores, 0, 40, true);
             $recommendedUsers = array_map(fn($scoreData) => $scoreData['user'], $topRecommendedUsers);
             
+            // filtrer les recommendedUsers aussi
+            $recommendedUsers = array_values(array_filter($recommendedUsers, fn($u) => !$currentUser->isBlocked($u->getId()) && !$currentUser->isBlockedBy($u->getId())));
+
             if (count($recommendedUsers) < 40 && count($nonFriendUsers) > 0) {
                 $usedIds = array_merge($friendIds, [$currentUser->getId()], array_map(fn($u) => $u->getId(), $recommendedUsers));
                 $availableUsers = array_filter($nonFriendUsers, function($user) use ($usedIds) {
@@ -77,6 +84,8 @@ final class MapsController extends AbstractController
             
             // ✅ LIMITE STRICTE
             $usersToDisplay = array_slice($usersToDisplay, 0, self::MAX_USERS_DISPLAY);
+            // Retirer tous les users bloqués / qui nous ont bloqué
+            $usersToDisplay = $this->filterOutBlockedUsers($usersToDisplay, $currentUser);
         } else {
             // ✅ OPTIMISÉ: Limite pour les utilisateurs non connectés
             $usersToDisplay = $userRepository->findPaginated(1, self::MAX_USERS_DISPLAY);
@@ -183,6 +192,10 @@ final class MapsController extends AbstractController
         }
 
         $usersToDisplay = array_unique($usersToDisplay, SORT_REGULAR);
+        if ($currentUser) {
+            $usersToDisplay = $this->filterOutBlockedUsers($usersToDisplay, $currentUser);
+            $friendIds = array_values(array_filter($friendIds, fn($id) => !$currentUser->isBlocked($id) && !$currentUser->isBlockedBy($id)));
+        }
 
         $response = $this->render('maps/_bubbles.html.twig', [
             'users' => $usersToDisplay,
@@ -266,6 +279,10 @@ final class MapsController extends AbstractController
             
             // ✅ LIMITE STRICTE
             $usersToDisplay = array_slice($usersToDisplay, 0, self::MAX_USERS_DISPLAY);
+            if ($currentUser) {
+                $usersToDisplay = $this->filterOutBlockedUsers($usersToDisplay, $currentUser);
+                $friendIds = array_values(array_filter($friendIds, fn($id) => !$currentUser->isBlocked($id) && !$currentUser->isBlockedBy($id)));
+            }
         } else {
             // ✅ OPTIMISÉ: Limite pour les utilisateurs non connectés
             $usersToDisplay = $userRepository->findPaginated(1, self::MAX_USERS_DISPLAY);
@@ -345,6 +362,10 @@ final class MapsController extends AbstractController
         }
 
         $usersToDisplay = array_unique($usersToDisplay, SORT_REGULAR);
+        if ($currentUser) {
+            $usersToDisplay = $this->filterOutBlockedUsers($usersToDisplay, $currentUser);
+            $friendIds = array_values(array_filter($friendIds, fn($id) => !$currentUser->isBlocked($id) && !$currentUser->isBlockedBy($id)));
+        }
 
         $response = $this->render('maps/_bubbles.html.twig', [
             'users' => $usersToDisplay,
@@ -393,5 +414,25 @@ final class MapsController extends AbstractController
             echo "console.log('================================');";
             echo "</script>";
         }
+    }
+
+    // Helper: retire tous les users de la liste que $currentUser a bloqués ou qui l'ont bloqué
+    private function filterOutBlockedUsers(array $users, ?\App\Entity\User $currentUser): array
+    {
+        if (!$currentUser) return $users;
+        $out = [];
+        foreach ($users as $u) {
+            if (!($u instanceof \App\Entity\User)) continue;
+            $id = $u->getId();
+            if ($id === $currentUser->getId()) {
+                $out[] = $u;
+                continue;
+            }
+            if ($currentUser->isBlocked($id)) continue;
+            if ($currentUser->isBlockedBy($id)) continue;
+            $out[] = $u;
+        }
+        // unique and preserve order
+        return array_values(array_unique($out, SORT_REGULAR));
     }
 }
