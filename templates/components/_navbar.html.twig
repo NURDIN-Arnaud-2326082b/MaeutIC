@@ -136,18 +136,58 @@ document.addEventListener('DOMContentLoaded', () => {
         const sender = (n.sender && n.sender.username) ? n.sender.username : 'Utilisateur';
         const div = document.createElement('div');
         div.className = 'p-2 border-b last:border-b-0';
-        div.innerHTML = `
-            <div class="flex justify-between items-start">
-                <div class="text-sm">
-                    <div class="font-semibold">${sender}</div>
-                    <div class="text-xs text-gray-600">${(n.data && n.data.message) ? n.data.message : 'Vous avez une notification'}</div>
+        // Si c'est une demande de réseau, afficher Accept/Decline
+        if (n.type === 'network_request') {
+            div.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <div class="text-sm">
+                        <div class="font-semibold">${sender}</div>
+                        <div class="text-xs text-gray-600">${(n.data && n.data.message) ? n.data.message : 'Demande de connexion'}</div>
+                    </div>
+                    <div class="flex space-x-1">
+                        <button data-id="${n.id}" class="notif-accept bg-green-600 text-white text-xs px-2 py-1 rounded">Accepter</button>
+                        <button data-id="${n.id}" class="notif-decline bg-gray-200 text-xs px-2 py-1 rounded">Refuser</button>
+                    </div>
                 </div>
-                <div class="flex space-x-1">
-                    <button data-id="${n.id}" class="notif-accept bg-green-600 text-white text-xs px-2 py-1 rounded">Accepter</button>
-                    <button data-id="${n.id}" class="notif-decline bg-gray-200 text-xs px-2 py-1 rounded">Refuser</button>
+            `;
+        } else {
+            // Autres types : rendre l'élément cliquable pour accéder directement au post lié
+            const message = (n.data && n.data.message) ? n.data.message : 'Vous avez une notification';
+            const postId = n.data && n.data.postId ? n.data.postId : null;
+            // construire un target minimal ; fallback vers General si manque d'infos
+            const target = postId ? `/forums/General/${encodeURIComponent(postId)}` : '#';
+            div.innerHTML = `
+                <div class="flex justify-between items-start cursor-pointer notif-item-link" data-target="${target}" data-id="${n.id}">
+                    <div class="text-sm">
+                        <div class="font-semibold">${sender}</div>
+                        <div class="text-xs text-gray-600">${message}</div>
+                    </div>
                 </div>
-            </div>
-        `;
+            `;
+            // navigation au clic sur l'item + suppression de la notification (via decline endpoint)
+            const linkEl = div.querySelector('.notif-item-link');
+            linkEl.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const id = linkEl.dataset.id;
+                try {
+                    // tenter de supprimer la notification côté serveur avant navigation
+                    await fetch('/notifications/decline/' + encodeURIComponent(id), {
+                        method: 'POST',
+                        headers: {'X-Requested-With': 'XMLHttpRequest'},
+                        credentials: 'same-origin'
+                    });
+                } catch (err) {
+                    console.error('Failed to remove notification', err);
+                    // on continue malgré l'erreur
+                }
+                if (target !== '#') {
+                    window.location.href = target;
+                } else {
+                    // rafraîchir la liste si pas de cible
+                    fetchNotifications();
+                }
+            });
+        }
         return div;
     }
 
@@ -178,48 +218,76 @@ document.addEventListener('DOMContentLoaded', () => {
                 notifItems.innerHTML = '<div class="text-sm text-gray-500 p-2">Aucune notification.</div>';
             } else {
                 arr.forEach(n => notifItems.appendChild(renderNotificationItem(n)));
+
+                // Ajouter footer "Tout effacer"
+                const footer = document.createElement('div');
+                footer.className = 'p-2 border-t text-center';
+                footer.innerHTML = `<button id="clearAllNotifs" class="text-xs text-red-600 hover:underline">Tout effacer</button>`;
+                notifItems.appendChild(footer);
+
+                // wiring clear all
+                const clearBtn = document.getElementById('clearAllNotifs');
+                if (clearBtn) {
+                    clearBtn.onclick = async () => {
+                        clearBtn.disabled = true;
+                        try {
+                            const r = await fetch('/notifications/clear-all', {
+                                method: 'POST',
+                                headers: {'X-Requested-With': 'XMLHttpRequest'},
+                                credentials: 'same-origin'
+                            });
+                            if (!r.ok) throw new Error('clear failed');
+                        } catch (err) {
+                            console.error(err);
+                        } finally {
+                            // rafraîchir la liste
+                            fetchNotifications();
+                        }
+                    };
+                }
             }
 
             // Wire buttons
+            // Accept/Decline n'existent que pour les network_request : on branche seulement si présents
             document.querySelectorAll('.notif-accept').forEach(btn => {
-                btn.onclick = async (e) => {
-                    const id = e.currentTarget.dataset.id;
-                    e.currentTarget.disabled = true;
-                    try {
-                        const r = await fetch('/notifications/accept/' + encodeURIComponent(id), {
-                            method: 'POST',
-                            headers: {'X-Requested-With': 'XMLHttpRequest'},
-                            credentials: 'same-origin'
-                        });
-                        const j = await r.json();
-                        if (j.success) {
-                            // rafraîchir la liste
-                        }
-                    } catch (err) {
-                        console.error(err);
-                    } finally {
-                        fetchNotifications();
-                    }
-                };
-            });
+                 btn.onclick = async (e) => {
+                     const id = e.currentTarget.dataset.id;
+                     e.currentTarget.disabled = true;
+                     try {
+                         const r = await fetch('/notifications/accept/' + encodeURIComponent(id), {
+                             method: 'POST',
+                             headers: {'X-Requested-With': 'XMLHttpRequest'},
+                             credentials: 'same-origin'
+                         });
+                         const j = await r.json();
+                         if (j.success) {
+                             // rafraîchir la liste
+                         }
+                     } catch (err) {
+                         console.error(err);
+                     } finally {
+                         fetchNotifications();
+                     }
+                 };
+             });
 
-            document.querySelectorAll('.notif-decline').forEach(btn => {
-                btn.onclick = async (e) => {
-                    const id = e.currentTarget.dataset.id;
-                    e.currentTarget.disabled = true;
-                    try {
-                        await fetch('/notifications/decline/' + encodeURIComponent(id), {
-                            method: 'POST',
-                            headers: {'X-Requested-With': 'XMLHttpRequest'},
-                            credentials: 'same-origin'
-                        });
-                    } catch (err) {
-                        console.error(err);
-                    } finally {
-                        fetchNotifications();
-                    }
-                };
-            });
+             document.querySelectorAll('.notif-decline').forEach(btn => {
+                 btn.onclick = async (e) => {
+                     const id = e.currentTarget.dataset.id;
+                     e.currentTarget.disabled = true;
+                     try {
+                         await fetch('/notifications/decline/' + encodeURIComponent(id), {
+                             method: 'POST',
+                             headers: {'X-Requested-With': 'XMLHttpRequest'},
+                             credentials: 'same-origin'
+                         });
+                     } catch (err) {
+                         console.error(err);
+                     } finally {
+                         fetchNotifications();
+                     }
+                 };
+             });
         } catch (err) {
             console.error('Failed to fetch notifications', err);
         }

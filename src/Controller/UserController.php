@@ -450,4 +450,23 @@ class UserController extends AbstractController
 
         return $this->json(['success' => true, 'declined' => true]);
     }
+
+    #[Route('/notifications/clear-all', name: 'notifications_clear_all', methods: ['POST'])]
+    public function clearAllNotifications(\Doctrine\ORM\EntityManagerInterface $entityManager): JsonResponse
+    {
+        $me = $this->getUser();
+        if (!$me) {
+            return $this->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $notifRepo = $entityManager->getRepository(Notification::class);
+        $notifications = $notifRepo->findBy(['recipient' => $me]);
+
+        foreach ($notifications as $n) {
+            $entityManager->remove($n);
+        }
+        $entityManager->flush();
+
+        return $this->json(['success' => true, 'cleared' => true]);
+    }
 }

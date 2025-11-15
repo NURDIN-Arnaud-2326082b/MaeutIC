@@ -305,8 +305,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 const all = Array.isArray(j.connections) ? j.connections : [];
                 const total = all.length;
 
-                // afficher nombre total à droite
-                totalEl.textContent = total > 0 ? total + ' membre' + (total > 1 ? 's' : '') : 'Aucun membre';
+                // afficher nombre total à droite uniquement s'il y a des membres
+                // (laisser vide quand aucun membre pour éviter duplication "Aucun membre" à gauche)
+                if (total > 0) {
+                    totalEl.textContent = total + ' membre' + (total > 1 ? 's' : '');
+                    totalEl.classList.remove('hidden');
+                } else {
+                    totalEl.textContent = '';
+                    totalEl.classList.add('hidden');
+                }
 
                 // ne garder que les 3 derniers éléments de la liste
                 const tail = total <= 3 ? all : all.slice(-3);

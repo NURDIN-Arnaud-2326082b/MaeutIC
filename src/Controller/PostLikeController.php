@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\Post;
 use App\Entity\PostLike;
+use App\Entity\Notification;
 use App\Repository\PostLikeRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -30,17 +31,42 @@ class PostLikeController extends AbstractController
             $this->entityManager->remove($existingLike);
             $liked = false;
             $message = 'Like retiré';
+            $this->entityManager->flush();
         } else {
             $postLike = new PostLike();
             $postLike->setUser($user);
             $postLike->setPost($post);
             
             $this->entityManager->persist($postLike);
+
+            // --- NEW: create notification to post author ---
+            $postAuthor = $post->getUser();
+            if ($postAuthor && $postAuthor->getId() !== $user->getId()) {
+                // Respecter les blocages : ne pas notifier si bloque/blockedBy
+                if (
+                    !$postAuthor->isBlocked($user->getId()) &&
+                    !$postAuthor->isBlockedBy($user->getId()) &&
+                    !$user->isBlocked($postAuthor->getId()) &&
+                    !$user->isBlockedBy($postAuthor->getId())
+                ) {
+                    $notif = new Notification();
+                    $notif->setType('post_like');
+                    $notif->setSender($user);
+                    $notif->setRecipient($postAuthor);
+                    $notif->setStatus('unread');
+                    $notif->setData([
+                        'postId' => $post->getId(),
+                        'message' => sprintf('%s a aimé votre post', $user->getUsername() ?? 'Quelqu\'un')
+                    ]);
+                    $this->entityManager->persist($notif);
+                }
+            }
+            // --- END NEW ---
+
             $liked = true;
             $message = 'Post liké';
+            $this->entityManager->flush();
         }
-
-        $this->entityManager->flush();
 
         return $this->json([
             'liked' => $liked,

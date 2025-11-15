@@ -290,8 +290,34 @@ class ForumController extends AbstractController
                     if ($request->isMethod('POST') && $request->request->has('comment') && $this->getUser()) {
                         $commentBody = $request->request->get('comment');
                         if ($commentBody) {
+                            // Ajouter le commentaire
                             $commentRepository->addComment($commentBody, $selectedPost, $this->getUser());
                             
+                            // Notifier l'auteur du post (si pas auto-commentaire et pas de blocage)
+                            $author = $selectedPost->getUser();
+                            $actor = $this->getUser();
+                            if ($author && $actor && $author->getId() !== $actor->getId()) {
+                                if (
+                                    !$author->isBlocked($actor->getId()) &&
+                                    !$author->isBlockedBy($actor->getId()) &&
+                                    !$actor->isBlocked($author->getId()) &&
+                                    !$actor->isBlockedBy($author->getId())
+                                ) {
+                                    $em = $this->getDoctrine()->getManager();
+                                    $notif = new Notification();
+                                    $notif->setType('post_comment');
+                                    $notif->setSender($actor);
+                                    $notif->setRecipient($author);
+                                    $notif->setStatus('unread');
+                                    $notif->setData([
+                                        'postId' => $selectedPost->getId(),
+                                        'message' => sprintf('%s a commenté votre post', $actor->getUsername() ?? 'Quelqu\'un')
+                                    ]);
+                                    $em->persist($notif);
+                                    $em->flush();
+                                }
+                            }
+
                             return $this->redirectToRoute('app_forums', [
                                 'category' => $category,
                                 'postId' => $postId,
@@ -436,8 +462,34 @@ class ForumController extends AbstractController
                 if ($request->isMethod('POST') && $request->request->has('comment') && $this->getUser()) {
                     $commentBody = $request->request->get('comment');
                     if ($commentBody) {
+                        // Ajouter le commentaire
                         $commentRepository->addComment($commentBody, $selectedPost, $this->getUser());
                         
+                        // Notifier l'auteur du post (si pas auto-commentaire et pas de blocage)
+                        $author = $selectedPost->getUser();
+                        $actor = $this->getUser();
+                        if ($author && $actor && $author->getId() !== $actor->getId()) {
+                            if (
+                                !$author->isBlocked($actor->getId()) &&
+                                !$author->isBlockedBy($actor->getId()) &&
+                                !$actor->isBlocked($author->getId()) &&
+                                !$actor->isBlockedBy($author->getId())
+                            ) {
+                                $em = $this->getDoctrine()->getManager();
+                                $notif = new Notification();
+                                $notif->setType('post_comment');
+                                $notif->setSender($actor);
+                                $notif->setRecipient($author);
+                                $notif->setStatus('unread');
+                                $notif->setData([
+                                    'postId' => $selectedPost->getId(),
+                                    'message' => sprintf('%s a commenté votre post', $actor->getUsername() ?? 'Quelqu\'un')
+                                ]);
+                                $em->persist($notif);
+                                $em->flush();
+                            }
+                        }
+
                         return $this->redirectToRoute('app_methodology_forums_post', [
                             'category' => $category,
                             'postId' => $postId,
@@ -712,6 +764,31 @@ class ForumController extends AbstractController
         $entityManager->persist($reply);
         $entityManager->flush();
 
+        // Notifier l'auteur du post parent (si différent et pas de blocage)
+        $author = $parentPost->getUser();
+        $actor = $this->getUser();
+        if ($author && $actor && $author->getId() !== $actor->getId()) {
+            if (
+                !$author->isBlocked($actor->getId()) &&
+                !$author->isBlockedBy($actor->getId()) &&
+                !$actor->isBlocked($author->getId()) &&
+                !$actor->isBlockedBy($author->getId())
+            ) {
+                $notif = new Notification();
+                $notif->setType('post_reply');
+                $notif->setSender($actor);
+                $notif->setRecipient($author);
+                $notif->setStatus('unread');
+                $notif->setData([
+                    'postId' => $parentPost->getId(),
+                    'replyId' => $reply->getId(),
+                    'message' => sprintf('%s a répondu à votre post', $actor->getUsername() ?? 'Quelqu\'un')
+                ]);
+                $entityManager->persist($notif);
+                $entityManager->flush();
+            }
+        }
++
         $this->addFlash('success', 'Votre réponse a été ajoutée avec succès.');
         return $this->redirectToRoute('app_forums', ['category' => $category, 'postId' => $postId]);
     }
@@ -754,6 +831,31 @@ class ForumController extends AbstractController
 
         $entityManager->persist($reply);
         $entityManager->flush();
+
+        // Notifier l'auteur du post parent (si différent et pas de blocage)
+        $author = $parentPost->getUser();
+        $actor = $this->getUser();
+        if ($author && $actor && $author->getId() !== $actor->getId()) {
+            if (
+                !$author->isBlocked($actor->getId()) &&
+                !$author->isBlockedBy($actor->getId()) &&
+                !$actor->isBlocked($author->getId()) &&
+                !$actor->isBlockedBy($author->getId())
+            ) {
+                $notif = new Notification();
+                $notif->setType('post_reply');
+                $notif->setSender($actor);
+                $notif->setRecipient($author);
+                $notif->setStatus('unread');
+                $notif->setData([
+                    'postId' => $parentPost->getId(),
+                    'replyId' => $reply->getId(),
+                    'message' => sprintf('%s a répondu à votre post', $actor->getUsername() ?? 'Quelqu\'un')
+                ]);
+                $entityManager->persist($notif);
+                $entityManager->flush();
+            }
+        }
 
         $this->addFlash('success', 'Votre réponse a été ajoutée avec succès.');
         return $this->redirectToRoute('app_methodology_forums_post', [
@@ -874,8 +976,34 @@ class ForumController extends AbstractController
                 if ($request->isMethod('POST') && $request->request->has('comment') && $this->getUser()) {
                     $commentBody = $request->request->get('comment');
                     if ($commentBody) {
+                        // Ajouter le commentaire
                         $commentRepository->addComment($commentBody, $selectedPost, $this->getUser());
                         
+                        // Notifier l'auteur du post (si pas auto-commentaire et pas de blocage)
+                        $author = $selectedPost->getUser();
+                        $actor = $this->getUser();
+                        if ($author && $actor && $author->getId() !== $actor->getId()) {
+                            if (
+                                !$author->isBlocked($actor->getId()) &&
+                                !$author->isBlockedBy($actor->getId()) &&
+                                !$actor->isBlocked($author->getId()) &&
+                                !$actor->isBlockedBy($author->getId())
+                            ) {
+                                $em = $this->getDoctrine()->getManager();
+                                $notif = new Notification();
+                                $notif->setType('post_comment');
+                                $notif->setSender($actor);
+                                $notif->setRecipient($author);
+                                $notif->setStatus('unread');
+                                $notif->setData([
+                                    'postId' => $selectedPost->getId(),
+                                    'message' => sprintf('%s a commenté votre post', $actor->getUsername() ?? 'Quelqu\'un')
+                                ]);
+                                $em->persist($notif);
+                                $em->flush();
+                            }
+                        }
+
                         return $this->redirectToRoute('app_administratif_forums_post', [
                             'category' => $category,
                             'postId' => $postId,
@@ -1011,78 +1139,36 @@ class ForumController extends AbstractController
         $entityManager->persist($reply);
         $entityManager->flush();
 
+        // Notifier l'auteur du post parent (si différent et pas de blocage)
+        $author = $parentPost->getUser();
+        $actor = $this->getUser();
+        if ($author && $actor && $author->getId() !== $actor->getId()) {
+            if (
+                !$author->isBlocked($actor->getId()) &&
+                !$author->isBlockedBy($actor->getId()) &&
+                !$actor->isBlocked($author->getId()) &&
+                !$actor->isBlockedBy($author->getId())
+            ) {
+                $notif = new Notification();
+                $notif->setType('post_reply');
+                $notif->setSender($actor);
+                $notif->setRecipient($author);
+                $notif->setStatus('unread');
+                $notif->setData([
+                    'postId' => $parentPost->getId(),
+                    'replyId' => $reply->getId(),
+                    'message' => sprintf('%s a répondu à votre post', $actor->getUsername() ?? 'Quelqu\'un')
+                ]);
+                $entityManager->persist($notif);
+                $entityManager->flush();
+            }
+        }
+
         $this->addFlash('success', 'Votre réponse a été ajoutée avec succès.');
         return $this->redirectToRoute('app_administratif_forums_post', [
             'category' => $category,
             'postId' => $postId
         ]);
-    }
-
-    // --- Nouveau : lister les connexions (utilisateurs en conversation) pour un profil ---
-    #[Route('/network/list/{userId}', name: 'network_list', methods: ['GET'])]
-    public function listNetwork(
-        int $userId,
-        EntityManagerInterface $entityManager
-    ): \Symfony\Component\HttpFoundation\JsonResponse {
-        try {
-            $userRepo = $entityManager->getRepository(User::class);
-            $target = $userRepo->find($userId);
-            if (!$target) {
-                return $this->json(['error' => 'User not found'], 404);
-            }
-
-            // Récupère les IDs depuis le champ 'network' du user.
-            $ids = $target->getNetwork();
-            // Si la valeur est stockée sous forme de chaîne JSON, décoder
-            if (is_string($ids)) {
-                $decoded = json_decode($ids, true);
-                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                    $ids = $decoded;
-                } else {
-                    $ids = [];
-                }
-            }
-
-            if (empty($ids) || !is_array($ids)) {
-                return $this->json(['connections' => []]);
-            }
-
-            // Normaliser IDs en integers et filtrer valeurs invalides
-            $ids = array_values(array_filter(array_map('intval', $ids), fn($v) => $v > 0));
-            if (empty($ids)) {
-                return $this->json(['connections' => []]);
-            }
-
-            // Récupérer les utilisateurs correspondant aux IDs (sans toucher aux Conversations)
-            $users = $userRepo->findBy(['id' => $ids]);
-
-            // Indexer par id pour respecter l'ordre stocké dans network
-            $map = [];
-            foreach ($users as $u) {
-                $map[$u->getId()] = $u;
-            }
-
-            $connections = [];
-            foreach ($ids as $id) {
-                if (!isset($map[$id])) {
-                    // utilisateur supprimé ou inexistant -> ignorer
-                    continue;
-                }
-                $other = $map[$id];
-                $connections[] = [
-                    'id' => $other->getId(),
-                    'username' => $other->getUsername(),
-                    'firstName' => method_exists($other, 'getFirstName') ? $other->getFirstName() : null,
-                    'lastName' => method_exists($other, 'getLastName') ? $other->getLastName() : null,
-                    'profileImage' => method_exists($other, 'getProfileImage') ? $other->getProfileImage() : null,
-                ];
-            }
-
-            return $this->json(['connections' => $connections]);
-        } catch (\Throwable $e) {
-            // Retourner JSON d'erreur pour éviter que le frontend reçoive une page HTML
-            return $this->json(['error' => 'Server error', 'message' => $e->getMessage()], 500);
-        }
     }
 
     #[Route('/detente-forums', name: 'app_detente_forums')]
@@ -1200,8 +1286,34 @@ class ForumController extends AbstractController
                 if ($request->isMethod('POST') && $request->request->has('comment') && $this->getUser()) {
                     $commentBody = $request->request->get('comment');
                     if ($commentBody) {
+                        // Ajouter le commentaire
                         $commentRepository->addComment($commentBody, $selectedPost, $this->getUser());
                         
+                        // Notifier l'auteur du post (si pas auto-commentaire et pas de blocage)
+                        $author = $selectedPost->getUser();
+                        $actor = $this->getUser();
+                        if ($author && $actor && $author->getId() !== $actor->getId()) {
+                            if (
+                                !$author->isBlocked($actor->getId()) &&
+                                !$author->isBlockedBy($actor->getId()) &&
+                                !$actor->isBlocked($author->getId()) &&
+                                !$actor->isBlockedBy($author->getId())
+                            ) {
+                                $em = $this->getDoctrine()->getManager();
+                                $notif = new Notification();
+                                $notif->setType('post_comment');
+                                $notif->setSender($actor);
+                                $notif->setRecipient($author);
+                                $notif->setStatus('unread');
+                                $notif->setData([
+                                    'postId' => $selectedPost->getId(),
+                                    'message' => sprintf('%s a commenté votre post', $actor->getUsername() ?? 'Quelqu\'un')
+                                ]);
+                                $em->persist($notif);
+                                $em->flush();
+                            }
+                        }
+
                         return $this->redirectToRoute('app_detente_forums_post', [
                             'category' => $category,
                             'postId' => $postId,
@@ -1337,6 +1449,31 @@ class ForumController extends AbstractController
         $entityManager->persist($reply);
         $entityManager->flush();
 
+        // Notifier l'auteur du post parent (si différent et pas de blocage)
+        $author = $parentPost->getUser();
+        $actor = $this->getUser();
+        if ($author && $actor && $author->getId() !== $actor->getId()) {
+            if (
+                !$author->isBlocked($actor->getId()) &&
+                !$author->isBlockedBy($actor->getId()) &&
+                !$actor->isBlocked($author->getId()) &&
+                !$actor->isBlockedBy($author->getId())
+            ) {
+                $notif = new Notification();
+                $notif->setType('post_reply');
+                $notif->setSender($actor);
+                $notif->setRecipient($author);
+                $notif->setStatus('unread');
+                $notif->setData([
+                    'postId' => $parentPost->getId(),
+                    'replyId' => $reply->getId(),
+                    'message' => sprintf('%s a répondu à votre post', $actor->getUsername() ?? 'Quelqu\'un')
+                ]);
+                $entityManager->persist($notif);
+                $entityManager->flush();
+            }
+        }
+
         $this->addFlash('success', 'Votre réponse a été ajoutée avec succès.');
         return $this->redirectToRoute('app_detente_forums_post', [
             'category' => $category,
@@ -1459,8 +1596,34 @@ class ForumController extends AbstractController
                 if ($request->isMethod('POST') && $request->request->has('comment') && $this->getUser()) {
                     $commentBody = $request->request->get('comment');
                     if ($commentBody) {
+                        // Ajouter le commentaire
                         $commentRepository->addComment($commentBody, $selectedPost, $this->getUser());
                         
+                        // Notifier l'auteur du post (si pas auto-commentaire et pas de blocage)
+                        $author = $selectedPost->getUser();
+                        $actor = $this->getUser();
+                        if ($author && $actor && $author->getId() !== $actor->getId()) {
+                            if (
+                                !$author->isBlocked($actor->getId()) &&
+                                !$author->isBlockedBy($actor->getId()) &&
+                                !$actor->isBlocked($author->getId()) &&
+                                !$actor->isBlockedBy($author->getId())
+                            ) {
+                                $em = $this->getDoctrine()->getManager();
+                                $notif = new Notification();
+                                $notif->setType('post_comment');
+                                $notif->setSender($actor);
+                                $notif->setRecipient($author);
+                                $notif->setStatus('unread');
+                                $notif->setData([
+                                    'postId' => $selectedPost->getId(),
+                                    'message' => sprintf('%s a commenté votre post', $actor->getUsername() ?? 'Quelqu\'un')
+                                ]);
+                                $em->persist($notif);
+                                $em->flush();
+                            }
+                        }
+
                         return $this->redirectToRoute('app_cafe_des_lumieres_forums_post', [
                             'category' => $category,
                             'postId' => $postId,
@@ -1597,6 +1760,31 @@ class ForumController extends AbstractController
 
         $entityManager->persist($reply);
         $entityManager->flush();
+
+        // Notifier l'auteur du post parent (si différent et pas de blocage)
+        $author = $parentPost->getUser();
+        $actor = $this->getUser();
+        if ($author && $actor && $author->getId() !== $actor->getId()) {
+            if (
+                !$author->isBlocked($actor->getId()) &&
+                !$author->isBlockedBy($actor->getId()) &&
+                !$actor->isBlocked($author->getId()) &&
+                !$actor->isBlockedBy($author->getId())
+            ) {
+                $notif = new Notification();
+                $notif->setType('post_reply');
+                $notif->setSender($actor);
+                $notif->setRecipient($author);
+                $notif->setStatus('unread');
+                $notif->setData([
+                    'postId' => $parentPost->getId(),
+                    'replyId' => $reply->getId(),
+                    'message' => sprintf('%s a répondu à votre post', $actor->getUsername() ?? 'Quelqu\'un')
+                ]);
+                $entityManager->persist($notif);
+                $entityManager->flush();
+            }
+        }
 
         $this->addFlash('success', 'Votre réponse a été ajoutée avec succès.');
         return $this->redirectToRoute('app_cafe_des_lumieres_forums_post', [
@@ -1745,16 +1933,16 @@ public function addAdministratifPost(
     ]);
 }
 
-// Fonction utilitaire pour gérer l'auto-sélection du forum dans les formulaires
-private function setupForumSelection(Post $post, array $forums, string $currentCategory): void
-{
-    // Si une catégorie est spécifiée et qu'elle correspond à un forum spécial, auto-sélectionner
-    if ($currentCategory && $currentCategory !== 'General') {
-        foreach ($forums as $forum) {
-            if ($forum->getTitle() === $currentCategory) {
-                $post->setForum($forum);
-                break;
-            }
+    // Fonction utilitaire pour gérer l'auto-sélection du forum dans les formulaires
+    private function setupForumSelection(Post $post, array $forums, string $currentCategory): void
+    {
+        // Si une catégorie est spécifiée et qu'elle correspond à un forum spécial, auto-sélectionner
+        if ($currentCategory && $currentCategory !== 'General') {
+            foreach ($forums as $forum) {
+                if ($forum->getTitle() === $currentCategory) {
+                    $post->setForum($forum);
+                    break;
+                }
  }
     }
 }
