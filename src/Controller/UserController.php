@@ -23,6 +23,14 @@ class UserController extends AbstractController
                 return $this->json(['error' => 'User not found'], 404);
             }
 
+            // Si l'utilisateur courant est bloqué par / bloque la cible, ne pas divulguer son réseau
+            $me = $this->getUser();
+            if ($me && $me->getId() !== $userId) {
+                if ($me->isBlocked($userId) || $target->isBlocked($me->getId()) || $me->isBlockedBy($userId) || $target->isBlockedBy($me->getId())) {
+                    return $this->json(['connections' => []]);
+                }
+            }
+
             $ids = $target->getNetwork();
             if (is_string($ids)) {
                 $decoded = json_decode($ids, true);
@@ -46,6 +54,14 @@ class UserController extends AbstractController
             foreach ($ids as $id) {
                 if (!isset($map[$id])) continue;
                 $other = $map[$id];
+
+                // Si visiteur connecté, ne pas inclure dans la liste les utilisateurs en situation de blocage mutuel/unilatéral avec le visiteur
+                if ($me && $me->getId() !== $userId) {
+                    if ($me->isBlocked($other->getId()) || $other->isBlocked($me->getId()) || $me->isBlockedBy($other->getId()) || $other->isBlockedBy($me->getId())) {
+                        continue;
+                    }
+                }
+
                 $connections[] = [
                     'id' => $other->getId(),
                     'username' => $other->getUsername(),
@@ -126,14 +142,25 @@ class UserController extends AbstractController
                 return $this->json(['error' => 'User not found'], 404);
             }
 
+            // Si déjà bloqué -> débloquer : retirer côté blocker et côté bloqué (blockedBy)
             if ($me->isBlocked($other->getId())) {
                 $me->removeFromBlocked($other->getId());
+                // retirer la trace côté "blockedBy" de l'autre utilisateur
+                if (method_exists($other, 'removeFromBlockedBy')) {
+                    $other->removeFromBlockedBy($me->getId());
+                }
                 $entityManager->persist($me);
+                $entityManager->persist($other);
                 $entityManager->flush();
                 return $this->json(['success' => true, 'cancelled' => true]);
             }
 
+            // Bloquer : ajouter à blocked du courant et ajouter à blockedBy de l'autre
             $me->addToBlocked($other->getId());
+            if (method_exists($other, 'addToBlockedBy')) {
+                $other->addToBlockedBy($me->getId());
+            }
+
             if ($me->isInNetwork($other->getId())) $me->removeFromNetwork($other->getId());
             if ($other->isInNetwork($me->getId())) $other->removeFromNetwork($me->getId());
 

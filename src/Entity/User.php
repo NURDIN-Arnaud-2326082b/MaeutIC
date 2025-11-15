@@ -91,6 +91,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     // Persist the blocked users as JSON in the database (list of user ids this user has blocked)
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $blocked = [];
+
+    // Persist the users who blocked this user (list of user ids)
+    // nom de colonne fixé pour matcher la migration qui a créé "blockedby"
+    #[ORM\Column(name: 'blockedby', type: 'json', nullable: true)]
+    private ?array $blockedBy = [];
     #[ORM\Column(length: 20, nullable: true)]
     private ?string $genre = null;
 
@@ -492,6 +497,41 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function isBlocked(int $userId): bool
     {
         return in_array($userId, $this->getBlocked(), true);
+    }
+
+    // --- "blockedBy" API: users who have blocked this user ---
+    public function getBlockedBy(): array
+    {
+        return $this->blockedBy ?? [];
+    }
+
+    public function setBlockedBy(array $blockedBy): self
+    {
+        $this->blockedBy = array_values(array_unique(array_map('intval', $blockedBy)));
+        return $this;
+    }
+
+    public function addToBlockedBy(int $userId): self
+    {
+        $list = $this->getBlockedBy();
+        if (!in_array($userId, $list, true)) {
+            $list[] = $userId;
+            $this->blockedBy = $list;
+        }
+        return $this;
+    }
+
+    public function removeFromBlockedBy(int $userId): self
+    {
+        $list = $this->getBlockedBy();
+        $list = array_values(array_filter($list, fn($id) => ((int)$id) !== $userId));
+        $this->blockedBy = $list;
+        return $this;
+    }
+
+    public function isBlockedBy(int $userId): bool
+    {
+        return in_array($userId, $this->getBlockedBy(), true);
     }
 
     /**
