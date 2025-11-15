@@ -1,5 +1,5 @@
 {# filepath: c:\Users\Utilisateur\Documents\GitHub\MaeutIC\templates\components\_navbar.html.twig #}
-<nav class="sticky top-0 z-20 bg-white shadow-lg shadow-black/5">
+<nav class="sticky top-0 z-[9999] bg-white shadow-lg shadow-black/5" style="isolation: isolate;">
     <div class="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4 h-20">
         <!-- div aligned to the left -->
         <div class="flex-shrink-0 h-full">
@@ -22,7 +22,7 @@
                         {{ notificationsCount|default(0) }}
                     </span>
 
-                    <div id="notifDropdown" class="hidden absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg z-50">
+                    <div id="notifDropdown" class="hidden absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl z-[10000] border border-gray-200">
                         <div id="notifItems" class="max-h-64 overflow-auto p-2">
                             <div class="text-sm text-gray-500 p-2">Chargement...</div>
                         </div>
@@ -34,7 +34,7 @@
                     <button id="profileDropdownButton" class="focus:outline-none" type="button" aria-haspopup="true" aria-expanded="false">
                         <img src="{% if app.user.profileImage %}{{ asset('profile_images/' ~ app.user.profileImage) }}{% else %}{{ asset('images/default-profile.png') }}{% endif %}" alt="Profil" class="w-10 h-10 rounded-full">
                     </button>
-                    <div id="profileDropdownMenu" class="hidden absolute top-full mt-2 w-48 bg-white rounded-lg shadow-lg z-50">
+                    <div id="profileDropdownMenu" class="hidden absolute top-full mt-2 w-48 bg-white rounded-lg shadow-xl z-[10000] border border-gray-200">
                         <a href="{{ path('app_profile') }}" class="block px-4 py-2 text-black hover:bg-gray-100">Mon Profil</a>
                         <a href="{{ path('app_settings') }}" class="block px-4 py-2 text-black hover:bg-gray-100">Paramètres</a>
                         <a href="{{ path('app_logout') }}" class="block px-4 py-2 text-black hover:bg-gray-100">Se Déconnecter</a>
@@ -59,21 +59,76 @@ document.addEventListener('DOMContentLoaded', () => {
     // Profile dropdown
     const dropdownButton = document.getElementById('profileDropdownButton');
     const dropdownMenu = document.getElementById('profileDropdownMenu');
+    const notifButton = document.getElementById('notifButton');
+    const notifDropdown = document.getElementById('notifDropdown');
+    const portal = document.getElementById('dropdowns-portal');
 
+    function moveDropdownToPortal(dropdown, button) {
+        if (!dropdown || !button || !portal) return;
+        
+        // Déplacer le dropdown dans le portail s'il n'y est pas déjà
+        if (!dropdown.parentNode.isSameNode(portal)) {
+            portal.appendChild(dropdown);
+            dropdown.style.position = 'fixed';
+            dropdown.style.pointerEvents = 'auto';
+            dropdown.style.zIndex = '10000';
+        }
+        
+        // Positionner le dropdown
+        const updatePosition = () => {
+            const rect = button.getBoundingClientRect();
+            dropdown.style.top = `${rect.bottom}px`;
+            dropdown.style.right = `${window.innerWidth - rect.right}px`;
+        };
+        
+        updatePosition();
+        return updatePosition;
+    }
+
+    // Gestion du dropdown profil
     if (dropdownButton && dropdownMenu) {
+        const updateProfilePosition = moveDropdownToPortal(dropdownMenu, dropdownButton);
+        
         dropdownButton.addEventListener('click', () => {
             dropdownMenu.classList.toggle('hidden');
+            if (updateProfilePosition) updateProfilePosition();
         });
+        
         document.addEventListener('click', (event) => {
             if (!dropdownButton.contains(event.target) && !dropdownMenu.contains(event.target)) {
                 dropdownMenu.classList.add('hidden');
             }
         });
+        
+        window.addEventListener('resize', () => {
+            if (updateProfilePosition) updateProfilePosition();
+        });
+    }
+
+    // Gestion du dropdown notifications
+    if (notifButton && notifDropdown) {
+        const updateNotifPosition = moveDropdownToPortal(notifDropdown, notifButton);
+        
+        notifButton.addEventListener('click', (e) => {
+            notifDropdown.classList.toggle('hidden');
+            if (updateNotifPosition) updateNotifPosition();
+            if (!notifDropdown.classList.contains('hidden')) {
+                fetchNotifications();
+            }
+        });
+        
+        document.addEventListener('click', (e) => {
+            if (!notifButton.contains(e.target) && !notifDropdown.contains(e.target)) {
+                notifDropdown.classList.add('hidden');
+            }
+        });
+        
+        window.addEventListener('resize', () => {
+            if (updateNotifPosition) updateNotifPosition();
+        });
     }
 
     // Notifications
-    const notifButton = document.getElementById('notifButton');
-    const notifDropdown = document.getElementById('notifDropdown');
     const notifBadge = document.getElementById('notifBadge');
     const notifItems = document.getElementById('notifItems');
 
@@ -170,20 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    if (notifButton && notifDropdown) {
-        notifButton.addEventListener('click', (e) => {
-            notifDropdown.classList.toggle('hidden');
-            if (!notifDropdown.classList.contains('hidden')) {
-                fetchNotifications();
-            }
-        });
-        document.addEventListener('click', (e) => {
-            if (!notifButton.contains(e.target) && !notifDropdown.contains(e.target)) {
-                notifDropdown.classList.add('hidden');
-            }
-        });
-        // Poll every 15s
-        setInterval(fetchNotifications, 15000);
-    }
+    // Poll every 15s
+    setInterval(fetchNotifications, 15000);
 });
 </script>
