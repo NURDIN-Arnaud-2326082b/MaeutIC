@@ -22,6 +22,10 @@ class RegistrationController extends AbstractController
     #[Route('/register', name: 'app_register')]
     public function register(Request $request, UserPasswordHasherInterface $userPasswordHasher, Security $security, EntityManagerInterface $entityManager, TagRepository $tagRepository, SluggerInterface $slugger, HttpClientInterface $httpClient): Response
     {
+
+         if ($this->getUser()) {
+            return $this->redirectToRoute('app_home');
+        }
         $user = new User();
         // Définir les questions dynamiques
         $dynamicQuestions = [

@@ -14,30 +14,8 @@ class SecurityController extends AbstractController
     #[Route(path: '/login', name: 'app_login')]
     public function login(Request $request, AuthenticationUtils $authenticationUtils, HttpClientInterface $httpClient): Response
     {
-        $recaptchaResponse = $request->request->get('g-recaptcha-response');
-
-        if ($recaptchaResponse) {
-            try {
-                $response = $httpClient->request('POST', 'https://www.google.com/recaptcha/api/siteverify', [
-                    'body' => [
-                        'secret' => $_ENV['6Lfx-gIsAAAAADs2WiCDrn0kn74HyGrdVtLb637C'],
-                        'response' => $recaptchaResponse,
-                        'remoteip' => $request->getClientIp(),
-                    ],
-                ]);
-
-                $data = $response->toArray();
-
-                // Si la vérification échoue ou le score est faible
-                if (!$data['success'] || ($data['score'] ?? 0) < 0.5) {
-                    $this->addFlash('error', 'La vérification reCAPTCHA a échoué. Veuillez réessayer.');
-                    return $this->redirectToRoute('app_login');
-                }
-            } catch (\Exception $e) {
-                // En cas de problème avec l’API
-                $this->addFlash('error', 'Erreur lors de la vérification reCAPTCHA. Veuillez réessayer.');
-                return $this->redirectToRoute('app_login');
-            }
+        if ($this->getUser()) {
+            return $this->redirectToRoute('app_home');
         }
         // get the login error if there is one
         $error = $authenticationUtils->getLastAuthenticationError();
@@ -48,6 +26,8 @@ class SecurityController extends AbstractController
         return $this->render('security/login.html.twig', [
             'last_username' => $lastUsername,
             'error' => $error,
+
+            
         ]);
     }
 

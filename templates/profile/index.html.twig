@@ -28,39 +28,95 @@
                 {% endif %}
             </div>
 
-            {# --- NOUVEAU : Bloc Réseau affichant les connexions du profil --- #}
-            <div id="network-section" class="mt-4 flex items-center gap-3">
-                <div class="text-sm text-gray-600 font-semibold">Réseau :</div>
-                <div id="network-avatars" class="flex items-center gap-2">
-                    {# Rempli via JS fetch /network/list/{{ user.id }} #}
-                    <div class="text-gray-400 text-sm">Chargement...</div>
+            {# Bloquage mutuel / unilatéral : variable utilitaire #}
+            {% set isMutuallyBlocked = app.user and app.user.id != user.id and (app.user.isBlocked(user.id) or user.isBlocked(app.user.id)) %}
+            {% if isMutuallyBlocked %}
+                <div class="mt-4 p-4 bg-red-50 border-l-4 border-red-400 text-red-700 rounded">
+                    Ce profil n'est pas accessible.
                 </div>
+            {% endif %}
+
+            <div class="mt-4">
+                {# --- NEW placement: réseau AU-DESSUS des boutons d'action (label et groupe rapprochés) --- #}
+                {% set showNetwork = (not isMutuallyBlocked) or (app.user and app.user.id == user.id) %}
+
+                <div class="mt-4">
+                    {% if showNetwork %}
+                    <div class="mb-3">
+                        {# label et groupe alignés à gauche et rapprochés #}
+                        <div class="flex items-center justify-start gap-3">
+                            <div class="text-sm text-gray-600 mr-2">Réseau</div>
+
+                            {# Groupe avatars + total rapproché (#network-avatars et #network-total collés) #}
+                            <div class="flex items-center gap-1">
+                                <div id="network-avatars" class="flex items-center -space-x-2">
+                                    <div class="text-sm text-gray-400">Chargement du réseau...</div>
+                                </div>
+
+                                <div id="network-total" class="text-sm text-gray-600 ml-1 whitespace-nowrap">
+                                    {# JS mettra le nombre total ici #}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {# Bloc des boutons d'action (Envoyer un message / Ajouter au réseau / etc.) — rester sur une ligne #}
+                    <div class="flex gap-2 items-center">
+                        {% if app.user and app.user.id == user.id %}
+                            <a href="{{ path('app_profile_edit', {username : user.username}) }}" class="inline-block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition">Éditer mon profil</a>
+                            <form method="post" action="{{ path('app_profile_delete') }}" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible.');" style="display:inline;">
+                                <input type="hidden" name="_token" value="{{ csrf_token('delete-user') }}">
+                                <button type="submit" class="inline-block px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition">Supprimer mon compte</button>
+                            </form>
+                        {% endif %}
+                        {% if app.user and app.user.id != user.id %}
+                            {% set isBlocked = app.user and app.user.isBlocked(user.id) %}
+                            {% set isInNetwork = app.user and app.user.isInNetwork(user.id) %}
+
+                            {# Si blocage mutuel/unilatéral : ne pas afficher de boutons interactifs #}
+                            {% if isMutuallyBlocked %}
+                                {# on affiche uniquement le bouton "Débloquer" si le visiteur a bloqué l'utilisateur,
+                                   sinon on n'affiche rien d'interactif (profil inaccessible) #}
+                                {% if app.user.isBlocked(user.id) %}
+                                    <button id="block-btn" type="button" onclick="toggleBlock({{ user.id }})" class="inline-block px-4 py-2 rounded text-white bg-red-600 hover:bg-red-700 transition">Débloquer</button>
+                                {% endif %}
+                            {% else %}
+                                {# Non bloqué : afficher message et réseau, et un burger contenant "Bloquer" #}
+                                <a id="message-btn" href="{{ path('private_message_new', {userId: user.id}) }}" class="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">Envoyer un message</a>
+
+                                <button id="network-toggle-btn"
+                                        type="button"
+                                        onclick="addToNetwork({{ user.id }})"
+                                        class="inline-block px-4 py-2 rounded text-white transition {{ isInNetwork ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700' }}">
+                                    {{ isInNetwork ? 'Supprimer du réseau' : 'Ajouter au réseau' }}
+                                </button>
+
+                                {# Burger menu minimal contenant l'action "Bloquer" #}
+                                <div class="relative inline-block">
+                                    <button id="profile-actions-btn" type="button" class="inline-flex items-center px-3 py-2 bg-gray-100 rounded hover:bg-gray-200 focus:outline-none">
+                                        &#9776;
+                                    </button>
+                                    <div id="profile-actions-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded shadow-lg z-40">
+                                        <button id="block-btn"
+                                                type="button"
+                                                onclick="toggleBlock({{ user.id }})"
+                                                class="w-full text-left px-4 py-2 text-sm text-gray-700">
+                                            Bloquer
+                                        </button>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+
             </div>
 
-            <div class="mt-4 flex gap-2">
-                {% if app.user and app.user.id == user.id %}
-                    <a href="{{ path('app_profile_edit', {username : user.username}) }}" class="inline-block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition">Éditer mon profil</a>
-                    <form method="post" action="{{ path('app_profile_delete') }}" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible.');" style="display:inline;">
-                        <input type="hidden" name="_token" value="{{ csrf_token('delete-user') }}">
-                        <button type="submit" class="inline-block px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition">Supprimer mon compte</button>
-                    </form>
-                {% endif %}
-                {% if app.user and app.user.id != user.id %}
-                    <a href="{{ path('private_message_new', {userId: user.id}) }}" class="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">Envoyer un message</a>
-
-                    {# Bouton de réseau : label rendu en fonction de l'état initial (app.user.isInNetwork) #}
-                    <button id="network-toggle-btn"
-                            type="button"
-                            onclick="addToNetwork({{ user.id }})"
-                            class="inline-block px-4 py-2 rounded text-white transition
-                                   {{ app.user.isInNetwork(user.id) ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700' }}">
-                        {{ app.user.isInNetwork(user.id) ? 'Supprimer du réseau' : 'Ajouter au réseau' }}
-                    </button>
-                {% endif %}
-            </div>
         </div>
     </div>
 
+    {% if not isMutuallyBlocked %}
     <div class="max-w-3xl mx-auto mt-6 flex justify-center gap-6">
         <button id="tab-overview" class="px-6 py-2 rounded bg-indigo-700 text-white font-semibold focus:outline-none" data-tab="overview">
             Vue d’ensemble
@@ -74,8 +130,17 @@
     </div>
 
     <div id="profile-tab-content" class="max-w-3xl mx-auto my-6 space-y-4">
-        {% include 'profile/_overview.html.twig' %}
+        {% if not isMutuallyBlocked %}
+            {% include 'profile/_overview.html.twig' %}
+        {% else %}
+            <div class="p-4 text-gray-600">Contenu masqué à cause du blocage.</div>
+        {% endif %}
     </div>
+    {% else %}
+    <div class="max-w-3xl mx-auto mt-6">
+        <div class="text-sm text-gray-500">Actions et contenu masqués à cause du blocage.</div>
+    </div>
+    {% endif %}
 </div>
 {{ render(controller('App\\Controller\\FooterController::footer')) }}
 
@@ -169,12 +234,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 window.location.href = j.redirect;
                 return;
             }
+            // Ne pas rediriger automatiquement vers la conversation pour rester sur la page.
             if (j.conversationId) {
-                window.location.href = '/private/conversation/' + j.conversationId;
+                console.info('Conversation créée/accessible:', '/private/conversation/' + j.conversationId);
+            }
+
+            // Forcer un rafraîchissement de la page lorsque le réseau a bien été modifié
+            if (j.success || j.removed) {
+                // reload pour refléter l'état (boutons, liste réseau, etc.)
+                window.location.reload();
                 return;
             }
 
-            // Mise à jour locale du bouton selon la réponse
+            // Mise à jour locale du bouton selon la réponse (fallback si nécessaire)
             if (toggleBtn) {
                 if (j.removed) {
                     // supprimé du réseau -> afficher "Ajouter au réseau"
@@ -182,8 +254,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     toggleBtn.classList.remove('bg-red-600','hover:bg-red-700');
                     toggleBtn.classList.add('bg-green-600','hover:bg-green-700');
                 } else if (j.success) {
-                    // ajouté -> afficher "Supprimer du réseau"
-                    toggleBtn.textContent = 'Supprimer du réseau';
+                    // ajouté -> afficher "Supprimer au réseau"
+                    toggleBtn.textContent = 'Supprimer au réseau';
                     toggleBtn.classList.remove('bg-green-600','hover:bg-green-700');
                     toggleBtn.classList.add('bg-red-600','hover:bg-red-700');
                 }
@@ -209,50 +281,190 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Charger la liste des connexions pour afficher leurs avatars
+    // Vérifie le status réseau (incoming_request) et, si présent, transforme
+    // le bouton "Ajouter au réseau" en "Accepter la demande" (clic accepte la demande).
+    async function refreshNetworkButton(userId) {
+        const btn = document.getElementById('network-toggle-btn');
+        if (!btn || !userId) return;
+        try {
+            const res = await fetch('/network/status/' + encodeURIComponent(userId), {
+                headers: {'X-Requested-With': 'XMLHttpRequest'},
+                credentials: 'same-origin'
+            });
+            if (!res.ok) return;
+            const j = await res.json().catch(() => ({}));
+            // Si la requête entrante (incoming) on propose d'accepter (déjà géré)
+            if (j.status === 'incoming_request') {
+                // Remplacer le texte / style et brancher l'action d'acceptation
+                btn.textContent = 'Accepter la demande';
+                // appliquer le même style vert que le bouton "Ajouter au réseau"
+                btn.classList.remove('bg-red-600','hover:bg-red-700','bg-indigo-600','hover:bg-indigo-700');
+                btn.classList.add('bg-green-600','hover:bg-green-700');
+                btn.onclick = async (e) => {
+                    e && e.preventDefault();
+                    btn.disabled = true;
+                    try {
+                        // toggleNetwork accepte automatiquement une demande entrante côté serveur
+                        const r = await fetch('/network/toggle/' + encodeURIComponent(userId), {
+                            method: 'POST',
+                            headers: {'X-Requested-With': 'XMLHttpRequest'},
+                            credentials: 'same-origin'
+                        });
+                        const data = await r.json().catch(() => ({}));
+                        if (data.accepted || data.success) {
+                            // notification supprimée côté serveur, recharger pour refléter le nouvel état
+                            window.location.reload();
+                            return;
+                        }
+                    } catch (err) {
+                        console.error('Accept network failed', err);
+                    } finally {
+                        btn.disabled = false;
+                    }
+                };
+            } else if (j.status === 'outgoing_request') {
+                // L'utilisateur a déjà envoyé une demande -> proposer "Annuler la demande"
+                btn.textContent = 'Annuler la demande';
+                // style plus foncé pour meilleure visibilité
+                btn.classList.remove('bg-green-600','hover:bg-green-700','bg-red-600','hover:bg-red-700','bg-indigo-600','hover:bg-indigo-700');
+                btn.classList.add('bg-red-600','hover:bg-red-700','text-white');
+                btn.onclick = async (e) => {
+                    e && e.preventDefault();
+                    btn.disabled = true;
+                    try {
+                        const r = await fetch('/network/toggle/' + encodeURIComponent(userId), {
+                            method: 'POST',
+                            headers: {'X-Requested-With': 'XMLHttpRequest'},
+                            credentials: 'same-origin'
+                        });
+                        const data = await r.json().catch(() => ({}));
+                        // backend retourne cancelled:true lorsqu'il supprime la demande/notification
+                        if (data.cancelled || data.success) {
+                            window.location.reload();
+                            return;
+                        }
+                    } catch (err) {
+                        console.error('Cancel outgoing request failed', err);
+                    } finally {
+                        btn.disabled = false;
+                    }
+                };
+            } else {
+                // Aucun incoming/outgoing : restaurer le handler par défaut si nécessaire
+                if (typeof window.addToNetwork === 'function') {
+                    btn.onclick = () => window.addToNetwork(userId);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to fetch network status', err);
+        }
+    }
+
+    // appel initial pour adapter le bouton si nécessaire
+    refreshNetworkButton({{ user.id }});
+
+    // Charger la liste des connexions pour afficher leurs avatars (seulement les 3 derniers) et le total
     function fetchNetwork(userId) {
         const container = document.getElementById('network-avatars');
-        if (!container) return;
-        // base du lien de profil : on génère une URL contenant un placeholder qu'on remplacera côté JS
+        const totalEl = document.getElementById('network-total');
+        if (!container || !totalEl) return;
+
+        const networkListTemplate = '{{ path('network_list', {'userId': '___ID___'}) }}';
         const profileBaseTemplate = '{{ path('app_profile_show', {'username': '___USERNAME___'}) }}';
-        // base des images de profil via asset()
         const profileImagesBase = '{{ asset('profile_images/') }}';
         const defaultProfileImg = '{{ asset('images/default-profile.png') }}';
 
-        fetch('/network/list/' + encodeURIComponent(userId), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(r => r.json())
+        const url = networkListTemplate.replace('___ID___', encodeURIComponent(userId));
+        fetch(url, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin'
+        })
+            .then(r => {
+                if (!r.ok) throw new Error('network ' + r.status);
+                return r.json();
+            })
             .then(j => {
+                const all = Array.isArray(j.connections) ? j.connections : [];
+                const total = all.length;
+
+                // afficher nombre total à droite uniquement s'il y a des membres
+                // (laisser vide quand aucun membre pour éviter duplication "Aucun membre" à gauche)
+                if (total > 0) {
+                    totalEl.textContent = total + ' membre' + (total > 1 ? 's' : '');
+                    totalEl.classList.remove('hidden');
+                } else {
+                    totalEl.textContent = '';
+                    totalEl.classList.add('hidden');
+                }
+
+                // ne garder que les 3 derniers éléments de la liste
+                const tail = total <= 3 ? all : all.slice(-3);
+
                 container.innerHTML = '';
-                if (j && Array.isArray(j.connections) && j.connections.length > 0) {
-                    j.connections.slice(0,6).forEach(conn => {
+                if (tail.length > 0) {
+                    tail.forEach(conn => {
                         const a = document.createElement('a');
-                        // Remplacer le placeholder par le username encodé pour obtenir une URL valide
                         a.href = profileBaseTemplate.replace('___USERNAME___', encodeURIComponent(conn.username));
-                        a.title = (conn.firstName || '') + ' ' + (conn.lastName || conn.username);
-                        a.className = 'w-8 h-8 rounded-full overflow-hidden border';
+                        a.title = ((conn.firstName || '') + ' ' + (conn.lastName || conn.username)).trim();
+                        a.className = 'w-10 h-10 rounded-full overflow-hidden border';
                         const img = document.createElement('img');
                         img.src = conn.profileImage ? (profileImagesBase + conn.profileImage) : defaultProfileImg;
                         img.className = 'w-full h-full object-cover';
                         a.appendChild(img);
                         container.appendChild(a);
                     });
-                    if (j.connections.length > 6) {
-                        const more = document.createElement('span');
-                        more.className = 'text-sm text-gray-500';
-                        more.textContent = '+' + (j.connections.length - 6);
-                        container.appendChild(more);
-                    }
                 } else {
                     container.innerHTML = '<div class="text-gray-400 text-sm">Aucun membre connecté.</div>';
                 }
             })
-            .catch(() => {
+            .catch((err) => {
+                console.error('fetchNetwork error', err);
                 container.innerHTML = '<div class="text-red-500 text-sm">Erreur chargement réseau.</div>';
+                totalEl.textContent = '';
             });
     }
 
     // Appel initial pour afficher le réseau du profil
     fetchNetwork({{ user.id }});
 });
+
+document.addEventListener('DOMContentLoaded', () => {
+    const actionsBtn = document.getElementById('profile-actions-btn');
+    const actionsMenu = document.getElementById('profile-actions-menu');
+    if (actionsBtn && actionsMenu) {
+        actionsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            actionsMenu.classList.toggle('hidden');
+        });
+        document.addEventListener('click', (e) => {
+            if (!actionsBtn.contains(e.target) && !actionsMenu.contains(e.target)) actionsMenu.classList.add('hidden');
+        });
+    }
+});
+
+async function toggleBlock(userId) {
+    const btn = document.getElementById('block-btn');
+    const netBtn = document.getElementById('network-toggle-btn');
+    const msgBtn = document.getElementById('message-btn');
+    if (!btn) return;
+    btn.disabled = true;
+    try {
+        const res = await fetch('/user/block/toggle/' + encodeURIComponent(userId), {
+            method: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'}
+        });
+        const j = await res.json();
+        // Après un blocage ou un déblocage réussi, recharger la page pour éviter tout
+        // problème d'état / d'affichage côté client (liste réseau, boutons, menu, etc).
+        if (j.cancelled || j.blocked) {
+            window.location.reload();
+            return;
+        }
+    } catch (err) {
+        console.error(err);
+    } finally {
+        btn.disabled = false;
+    }
+}
 </script>
 {% endblock %}
