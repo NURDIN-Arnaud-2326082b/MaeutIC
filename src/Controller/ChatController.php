@@ -135,19 +135,26 @@ final class ChatController extends AbstractController{
             $this->addFlash('error', 'Impossible de démarrer une conversation à cause d\'un blocage.');
             return $this->redirectToRoute('app_profile_show', ['username' => $other->getUsername()]);
         }
-+
-        $conversation = $conversationRepo->createQueryBuilder('c')
-            ->where('(c.user1 = :user1 AND c.user2 = :user2) OR (c.user1 = :user2 AND c.user2 = :user1)')
-            ->setParameter('user1', $user)
-            ->setParameter('user2', $other)
-            ->getQuery()->getOneOrNullResult();
+
+        // Recherche existante ou création nouvelle
+        $conversation = $conversationRepo->findOneBy(['user1' => $user, 'user2' => $other]);
+        if (!$conversation) {
+            $conversation = $conversationRepo->findOneBy(['user1' => $other, 'user2' => $user]);
+        }
+
         if (!$conversation) {
             $conversation = new Conversation();
-            $conversation->setUser1($user);
-            $conversation->setUser2($other);
+            if (method_exists($conversation, 'setUser1') && method_exists($conversation, 'setUser2')) {
+                $conversation->setUser1($user);
+                $conversation->setUser2($other);
+            } elseif (method_exists($conversation, 'setUser')) {
+                // fallback minimal si entité différente
+                $conversation->setUser($user);
+            }
             $em->persist($conversation);
             $em->flush();
         }
+
         return $this->redirectToRoute('private_conversation', ['id' => $conversation->getId()]);
     }
 
