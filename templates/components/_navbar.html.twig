@@ -61,26 +61,51 @@ document.addEventListener('DOMContentLoaded', () => {
     const dropdownMenu = document.getElementById('profileDropdownMenu');
     const notifButton = document.getElementById('notifButton');
     const notifDropdown = document.getElementById('notifDropdown');
-    const portal = document.getElementById('dropdowns-portal');
+    let portal = document.getElementById('dropdowns-portal');
+
+    // Ensure a global portal exists at the end of <body> to host all floating dropdowns.
+    // This avoids stacking/context issues (modals, other components) by centralizing z-index control.
+    if (!portal) {
+        portal = document.createElement('div');
+        portal.id = 'dropdowns-portal';
+        // portal covers viewport but pointer-events disabled so underlying clicks still work
+        portal.style.position = 'fixed';
+        portal.style.top = '0';
+        portal.style.left = '0';
+        portal.style.width = '100%';
+        portal.style.height = '100%';
+        portal.style.pointerEvents = 'none';
+        // Use the maximum safe z-index to ensure the dropdown is above everything
+        portal.style.zIndex = String(2147483647);
+        document.body.appendChild(portal);
+    }
 
     function moveDropdownToPortal(dropdown, button) {
         if (!dropdown || !button || !portal) return;
-        
+
         // Déplacer le dropdown dans le portail s'il n'y est pas déjà
         if (!dropdown.parentNode.isSameNode(portal)) {
             portal.appendChild(dropdown);
+            // force fixed positioning and make it interactable while keeping portal non-interactive
             dropdown.style.position = 'fixed';
             dropdown.style.pointerEvents = 'auto';
-            dropdown.style.zIndex = '10000';
+            // use an extremely high z-index so it appears above modals/tooltips/etc.
+            dropdown.style.zIndex = String(2147483647);
+            // avoid transforms from parent affecting stacking; reset transform if any
+            dropdown.style.transform = 'none';
+            dropdown.style.willChange = 'top, right';
         }
-        
-        // Positionner le dropdown
+
+        // Positionner le dropdown (calcul droit/bas pour coller au bouton)
         const updatePosition = () => {
             const rect = button.getBoundingClientRect();
-            dropdown.style.top = `${rect.bottom}px`;
-            dropdown.style.right = `${window.innerWidth - rect.right}px`;
+            // slight offset to avoid overlapping the button border
+            const top = Math.max(0, rect.bottom + 6);
+            const right = Math.max(0, window.innerWidth - rect.right);
+            dropdown.style.top = `${top}px`;
+            dropdown.style.right = `${right}px`;
         };
-        
+
         updatePosition();
         return updatePosition;
     }
@@ -132,14 +157,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const notifBadge = document.getElementById('notifBadge');
     const notifItems = document.getElementById('notifItems');
 
+    // template URL pour ouvrir le profil d'un utilisateur (___USERNAME___ sera remplacé)
+    const profileUrlTemplate = '{{ path('app_profile_show', {'username':'___USERNAME___'}) }}';
+    
     function renderNotificationItem(n) {
         const sender = (n.sender && n.sender.username) ? n.sender.username : 'Utilisateur';
         const div = document.createElement('div');
         div.className = 'p-2 border-b last:border-b-0';
         // Si c'est une demande de réseau, afficher Accept/Decline
         if (n.type === 'network_request') {
+            const senderUsername = (n.sender && n.sender.username) ? n.sender.username : '';
+            const target = senderUsername ? profileUrlTemplate.replace('___USERNAME___', encodeURIComponent(senderUsername)) : '#';
             div.innerHTML = `
-                <div class="flex justify-between items-start">
+                <div class="flex justify-between items-start notif-network" data-target="${target}" data-id="${n.id}">
                     <div class="text-sm">
                         <div class="font-semibold">${sender}</div>
                         <div class="text-xs text-gray-600">${(n.data && n.data.message) ? n.data.message : 'Demande de connexion'}</div>
@@ -150,6 +180,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
             `;
+            // cliquer sur la zone (hors boutons) ouvre le profil de l'expéditeur
+            const networkEl = div.querySelector('.notif-network');
+            if (networkEl) {
+                networkEl.addEventListener('click', (e) => {
+                    // si on a cliqué un des boutons, ne pas naviguer
+                    if (e.target.closest('.notif-accept') || e.target.closest('.notif-decline')) return;
+                    const tgt = networkEl.dataset.target;
+                    if (tgt && tgt !== '#') {
+                        window.location.href = tgt;
+                    }
+                });
+            }
         } else {
             // Autres types : rendre l'élément cliquable pour accéder directement au post lié
             const message = (n.data && n.data.message) ? n.data.message : 'Vous avez une notification';
@@ -165,10 +207,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
             // navigation au clic sur l'item + suppression de la notification (via decline endpoint)
-            const linkEl = div.querySelector('.notif-item-link');
-            linkEl.addEventListener('click', async (e) => {
+            div.querySelector('.notif-item-link').addEventListener('click', async (e) => {
                 e.preventDefault();
-                const id = linkEl.dataset.id;
+                const id = e.currentTarget.dataset.id;
                 try {
                     // tenter de supprimer la notification côté serveur avant navigation
                     await fetch('/notifications/decline/' + encodeURIComponent(id), {

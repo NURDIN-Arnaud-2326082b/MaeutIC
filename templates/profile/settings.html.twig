@@ -50,33 +50,27 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const res = await fetch('/user/block/toggle/' + encodeURIComponent(id), {
                     method: 'POST',
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin'
                 });
 
                 if (!res.ok) {
-                    const t = await res.text();
+                    const t = await res.text().catch(() => '');
                     alert('Erreur serveur: ' + res.status + (t ? ' — ' + t : ''));
                     btn.disabled = false;
                     btn.textContent = originalText;
                     return;
                 }
 
-                const json = await res.json();
+                const json = await res.json().catch(() => ({}));
 
-                // Si l'action a annulé le blocage, retirer l'élément de la liste.
-                if (json.cancelled) {
-                    const li = btn.closest('li');
-                    if (li) li.remove();
-                    return;
-                }
-
-                // Si c'est un blocage récent, recharger pour refléter l'état global.
-                if (json.blocked) {
+                // Toujours recharger la page après un succès côté serveur (déblocage)
+                if (json.cancelled || json.success || json.blocked) {
                     window.location.reload();
                     return;
                 }
 
-                // Par défaut, recharger pour garder la cohérence.
+                // Par défaut, recharger pour garder la cohérence si réponse inattendue
                 window.location.reload();
             } catch (err) {
                 console.error(err);

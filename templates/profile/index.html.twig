@@ -32,7 +32,7 @@
             {% set isMutuallyBlocked = app.user and app.user.id != user.id and (app.user.isBlocked(user.id) or user.isBlocked(app.user.id)) %}
             {% if isMutuallyBlocked %}
                 <div class="mt-4 p-4 bg-red-50 border-l-4 border-red-400 text-red-700 rounded">
-                    Ce profil n'est pas accessible — vous avez un blocage entre vous.
+                    Ce profil n'est pas accessible.
                 </div>
             {% endif %}
 
