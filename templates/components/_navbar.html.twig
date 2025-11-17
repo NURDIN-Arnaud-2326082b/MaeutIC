@@ -1,5 +1,5 @@
 {# filepath: c:\Users\Utilisateur\Documents\GitHub\MaeutIC\templates\components\_navbar.html.twig #}
-<nav class="sticky top-0 z-[9999] bg-white shadow-lg shadow-black/5" style="isolation: isolate;">
+<nav class="sticky top-0 bg-white shadow-lg shadow-black/5" style="isolation: isolate; z-index: 2147483647; pointer-events: auto;">
     <div class="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4 h-20">
         <!-- div aligned to the left -->
         <div class="flex-shrink-0 h-full">
@@ -75,7 +75,10 @@ document.addEventListener('DOMContentLoaded', () => {
         portal.style.width = '100%';
         portal.style.height = '100%';
         portal.style.pointerEvents = 'none';
-        // Use the maximum safe z-index to ensure the dropdown is above everything
+        // Keep portal at the same plane as the navbar so dropdowns appear visually flush.
+        // Navbar uses z-index: 2147483647 — on many browsers equal z-index + DOM order
+        // will keep appearance consistent. Portal stays non-interactive (pointer-events:none)
+        // while dropdowns themselves are interactive (pointer-events:auto).
         portal.style.zIndex = String(2147483647);
         document.body.appendChild(portal);
     }
@@ -89,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // force fixed positioning and make it interactable while keeping portal non-interactive
             dropdown.style.position = 'fixed';
             dropdown.style.pointerEvents = 'auto';
-            // use an extremely high z-index so it appears above modals/tooltips/etc.
+            // place dropdown at the same z-index as the navbar so it is on the same visual plane
             dropdown.style.zIndex = String(2147483647);
             // avoid transforms from parent affecting stacking; reset transform if any
             dropdown.style.transform = 'none';
