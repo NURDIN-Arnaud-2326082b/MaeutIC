@@ -281,6 +281,88 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Vérifie le status réseau (incoming_request) et, si présent, transforme
+    // le bouton "Ajouter au réseau" en "Accepter la demande" (clic accepte la demande).
+    async function refreshNetworkButton(userId) {
+        const btn = document.getElementById('network-toggle-btn');
+        if (!btn || !userId) return;
+        try {
+            const res = await fetch('/network/status/' + encodeURIComponent(userId), {
+                headers: {'X-Requested-With': 'XMLHttpRequest'},
+                credentials: 'same-origin'
+            });
+            if (!res.ok) return;
+            const j = await res.json().catch(() => ({}));
+            // Si la requête entrante (incoming) on propose d'accepter (déjà géré)
+            if (j.status === 'incoming_request') {
+                // Remplacer le texte / style et brancher l'action d'acceptation
+                btn.textContent = 'Accepter la demande';
+                // appliquer le même style vert que le bouton "Ajouter au réseau"
+                btn.classList.remove('bg-red-600','hover:bg-red-700','bg-indigo-600','hover:bg-indigo-700');
+                btn.classList.add('bg-green-600','hover:bg-green-700');
+                btn.onclick = async (e) => {
+                    e && e.preventDefault();
+                    btn.disabled = true;
+                    try {
+                        // toggleNetwork accepte automatiquement une demande entrante côté serveur
+                        const r = await fetch('/network/toggle/' + encodeURIComponent(userId), {
+                            method: 'POST',
+                            headers: {'X-Requested-With': 'XMLHttpRequest'},
+                            credentials: 'same-origin'
+                        });
+                        const data = await r.json().catch(() => ({}));
+                        if (data.accepted || data.success) {
+                            // notification supprimée côté serveur, recharger pour refléter le nouvel état
+                            window.location.reload();
+                            return;
+                        }
+                    } catch (err) {
+                        console.error('Accept network failed', err);
+                    } finally {
+                        btn.disabled = false;
+                    }
+                };
+            } else if (j.status === 'outgoing_request') {
+                // L'utilisateur a déjà envoyé une demande -> proposer "Annuler la demande"
+                btn.textContent = 'Annuler la demande';
+                // style plus foncé pour meilleure visibilité
+                btn.classList.remove('bg-green-600','hover:bg-green-700','bg-red-600','hover:bg-red-700','bg-indigo-600','hover:bg-indigo-700');
+                btn.classList.add('bg-red-600','hover:bg-red-700','text-white');
+                btn.onclick = async (e) => {
+                    e && e.preventDefault();
+                    btn.disabled = true;
+                    try {
+                        const r = await fetch('/network/toggle/' + encodeURIComponent(userId), {
+                            method: 'POST',
+                            headers: {'X-Requested-With': 'XMLHttpRequest'},
+                            credentials: 'same-origin'
+                        });
+                        const data = await r.json().catch(() => ({}));
+                        // backend retourne cancelled:true lorsqu'il supprime la demande/notification
+                        if (data.cancelled || data.success) {
+                            window.location.reload();
+                            return;
+                        }
+                    } catch (err) {
+                        console.error('Cancel outgoing request failed', err);
+                    } finally {
+                        btn.disabled = false;
+                    }
+                };
+            } else {
+                // Aucun incoming/outgoing : restaurer le handler par défaut si nécessaire
+                if (typeof window.addToNetwork === 'function') {
+                    btn.onclick = () => window.addToNetwork(userId);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to fetch network status', err);
+        }
+    }
+
+    // appel initial pour adapter le bouton si nécessaire
+    refreshNetworkButton({{ user.id }});
+
     // Charger la liste des connexions pour afficher leurs avatars (seulement les 3 derniers) et le total
     function fetchNetwork(userId) {
         const container = document.getElementById('network-avatars');
