@@ -1,0 +1,30 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Page non trouvée - 404{% endblock %}
+
+{% block body %}
+{{ render(controller('App\\Controller\\NavbarController::navbar')) }}
+
+<div class="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div class="max-w-md w-full text-center">   
+        
+        <h1 class="text-4xl font-bold text-gray-900 mb-4">404</h1>
+        <h2 class="text-xl text-gray-600 mb-8">Page non trouvée</h2>
+        <br>
+
+        <div class="space-y-4">
+            <a href="{{ path('app_home') }}" 
+               class="block w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition duration-200">
+                Retour à l'accueil
+            </a>
+            
+            <button onclick="history.back()" 
+                    class="block w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-3 px-6 rounded-lg transition duration-200">
+                Retour en arrière
+            </button>
+        </div>
+    </div>
+</div>
+
+{{ render(controller('App\\Controller\\FooterController::footer')) }}
+{% endblock %}

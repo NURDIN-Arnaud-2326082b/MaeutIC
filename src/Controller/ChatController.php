@@ -6,6 +6,7 @@ use App\Entity\Message;
 use App\Entity\Conversation;
 use App\Repository\MessageRepository;
 use App\Repository\ConversationRepository;
+use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -93,6 +94,13 @@ final class ChatController extends AbstractController{
     {
         $user = $this->getUser();
 
+        // Vérifier que la conversation est accessible (pas de blocage entre participants)
+        $other = ($conversation->getUser1() === $user) ? $conversation->getUser2() : $conversation->getUser1();
+        if (!$other || $user->isBlocked($other->getId()) || $other->isBlocked($user->getId())) {
+            $this->addFlash('error', 'Conversation inaccessible à cause d\'un blocage.');
+            return $this->redirectToRoute('app_home');
+        }
+
         $conversations = $conversationRepo->createQueryBuilder('c')
             ->where('c.user1 = :user OR c.user2 = :user')
             ->setParameter('user', $user)
@@ -121,18 +129,32 @@ final class ChatController extends AbstractController{
         if (!$other || $other === $user) {
             throw $this->createNotFoundException();
         }
-        $conversation = $conversationRepo->createQueryBuilder('c')
-            ->where('(c.user1 = :user1 AND c.user2 = :user2) OR (c.user1 = :user2 AND c.user2 = :user1)')
-            ->setParameter('user1', $user)
-            ->setParameter('user2', $other)
-            ->getQuery()->getOneOrNullResult();
+
+        // Empêche la création de conversation si blocage mutuel/unilatéral
+        if ($user->isBlocked($other->getId()) || $other->isBlocked($user->getId())) {
+            $this->addFlash('error', 'Impossible de démarrer une conversation à cause d\'un blocage.');
+            return $this->redirectToRoute('app_profile_show', ['username' => $other->getUsername()]);
+        }
+
+        // Recherche existante ou création nouvelle
+        $conversation = $conversationRepo->findOneBy(['user1' => $user, 'user2' => $other]);
+        if (!$conversation) {
+            $conversation = $conversationRepo->findOneBy(['user1' => $other, 'user2' => $user]);
+        }
+
         if (!$conversation) {
             $conversation = new Conversation();
-            $conversation->setUser1($user);
-            $conversation->setUser2($other);
+            if (method_exists($conversation, 'setUser1') && method_exists($conversation, 'setUser2')) {
+                $conversation->setUser1($user);
+                $conversation->setUser2($other);
+            } elseif (method_exists($conversation, 'setUser')) {
+                // fallback minimal si entité différente
+                $conversation->setUser($user);
+            }
             $em->persist($conversation);
             $em->flush();
         }
+
         return $this->redirectToRoute('private_conversation', ['id' => $conversation->getId()]);
     }
 
@@ -141,6 +163,12 @@ final class ChatController extends AbstractController{
     public function sendPrivateMessage(Request $request, Conversation $conversation, EntityManagerInterface $em): Response
     {
         $user = $this->getUser();
+        $other = ($conversation->getUser1() === $user) ? $conversation->getUser2() : $conversation->getUser1();
+        if ($user->isBlocked($other->getId()) || $other->isBlocked($user->getId())) {
+            $this->addFlash('error', 'Impossible d\'envoyer un message à cause d\'un blocage.');
+            return $this->redirectToRoute('app_home');
+        }
+
         if ($conversation->getUser1() !== $user && $conversation->getUser2() !== $user) {
             throw $this->createAccessDeniedException();
         }
@@ -162,6 +190,11 @@ final class ChatController extends AbstractController{
     public function ajaxMessages(Conversation $conversation, MessageRepository $messageRepo): Response
     {
         $user = $this->getUser();
+        $other = ($conversation->getUser1() === $user) ? $conversation->getUser2() : $conversation->getUser1();
+        if ($user->isBlocked($other->getId()) || $other->isBlocked($user->getId())) {
+            return new JsonResponse(['error' => 'inaccessible'], Response::HTTP_FORBIDDEN);
+        }
+
         if ($conversation->getUser1() !== $user && $conversation->getUser2() !== $user) {
             throw $this->createAccessDeniedException();
         }

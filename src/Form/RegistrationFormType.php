@@ -17,15 +17,16 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Validator\Constraints\IsTrue;
 use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\NotBlank;
+
 class RegistrationFormType extends AbstractType
 {
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $dynamicQuestions = $options['dynamic_questions'] ?? [];
-        $requiredQuestions = $options['required_questions'] ?? [];
+        $minQuestionsRequired = $options['min_questions_required'] ?? 0;
         $taggableQuestions = $options['taggable_questions'] ?? [];
-        $tags = $options['tags'] ?? []; // Liste des tags à afficher dans les menus déroulants
-        $taggableMinChoices = $options['taggable_min_choices'] ?? []; // Tableau d'entiers (min par question)
+        $tags = $options['tags'] ?? [];
+        $taggableMinChoices = $options['taggable_min_choices'] ?? [];
 
         $builder
             ->add('email', EmailType::class, [
@@ -66,6 +67,21 @@ class RegistrationFormType extends AbstractType
                     ]),
                 ],
             ])
+            ->add('genre', ChoiceType::class, [
+                'label' => 'Genre',
+                'required' => true,
+                'choices' => [
+                    'Homme' => 'male',
+                    'Femme' => 'female',
+                    'Autre' => 'other',
+                    'Je préfère ne pas répondre' => 'prefer_not_to_say',
+                ],
+                'constraints' => [
+                    new NotBlank([
+                        'message' => 'Veuillez sélectionner votre genre',
+                    ]),
+                ],
+            ])
             ->add('affiliationLocation', TextType::class, [
                 'required' => false,
             ])
@@ -93,18 +109,23 @@ class RegistrationFormType extends AbstractType
                 'required' => false,
                 'constraints' => [
                     new \Symfony\Component\Validator\Constraints\Callback([
-                        'callback' => function ($questions, $context) use ($requiredQuestions) {
-                            foreach ($requiredQuestions as $index) {
-                                if (empty($questions[$index])) {
-                                    $context->buildViolation('Cette question est obligatoire.')
-                                        ->atPath("[$index]")
-                                        ->addViolation();
+                        'callback' => function ($questions, $context) use ($minQuestionsRequired) {
+                            $answeredQuestions = 0;
+                            foreach ($questions as $questionText) {
+                                if (!empty(trim($questionText))) {
+                                    $answeredQuestions++;
                                 }
+                            }
+                            
+                            if ($answeredQuestions < $minQuestionsRequired) {
+                                $context->buildViolation("Vous devez répondre à au moins {$minQuestionsRequired} questions.")
+                                    ->atPath('userQuestions')
+                                    ->addViolation();
                             }
                         },
                     ]),
                 ],
-                'data' => array_fill(0, count($dynamicQuestions), ''), // Pré-remplir avec des champs vides
+                'data' => array_fill(0, count($dynamicQuestions), ''),
             ])
             ->add("taggableQuestions", CollectionType::class, [
                 'entry_type' => ChoiceType::class,
@@ -117,15 +138,15 @@ class RegistrationFormType extends AbstractType
                         return $tag ? $tag->getId() : '';
                     },
                     'label' => false,
-                    'multiple' => true, // Permet la sélection multiple
+                    'multiple' => true,
                     'attr' => [
-                        'multiple' => 'multiple', // Pour le rendu HTML (utile si JS désactivé)
+                        'multiple' => 'multiple',
                     ],
                 ],
                 'mapped' => false,
                 'allow_add' => true,
                 'required' => false,
-                'data' => array_fill(0, count($taggableQuestions), []), // Tableau vide pour chaque question
+                'data' => array_fill(0, count($taggableQuestions), []),
                 'constraints' => [
                     new \Symfony\Component\Validator\Constraints\Callback([
                         'callback' => function ($taggable, $context) use ($taggableMinChoices) {
@@ -159,9 +180,7 @@ class RegistrationFormType extends AbstractType
                         'mimeTypesMessage' => 'Merci d\'uploader une image valide (JPEG, PNG, WEBP)',
                     ])
                 ],
-            ])
-                    
-        ;
+            ]);
     }
 
     public function configureOptions(OptionsResolver $resolver): void
@@ -169,10 +188,10 @@ class RegistrationFormType extends AbstractType
         $resolver->setDefaults([
             'data_class' => User::class,
             'dynamic_questions' => [],
-            'required_questions' => [],
+            'min_questions_required' => 3, // Valeur par défaut
             'taggable_questions' => [],
-            'tags' => [], // Nouvelle option pour passer la liste des tags
-            'taggable_min_choices' => [], // Tableau d'entiers, min par question taggable
+            'tags' => [],
+            'taggable_min_choices' => [],
         ]);
     }
 }

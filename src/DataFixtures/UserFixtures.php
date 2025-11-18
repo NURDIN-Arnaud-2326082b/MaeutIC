@@ -28,7 +28,8 @@ class UserFixtures extends Fixture
              ->setAffiliationLocation('New York, USA')
              ->setSpecialization('Web Development')
              ->setResearchTopic('Symfony Framework')
-             ->setUserType(0);
+             ->setUserType(0)
+             ->setGenre('male');
 
         $user2 = new User();
         $user2->setEmail('user2@example.com')
@@ -39,7 +40,8 @@ class UserFixtures extends Fixture
             ->setAffiliationLocation('New York, USA')
             ->setSpecialization('Web Development')
             ->setResearchTopic('Symfony Framework')
-            ->setUserType(1);
+            ->setUserType(1)
+            ->setGenre('female');
 
         $manager->persist($user);
         $manager->persist($user2);

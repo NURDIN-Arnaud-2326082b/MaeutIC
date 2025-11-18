@@ -27,6 +27,7 @@
                 <label for="password" class="block text-sm font-medium text-gray-700">Mot de passe</label>
                 <input type="password" name="_password" id="password" class="mt-1 block w-full border border-gray-300 rounded-md p-2" autocomplete="current-password" required>
             </div>
+            <input type="hidden" name="g-recaptcha-response" id="recaptchaResponse">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
             <button class="w-full bg-blue-700 text-white py-2 rounded hover:bg-blue-800" type="submit">
                 Se connecter
@@ -34,4 +35,13 @@
         </form>
     </div>
 </div>
+
+    <script src="https://www.google.com/recaptcha/api.js?render=6Lfx-gIsAAAAAPDa-iFysykBq3ch90JB6_RxjpV1"></script>
+    <script>
+        grecaptcha.ready(function() {
+            grecaptcha.execute('6Lfx-gIsAAAAAPDa-iFysykBq3ch90JB6_RxjpV1', {action: 'login'}).then(function(token) {
+                document.getElementById('recaptchaResponse').value = token;
+            });
+        });
+    </script>
 {% endblock %}

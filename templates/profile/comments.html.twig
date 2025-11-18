@@ -1,0 +1,51 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Mon Profil{% endblock %}
+
+{% block body %}
+<div class="container mx-auto py-8">
+    <h1 class="text-3xl font-bold mb-4">Mon Profil</h1>
+
+    <!-- Navigation des onglets -->
+    <div class="flex space-x-4 mb-6 border-b">
+        <a href="{{ path('app_profile_posts') }}" 
+           class="px-4 py-2 text-gray-600 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-600">
+            Posts/Réponses
+        </a>
+        <a href="{{ path('app_profile_comments') }}" 
+           class="px-4 py-2 text-blue-600 font-semibold border-b-2 border-blue-600">
+            Commentaires ({{ comments|length }})
+        </a>
+        <a href="{{ path('app_profile_replies') }}" 
+           class="px-4 py-2 text-gray-600 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-600">
+            Réponses
+        </a>
+    </div>
+
+    <!-- Contenu des commentaires -->
+    <div>
+        {% for comment in comments %}
+            <div class="border-b py-4">
+                <div class="flex justify-between">
+                    <div>
+                        <strong>{{ comment.user.username }}</strong> a commenté sur 
+                        <a href="{{ path('app_forums', {'category': comment.post.forum.title, 'postId': comment.post.id}) }}" class="text-blue-500">
+                            {{ comment.post.name }}
+                        </a>
+                    </div>
+                    <div class="text-sm text-gray-500">
+                        {{ comment.creationDate|date('d/m/Y à H:i') }}
+                    </div>
+                </div>
+                <div class="mt-2">
+                    {{ comment.body|nl2br }}
+                </div>
+            </div>
+        {% else %}
+            <div class="py-4 text-gray-500">
+                Vous n'avez fait aucun commentaire pour le moment.
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

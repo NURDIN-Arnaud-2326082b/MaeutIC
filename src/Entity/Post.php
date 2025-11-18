@@ -25,11 +25,11 @@ class Post
     private ?string $description = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
-    #[ORM\JoinColumn(nullable: true, onDelete: "SET NULL")]
+    #[ORM\JoinColumn(nullable: false)]
     private ?User $user = null;
 
     #[ORM\ManyToOne(targetEntity: Forum::class, inversedBy: 'posts')]
-    #[ORM\JoinColumn(nullable: false, onDelete: "CASCADE")]
+    #[ORM\JoinColumn(nullable: false)]
     private ?Forum $forum = null;
 
     #[ORM\Column(type: Types::DATE_MUTABLE)]
@@ -41,13 +41,28 @@ class Post
     #[ORM\ManyToMany(targetEntity: User::class, mappedBy: 'subscribedPosts')]
     private Collection $subscribedUsers;
 
-    #[ORM\OneToMany(mappedBy: 'postId', targetEntity: Comment::class)]
+    #[ORM\OneToMany(mappedBy: 'post', targetEntity: Comment::class)]
     private Collection $comments;
+
+    #[ORM\OneToMany(mappedBy: 'post', targetEntity: PostLike::class, cascade: ['remove'])]
+    private Collection $likes;
+
+    #[ORM\ManyToOne(targetEntity: self::class, inversedBy: 'replies')]
+    #[ORM\JoinColumn(name: 'parent_post_id', referencedColumnName: 'id', onDelete: 'CASCADE')]
+    private ?self $parentPost = null;
+
+    #[ORM\OneToMany(mappedBy: 'parentPost', targetEntity: self::class, cascade: ['persist', 'remove'])]
+    private Collection $replies;
+
+    #[ORM\Column(type: Types::BOOLEAN, options: ['default' => false])]
+    private bool $isReply = false;
 
     public function __construct()
     {
         $this->subscribedUsers = new ArrayCollection();
         $this->comments = new ArrayCollection();
+        $this->likes = new ArrayCollection();
+        $this->replies = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -167,7 +182,7 @@ class Post
     {
         if (!$this->comments->contains($comment)) {
             $this->comments->add($comment);
-            $comment->setPostId($this);
+            $comment->setPost($this);
         }
 
         return $this;
@@ -177,10 +192,94 @@ class Post
     {
         if ($this->comments->removeElement($comment)) {
             // set the owning side to null (unless already changed)
-            if ($comment->getPostId() === $this) {
-                $comment->setPostId(null);
+            if ($comment->getPost() === $this) {
+                $comment->setPost(null);
             }
         }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, PostLike>
+     */
+    public function getLikes(): Collection
+    {
+        return $this->likes;
+    }
+
+    public function addLike(PostLike $like): static
+    {
+        if (!$this->likes->contains($like)) {
+            $this->likes->add($like);
+            $like->setPost($this);
+        }
+
+        return $this;
+    }
+
+    public function removeLike(PostLike $like): static
+    {
+        if ($this->likes->removeElement($like)) {
+            // set the owning side to null (unless already changed)
+            if ($like->getPost() === $this) {
+                $like->setPost(null);
+            }
+        }
+
+        return $this;
+    }
+
+    public function getParentPost(): ?self
+    {
+        return $this->parentPost;
+    }
+
+    public function setParentPost(?self $parentPost): static
+    {
+        $this->parentPost = $parentPost;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, self>
+     */
+    public function getReplies(): Collection
+    {
+        return $this->replies;
+    }
+
+    public function addReply(self $reply): static
+    {
+        if (!$this->replies->contains($reply)) {
+            $this->replies->add($reply);
+            $reply->setParentPost($this);
+        }
+
+        return $this;
+    }
+
+    public function removeReply(self $reply): static
+    {
+        if ($this->replies->removeElement($reply)) {
+            // set the owning side to null (unless already changed)
+            if ($reply->getParentPost() === $this) {
+                $reply->setParentPost(null);
+            }
+        }
+
+        return $this;
+    }
+
+    public function getIsReply(): bool
+    {
+        return $this->isReply;
+    }
+
+    public function setIsReply(bool $isReply): static
+    {
+        $this->isReply = $isReply;
 
         return $this;
     }

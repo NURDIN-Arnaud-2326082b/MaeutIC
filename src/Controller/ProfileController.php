@@ -17,6 +17,8 @@ use App\Repository\UserQuestionsRepository;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use App\Repository\UserRepository;
+use App\Entity\User;
+use App\Repository\PostLikeRepository;
 
 final class ProfileController extends AbstractController{
     #[Route('/profile', name: 'app_profile')]
@@ -80,23 +82,23 @@ final class ProfileController extends AbstractController{
         ]);
     }
 
-    #[Route('/profile/posts', name: 'app_profile_posts')]
-    public function posts(Security $security, PostRepository $postRepository): Response
+    #[Route('/profile/posts/{username}', name: 'app_profile_posts')]
+    public function posts(string $username, UserRepository $userRepository, PostRepository $postRepository): Response
     {
-        $user = $security->getUser();
+        $user = $userRepository->findOneBy(['username' => $username]);
         $posts = [];
         if ($user) {
-            $posts = $postRepository->findBy(['user' => $user]);
+            // order by creationDate descending so recent posts first
+            $posts = $postRepository->findBy(['user' => $user], ['creationDate' => 'DESC']);
         }
         return $this->render('profile/_posts.html.twig', [
             'posts' => $posts,
         ]);
     }
-
     #[Route('/profile/comments/{username}', name: 'app_profile_comments')]
-    public function comments(Security $security, CommentRepository $commentRepository): Response
+    public function comments(string $username, UserRepository $userRepository, CommentRepository $commentRepository): Response
     {
-        $user = $security->getUser();
+        $user = $userRepository->findOneBy(['username' => $username]);
         $comments = [];
         if ($user) {
             $comments = $commentRepository->findBy(['user' => $user]);
@@ -260,8 +262,9 @@ final class ProfileController extends AbstractController{
     public function delete(
         Security $security,
         Request $request,
+        TokenStorageInterface $tokenStorage,
         SessionInterface $session,
-        TokenStorageInterface $tokenStorage
+        EntityManagerInterface $entityManager
     ): Response {
         $user = $security->getUser();
         if (!$user) {
@@ -269,38 +272,66 @@ final class ProfileController extends AbstractController{
         }
 
         if ($this->isCsrfTokenValid('delete-user', $request->request->get('_token'))) {
-
-            $session->set('user_to_delete_id', $user->getId());
-
             $tokenStorage->setToken(null);
+            $entityManager->remove($user);
+            $entityManager->flush();
+            $session->invalidate();
 
-            return $this->redirectToRoute('app_profile_delete_confirm');
+            $this->addFlash('success', 'Votre compte a été supprimé.');
+            return $this->redirectToRoute('app_home');
         }
 
         $this->addFlash('error', 'Token CSRF invalide.');
         return $this->redirectToRoute('app_home');
     }
 
-    #[Route('/profile/delete/confirm', name: 'app_profile_delete_confirm')]
-    public function confirmDelete(
-        SessionInterface $session,
-        EntityManagerInterface $entityManager
-    ): Response {
-        $id = $session->get('user_to_delete_id');
-        $session->remove('user_to_delete_id');
+    // #[Route('/profile/delete/confirm', name: 'app_profile_delete_confirm')]
+    // public function confirmDelete(
+    //     SessionInterface $session,
+    //     EntityManagerInterface $entityManager
+    // ): Response {
+    //     $id = $session->get('user_to_delete_id');
+    //     $session->remove('user_to_delete_id');
 
-        if ($id) {
-            $user = $entityManager->getRepository(\App\Entity\User::class)->find($id);
-            if ($user) {
-                $entityManager->remove($user);
-                $entityManager->flush();
-            }
+    //     if ($id) {
+    //         $user = $entityManager->getRepository(User::class)->find($id);
+    //         if ($user) {
+    //             $entityManager->remove($user);
+    //             $entityManager->flush();
+    //         }
+    //     }
+
+    //     $this->addFlash('success', 'Votre compte a été supprimé.');
+    //     return $this->redirectToRoute('app_home');
+    // }
+
+    #[Route('/profile/replies', name: 'app_profile_replies')]
+    public function replies(
+        PostRepository $postRepository,
+        PostLikeRepository $postLikeRepository
+    ): Response {
+        $user = $this->getUser();
+        if (!$user) {
+            throw $this->createAccessDeniedException('Vous devez être connecté pour accéder à cette page.');
         }
 
-        $session->invalidate();
+        $replies = $postRepository->findRepliesByUser($user);
+        
+        // Initialiser les données de likes pour les réponses
+        $repliesLikes = [];
+        $userRepliesLikes = [];
+        
+        foreach ($replies as $reply) {
+            $repliesLikes[$reply->getId()] = $postLikeRepository->countByPost($reply);
+            $userRepliesLikes[$reply->getId()] = $postLikeRepository->isLikedByUser($reply, $user);
+        }
 
-        $this->addFlash('success', 'Votre compte a été supprimé.');
-        return $this->redirectToRoute('app_home');
+        return $this->render('profile/replies.html.twig', [
+            'user' => $user,
+            'replies' => $replies,
+            'repliesLikes' => $repliesLikes,
+            'userRepliesLikes' => $userRepliesLikes,
+        ]);
     }
 
     private function findTagIdByName($tags, $name)

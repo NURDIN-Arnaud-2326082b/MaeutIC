@@ -84,6 +84,21 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'integer')]
     private ?int $userType = 0;
 
+    // Persist the network as JSON in the database
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $network = [];
+
+    // Persist the blocked users as JSON in the database (list of user ids this user has blocked)
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $blocked = [];
+
+    // Persist the users who blocked this user (list of user ids)
+    // nom de colonne fixé pour matcher la migration qui a créé "blockedby"
+    #[ORM\Column(name: 'blockedby', type: 'json', nullable: true)]
+    private ?array $blockedBy = [];
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $genre = null;
+
     public function __construct()
     {
         $this->subscribedPosts = new ArrayCollection();
@@ -355,7 +370,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         if (!$this->posts->contains($post)) {
             $this->posts->add($post);
-            $post->setUserId($this);
+            $post->setUser($this);
         }
 
         return $this;
@@ -365,8 +380,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         if ($this->posts->removeElement($post)) {
             // set the owning side to null (unless already changed)
-            if ($post->getUserId() === $this) {
-                $post->setUserId(null);
+            if ($post->getUser() === $this) {
+                $post->setUser(null);
             }
         }
 
@@ -382,7 +397,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         if (!$this->comments->contains($comment)) {
             $this->comments->add($comment);
-            $comment->setUserId($this);
+            $comment->setUser($this);
         }
 
         return $this;
@@ -392,8 +407,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         if ($this->comments->removeElement($comment)) {
             // set the owning side to null (unless already changed)
-            if ($comment->getUserId() === $this) {
-                $comment->setUserId(null);
+            if ($comment->getUser() === $this) {
+                $comment->setUser(null);
             }
         }
 
@@ -412,6 +427,113 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    public function getNetwork(): array
+    {
+        return $this->network ?? [];
+    }
+
+    public function setNetwork(array $network): self
+    {
+        $this->network = array_values(array_unique(array_map('intval', $network)));
+
+        return $this;
+    }
+
+    public function addToNetwork(int $userId): self
+    {
+        $list = $this->getNetwork();
+        if (!in_array($userId, $list, true)) {
+            $list[] = $userId;
+            $this->network = $list;
+        }
+
+        return $this;
+    }
+
+    public function removeFromNetwork(int $userId): self
+    {
+        $list = $this->getNetwork();
+        $list = array_values(array_filter($list, fn($id) => ((int)$id) !== $userId));
+        $this->network = $list;
+
+        return $this;
+    }
+
+    public function isInNetwork(int $userId): bool
+    {
+        return in_array($userId, $this->getNetwork(), true);
+    }
+
+    // --- Blocked users (similar API to network) ---
+    public function getBlocked(): array
+    {
+        return $this->blocked ?? [];
+    }
+
+    public function setBlocked(array $blocked): self
+    {
+        $this->blocked = array_values(array_unique(array_map('intval', $blocked)));
+        return $this;
+    }
+
+    public function addToBlocked(int $userId): self
+    {
+        $list = $this->getBlocked();
+        if (!in_array($userId, $list, true)) {
+            $list[] = $userId;
+            $this->blocked = $list;
+        }
+        return $this;
+    }
+
+    public function removeFromBlocked(int $userId): self
+    {
+        $list = $this->getBlocked();
+        $list = array_values(array_filter($list, fn($id) => ((int)$id) !== $userId));
+        $this->blocked = $list;
+        return $this;
+    }
+
+    public function isBlocked(int $userId): bool
+    {
+        return in_array($userId, $this->getBlocked(), true);
+    }
+
+    // --- "blockedBy" API: users who have blocked this user ---
+    public function getBlockedBy(): array
+    {
+        return $this->blockedBy ?? [];
+    }
+
+    public function setBlockedBy(array $blockedBy): self
+    {
+        $this->blockedBy = array_values(array_unique(array_map('intval', $blockedBy)));
+        return $this;
+    }
+
+    public function addToBlockedBy(int $userId): self
+    {
+        $list = $this->getBlockedBy();
+        if (!in_array($userId, $list, true)) {
+            $list[] = $userId;
+            $this->blockedBy = $list;
+        }
+        return $this;
+    }
+
+    public function removeFromBlockedBy(int $userId): self
+    {
+        $list = $this->getBlockedBy();
+        $list = array_values(array_filter($list, fn($id) => ((int)$id) !== $userId));
+        $this->blockedBy = $list;
+        return $this;
+    }
+
+    public function isBlockedBy(int $userId): bool
+    {
+        return in_array($userId, $this->getBlockedBy(), true);
+    }
+
     /**
      * @see UserInterface
      */
@@ -419,5 +541,28 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         // If you store any temporary, sensitive data on the user, clear it here
         // $this->plainPassword = null;
+    }
+
+    public function getGenre(): ?string
+    {
+        return $this->genre;
+    }
+
+    public function setGenre(?string $genre): static
+    {
+        $this->genre = $genre;
+
+        return $this;
+    }
+
+    // Méthode utilitaire pour afficher "chercheur" ou "chercheuse"
+    public function getResearcherTitle(): string
+    {
+        return match($this->genre) {
+            'female' => 'chercheuse',
+            'male' => 'chercheur',
+            'other' => 'chercheur·euse',
+            default => 'chercheur·euse'
+        };
     }
 }

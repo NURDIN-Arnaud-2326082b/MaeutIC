@@ -23,11 +23,11 @@ class Comment
     private ?\DateTimeInterface $creationDate = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
-    #[ORM\JoinColumn(nullable: true, onDelete: "SET NULL")]
+    #[ORM\JoinColumn(nullable: false)]
     private ?User $user = null;
 
     #[ORM\ManyToOne(targetEntity: Post::class)]
-    #[ORM\JoinColumn(nullable: false, onDelete: "CASCADE")]
+    #[ORM\JoinColumn(nullable: false)]
     private ?Post $post = null;
 
     #[ORM\OneToMany(mappedBy: 'comment', targetEntity: UserLike::class)]
@@ -72,7 +72,7 @@ class Comment
         return $this->user;
     }
 
-    public function setUser(User $user): static
+    public function setUser(?User $user): static
     {
         $this->user = $user;
 
@@ -84,7 +84,7 @@ class Comment
         return $this->post;
     }
 
-    public function setPost(Post $post): static
+    public function setPost(?Post $post): static
     {
         $this->post = $post;
 

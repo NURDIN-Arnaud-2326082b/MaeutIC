@@ -7,30 +7,30 @@
         "php": ">=8.2",
         "ext-ctype": "*",
         "ext-iconv": "*",
-        "doctrine/dbal": "^4.3.2",
-        "doctrine/doctrine-bundle": "^2.16",
-        "doctrine/doctrine-migrations-bundle": "^3.4.2",
-        "doctrine/orm": "^3.5.2",
+        "doctrine/dbal": "^4.3.4",
+        "doctrine/doctrine-bundle": "^2.18",
+        "doctrine/doctrine-migrations-bundle": "^3.5.0",
+        "doctrine/orm": "^3.5.3",
         "symfony/asset": "^7.2",
         "symfony/asset-mapper": "7.2.*",
         "symfony/console": "7.2.*",
         "symfony/dotenv": "7.2.*",
-        "symfony/flex": "^2.8.2",
+        "symfony/flex": "^2.9.0",
         "symfony/form": "7.2.*",
         "symfony/framework-bundle": "7.2.*",
         "symfony/mime": "7.2.*",
         "symfony/runtime": "7.2.*",
         "symfony/security-bundle": "7.2.*",
-        "symfony/stimulus-bundle": "^2.30",
+        "symfony/stimulus-bundle": "^2.31",
         "symfony/translation": "7.2.*",
         "symfony/twig-bundle": "7.2.*",
-        "symfony/ux-turbo": "^2.30",
+        "symfony/ux-turbo": "^2.31",
         "symfony/validator": "7.2.*",
         "symfony/yaml": "7.2.*",
         "symfonycasts/tailwind-bundle": "^0.8.0",
         "symfonycasts/verify-email-bundle": "^1.17.4",
-        "twig/extra-bundle": "^2.12|^3.21",
-        "twig/twig": "^2.12|^3.21.1"
+        "twig/extra-bundle": "^2.12|^3.22",
+        "twig/twig": "^2.12|^3.22.0"
     },
     "config": {
         "allow-plugins": {
@@ -84,7 +84,7 @@
         }
     },
     "require-dev": {
-        "doctrine/doctrine-fixtures-bundle": "^4.1",
+        "doctrine/doctrine-fixtures-bundle": "^4.3",
         "symfony/maker-bundle": "^1.64",
         "symfony/stopwatch": "7.2.*",
         "symfony/web-profiler-bundle": "7.2.*"

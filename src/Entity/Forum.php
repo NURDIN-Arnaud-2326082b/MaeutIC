@@ -23,6 +23,15 @@ class Forum
     #[ORM\Column(length: 5000)]
     private ?string $body = null;
 
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    private bool $anonymous = false;
+
+    #[ORM\Column(name: "debussy_clairDeLune", type: 'boolean', options: ['default' => false])]
+    private bool $debussy_clairDeLune = false;
+
+    #[ORM\Column(length: 255, options: ['default' => 'general'])]
+    private ?string $special = null;
+
     #[ORM\Column(type: Types::DATE_MUTABLE)]
     private ?\DateTimeInterface $lastActivity = null;
 
@@ -75,6 +84,42 @@ class Forum
         return $this;
     }
 
+    public function isAnonymous(): bool
+    {
+        return $this->anonymous;
+    }
+
+    public function setAnonymous(bool $anonymous): static
+    {
+        $this->anonymous = $anonymous;
+
+        return $this;
+    }
+
+    public function isDebussyClairDeLune(): bool
+    {
+        return $this->debussy_clairDeLune;
+    }
+
+    public function setDebussyClairDeLune(bool $debussy_clairDeLune): static
+    {
+        $this->debussy_clairDeLune = $debussy_clairDeLune;
+
+        return $this;
+    }
+
+    public function getSpecial(): ?string
+    {
+        return $this->special;
+    }
+
+    public function setSpecial(string $special): static
+    {
+        $this->special = $special;
+
+        return $this;
+    }
+
     public function getPosts(): Collection
     {
         return $this->posts;
@@ -84,7 +129,7 @@ class Forum
     {
         if (!$this->posts->contains($post)) {
             $this->posts->add($post);
-            $post->setForumId($this);
+            $post->setForum($this);
         }
 
         return $this;
@@ -94,8 +139,8 @@ class Forum
     {
         if ($this->posts->removeElement($post)) {
             // set the owning side to null (unless already changed)
-            if ($post->getForumId() === $this) {
-                $post->setForumId(null);
+            if ($post->getForum() === $this) {
+                $post->setForum(null);
             }
         }
 

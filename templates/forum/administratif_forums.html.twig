@@ -1,0 +1,1105 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Forums{% endblock %}
+{% block stylesheets %}
+    <link rel="stylesheet" href="{{ asset('styles/app.css') }}">
+    <style>
+        /* Scrollbar personnalisée */
+        .custom-scrollbar {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #3b82f6;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #2563eb;
+        }
+
+        .custom-scrollbar {
+            scrollbar-width: thin;
+            scrollbar-color: #3b82f6 #f1f5f9;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+{{ render(controller('App\\Controller\\NavbarController::navbar')) }}
+<div class="flex-1 flex flex-row justify-center items-start h-full my-11">
+    {# Forum categories #}
+    <div class="bg-white/45 backdrop-blur-sm shadow-xl m-5 p-2 rounded-lg">
+        <div class="bg-white rounded-lg p-2">
+            <div class="inline-block">
+                <h2 class="text-2xl text-gray-700">Categories</h2>
+                <div class="bg-blue-600 h-1 rounded-full my-1 w-full"></div>
+            </div>
+        <div class="flex flex-col">
+            {% if category == "administratif" %}
+                <a href="{{ path('app_administratif_forums') }}" class="p-1 w-full font-semibold bg-blue-50 text-blue-900">Tous les forums administratifs</a>
+            {% else %}
+                <a href="{{ path('app_administratif_forums') }}" class="p-1 w-full hover:bg-blue-50 text-gray-700 hover:text-blue-900">Tous les forums administratifs</a>
+            {% endif %}
+            {% for forum in forums %}
+                {% if category == forum.title %}
+                    <a href="{{ path('app_administratif_forums_category', { category: forum.title }) }}" class="p-1 w-full font-semibold bg-blue-50 text-blue-900"><h3>{{ forum.title }}</h3></a>
+                {% else %}
+                    <a href="{{ path('app_administratif_forums_category', { category: forum.title }) }}" class="p-1 w-full hover:bg-blue-50 text-gray-700 hover:text-blue-900"><h3>{{ forum.title }}</h3></a>
+                {% endif %}
+            {% endfor %}
+        </div>
+        </div>
+    </div>
+
+{% if currentForum and currentForum.debussyClairDeLune %}
+{# Lecteur de musique amélioré #}
+<div id="music-player" 
+    class="fixed bottom-5 right-5 bg-white backdrop-blur-md border border-gray-200 shadow-lg rounded-xl p-4 w-72 flex flex-col items-center space-y-2 z-[10000]">
+    <audio id="debussy-audio" 
+           controls 
+           loop 
+           preload="none"
+           class="w-full rounded-lg">
+        <source src="{{ asset('audio/clair_de_lune_debussy.mp3') }}?v=1.0" type="audio/mpeg">
+        Votre navigateur ne supporte pas la balise audio.
+    </audio>
+    <p class="text-sm text-gray-600">🎶 Claude Debussy - Clair de Lune</p>
+    <div id="music-status" class="text-xs text-gray-500 hidden">Chargement...</div>
+</div>
+
+<style>
+#music-player {
+    z-index: 10000;
+    position: fixed;
+}
+
+/* Style pour éviter le grisage */
+audio::-webkit-media-controls-panel {
+    background-color: white;
+}
+
+audio::-webkit-media-controls-play-button {
+    background-color: #3b82f6;
+    border-radius: 50%;
+}
+</style>
+{% endif %}
+
+    {# Forum list or selected post #}
+    <ul class="m-5 max-w-5xl w-full bg-white/50 backdrop-blur-sm p-8 rounded-xl shadow-xl border border-white/20">
+        {% if selectedPost %}
+            {# Display the selected post #}
+            {# <a href="{{ path('app_forums', { category: category }) }}" class="text-blue-600 m-2 block">← Retour</a> #}
+            {% if category == 'administratif' %}
+                <a href="{{ path('app_administratif_forums') }}" class="text-blue-600 m-2 block">← Retour à tous les forums administratifs</a>
+            {% else %}
+                <a href="{{ path('app_administratif_forums_category', { category: category }) }}" class="text-blue-600 m-2 block">← Retour à la catégorie "{{ category }}"</a>
+            {% endif %}
+            
+            {# Post principal avec possibilité de répondre #}
+            <div class="bg-white relative p-5 rounded-lg border-l-4 border-blue-500">
+                <h2 class="text-2xl font-semibold text-gray-700">{{ selectedPost.name }}</h2>
+
+                <p class="text-gray-500">
+                    Par 
+                    {# Si le forum est anonyme, on affiche le nom d'un écrivain ou philosophe célèbre #}
+                    {% if selectedPost.forum.anonymous %}
+                        {{ random(['Victor Hugo', 'Platon', 'René Descartes', 'Jean-Paul Sartre', 'Voltaire', 'Friedrich Nietzsche',
+                        'Albert Camus', 'Michel de Montaigne', 'Jean-Jacques Rousseau', 'Honoré de Balzac', 'Socrates', 'Aristote',
+                        'Emmanuel Kant', 'Sigmund Freud', 'John Locke', 'Thomas Hobbes', 'Karl Marx', 'Georg Wilhelm Friedrich Hegel', 'Sören Kierkegaard']) }}
+                    {% else %}
+                        {% if selectedPost.user is not null %}
+                            {{ selectedPost.user.firstName }} {{ selectedPost.user.lastName }}
+                        {% else %}
+                            un ancien utilisateur
+                        {% endif %}
+                    {% endif %}
+                </p>
+
+                <p class="text-gray-500">{{ selectedPost.creationDate|date('d/m/Y') }}</p>
+
+                {# Description du post #}
+
+                <div class="mt-5">
+                    <p class="text-gray-700">{{ selectedPost.description }}</p>
+                </div>
+
+                {# Actions du post (like et répondre) #}
+                <div class="flex items-center mt-3 space-x-4">
+                    <div class="flex items-center">
+                        {% if is_granted('IS_AUTHENTICATED_FULLY') %}
+                            {% if userSelectedPostLike %}
+                                <button class="post-like-btn text-red-500 text-lg mr-2" data-post-id="{{ selectedPost.id }}">♥</button>
+                            {% else %}
+                                <button class="post-like-btn text-gray-500 text-lg mr-2" data-post-id="{{ selectedPost.id }}">♡</button>
+                            {% endif %}
+                        {% else %}
+                            <button class="text-gray-500 text-lg cursor-not-allowed mr-2" title="Connectez-vous pour liker" disabled>♡</button>
+                        {% endif %}
+                        <span data-post-like-count="{{ selectedPost.id }}" class="text-gray-600">{{ selectedPostLikes }}</span>
+                    </div>
+                    
+                    {# Bouton Répondre #}
+                    {% if is_granted('IS_AUTHENTICATED_FULLY') %}
+                        <button onclick="toggleReplyForm()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm">
+                            📝 Répondre
+                        </button>
+                    {% endif %}
+                </div>
+
+                {# Formulaire de réponse (caché par défaut) #}
+                {% if is_granted('IS_AUTHENTICATED_FULLY') %}
+                    <div id="reply-form" class="hidden mt-4 p-4 bg-gray-50 rounded-lg border">
+                        <h4 class="font-semibold text-gray-700 mb-2">Répondre à ce post :</h4>
+                        
+                        {# Citation du post original #}
+                        <div class="bg-white p-3 border-l-4 border-gray-300 mb-3 text-sm text-gray-600">
+                        {# Si le forum est anonyme, on n'affiche pas l'auteur #}
+                            {% if selectedPost.forum.anonymous %}
+                                <div class="font-medium"> {{ random(['Victor Hugo', 'Platon', 'René Descartes', 'Jean-Paul Sartre', 'Voltaire', 'Friedrich Nietzsche',
+                        'Albert Camus', 'Michel de Montaigne', 'Jean-Jacques Rousseau', 'Honoré de Balzac', 'Socrates', 'Aristote',
+                        'Emmanuel Kant', 'Sigmund Freud', 'John Locke', 'Thomas Hobbes', 'Karl Marx', 'Georg Wilhelm Friedrich Hegel', 'Sören Kierkegaard']) }} a écrit :</div>
+                            {% else %}
+                                <div class="font-medium">{{ selectedPost.user ? selectedPost.user.firstName ~ ' ' ~ selectedPost.user.lastName : 'Ancien utilisateur' }} a écrit :</div>
+                            {% endif %}
+                            <div class="italic mt-1">{{ selectedPost.description|length > 200 ? selectedPost.description|slice(0, 200) ~ '...' : selectedPost.description }}</div>
+                        </div>
+                        
+                        <form action="{{ path('app_administratif_post_reply', { 
+                            category: category, 
+                            postId: selectedPost.id 
+                        }) }}" method="post">
+                            <textarea name="reply_content" rows="4" class="w-full p-2 border rounded-lg" placeholder="Votre réponse..." required></textarea>
+                            <div class="mt-2 flex space-x-2">
+                                <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">
+                                    📤 Publier la réponse
+                                </button>
+                                <button type="button" onclick="toggleReplyForm()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">Annuler</button>
+                            </div>
+                        </form>
+                    </div>
+                {% endif %}
+
+                {# Menu CRUD existant #}
+                {% if app.user and (
+                    (selectedPost.user and app.user.id == selectedPost.user.id)
+                    or app.user.userType == 1
+                ) %}
+                    <div class="absolute top-2 right-2 flex flex-col items-end space-x-1">
+                        {# Dropdown button #}
+                        <button id="crudDropdownButton{{ selectedPost.id }}" class="focus:outline-none px-2 py-1">
+                            &#9776;
+                        </button>
+                        {# Dropdown menu #}
+                        <div id="crudDropdownMenu{{ selectedPost.id }}" class="hidden flex flex-col items-end mt-2 bg-white rounded overflow-auto shadow-lg z-50">
+                            <a href="{{ path('app_administratif_post_edit', { 
+                                category: selectedPost.forum.title, 
+                                postId: selectedPost.id 
+                            }) }}" class="block px-2 py-1 w-full text-gray-700 hover:bg-gray-100">Modifier</a>
+                            <form method="post" action="{{ path('app_post_delete', {'category': category, 'postId': selectedPost.id}) }}" onsubmit="return confirm('Voulez-vous vraiment supprimer ce post ?');" class="w-full">
+                                <input type="hidden" name="_token" value="{{ csrf_token('delete_post_' ~ selectedPost.id) }}">
+                                <button type="submit" class="bg-white hover:bg-gray-100 text-red-600 w-full px-2 py-1 transition" title="Supprimer">
+                                    Supprimer
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+
+            {# Affichage des réponses #}
+            {% if replies|length > 0 %}
+                <div class="mt-6">
+                    <h3 class="text-xl font-semibold text-gray-700 mb-4">{{ replies|length }} réponse(s)</h3>
+                    {% for reply in replies %}
+                        <div class="bg-gray-50 p-4 rounded-lg border-l-4 border-green-400 mb-4 ml-6">
+                            <div class="flex justify-between items-start">
+                                <div class="flex-1">
+                                    <div class="flex items-center space-x-2 mb-2">
+                                        <span class="font-semibold text-gray-700">
+                                        {# Si le forum est anonyme, on affiche le nom d'un écrivain ou philosophe célèbre #}
+                                            {% if reply.forum.anonymous %}
+                                                {{ random(['Victor Hugo', 'Platon', 'René Descartes', 'Jean-Paul Sartre', 'Voltaire', 'Friedrich Nietzsche',
+                                                'Albert Camus', 'Michel de Montaigne', 'Jean-Jacques Rousseau', 'Honoré de Balzac', 'Socrates', 'Aristote',
+                                                'Emmanuel Kant', 'Sigmund Freud', 'John Locke', 'Thomas Hobbes', 'Karl Marx', 'Georg Wilhelm Friedrich Hegel', 'Sören Kierkegaard']) }}
+                                            {% else %}
+                                                {% if reply.user is not null %}
+                                                    {{ reply.user.firstName }} {{ reply.user.lastName }}
+                                                {% else %}
+                                                    Ancien utilisateur
+                                                {% endif %}
+                                            {% endif %}
+                                        </span>
+                                        {# si le forum est anonyme, on n'affiche pas l'auteur du post original #}
+                                        {% if not reply.forum.anonymous %}
+                                            <span class="text-sm text-gray-500">• En réponse à {{ selectedPost.user ? selectedPost.user.firstName : 'Ancien utilisateur' }}</span>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="text-gray-700">{{ reply.description }}</div>
+                                    
+                                    {# Actions pour la réponse #}
+                                    <div class="flex items-center mt-2">
+                                        {% if is_granted('IS_AUTHENTICATED_FULLY') %}
+                                            {% if userPostLikes[reply.id] %}
+                                                <button class="post-like-btn text-red-500 text-lg mr-2" data-post-id="{{ reply.id }}">♥</button>
+                                            {% else %}
+                                                <button class="post-like-btn text-gray-500 text-lg mr-2" data-post-id="{{ reply.id }}">♡</button>
+                                            {% endif %}
+                                        {% else %}
+                                            <button class="text-gray-500 text-lg cursor-not-allowed mr-2" title="Connectez-vous pour liker" disabled>♡</button>
+                                        {% endif %}
+                                        <span data-post-like-count="{{ reply.id }}" class="text-gray-600">{{ postLikes[reply.id] }}</span>
+                                    </div>
+                                </div>
+                                
+                                {# Menu CRUD pour la réponse #}
+                                {% if app.user and (
+                                    (reply.user and app.user.id == reply.user.id)
+                                    or app.user.userType == 1
+                                ) %}
+                                    <div class="ml-4">
+                                        <button id="crudDropdownButton{{ reply.id }}" class="focus:outline-none px-2 py-1">
+                                            &#9776;
+                                        </button>
+                                        <div id="crudDropdownMenu{{ reply.id }}" class="hidden absolute mt-2 bg-white rounded shadow-lg z-50">
+                                        <form method="post" action="{{ path('app_administratif_post_delete', {
+                                            'category': selectedPost.forum.title, 
+                                            'postId': reply.id
+                                        }) }}" onsubmit="return confirm('Voulez-vous vraiment supprimer cette réponse ?');">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('delete_post_' ~ reply.id) }}">
+                                                <button type="submit" class="block px-4 py-2 text-red-600 hover:bg-gray-100 w-full text-left">
+                                                    Supprimer
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {# Section commentaires existante #}
+            <div class="mt-8">
+                <h3 class="text-xl font-semibold text-gray-700">{{ comments|length }} commentaires</h3>
+                
+                {% if is_granted('IS_AUTHENTICATED_FULLY') %}
+                        <form action="{{ path('app_administratif_forums_post', { 
+                            category: selectedPost.forum.title, 
+                            postId: selectedPost.id 
+                        }) }}" method="post" class="mt-5">
+                        <textarea name="comment" rows="4" class="w-full p-2 border rounded-lg" placeholder="Ajouter un commentaire..."></textarea>
+                        <button type="submit" class="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">Commenter</button>
+                    </form>
+                {% else %}
+                    <button onclick="window.location.href='{{ path('app_login') }}'" class="text-white bg-blue-600 hover:bg-blue-700 mt-2 px-4 py-2 rounded-lg">+ Ajouter un commentaire</button>
+                {% endif %}
+                {# Display comments #}
+                {% for i, comment in comments %}
+                    <div class="flex flex-row items-center w-full my-2">
+                        <a class="flex flex-col items-center text-gray-500 w-8 mx-2">
+                            {% if is_granted('IS_AUTHENTICATED_FULLY') %}
+                                {% if userLikes[comment.id] %}
+                                    <button id="like-btn-{{ comment.id }}" class="text-red-500 text-lg" onclick="likeComment({{ comment.id }})">♥</button>
+                                {% else %}
+                                    <button id="like-btn-{{ comment.id }}" class="text-gray-500 text-lg" onclick="likeComment({{ comment.id }})">♡</button>
+                                {% endif %}
+                            {% else %}
+                                {% if userLikes[comment.id] %}
+                                    <button id="like-btn-{{ comment.id }}" class="text-red-500 text-lg cursor-not-allowed" title="Connectez-vous pour liker" disabled>♥</button>
+                                {% else %}
+                                    <button id="like-btn-{{ comment.id }}" class="text-gray-500 text-lg cursor-not-allowed" title="Connectez-vous pour liker" disabled>♡</button>
+                                {% endif %}
+                            {% endif %}
+                            <p id="like-count-{{ comment.id }}">{{ likes[i] }}</p>
+                        </a>
+                        <div class="bg-white text-gray-700 p-3 rounded-lg w-full">
+
+                            <p>
+                                <strong>
+                                {# Si le forum est anonyme, on affiche le nom d'un écrivain ou philosophe célèbre #}
+                                    {% if comment.post.forum.anonymous %}
+                                        {{ random(['Victor Hugo', 'Platon', 'René Descartes', 'Jean-Paul Sartre', 'Voltaire', 'Friedrich Nietzsche',
+                                        'Albert Camus', 'Michel de Montaigne', 'Jean-Jacques Rousseau', 'Honoré de Balzac', 'Socrates', 'Aristote',
+                                        'Emmanuel Kant', 'Sigmund Freud', 'John Locke', 'Thomas Hobbes', 'Karl Marx', 'Georg Wilhelm Friedrich Hegel', 'Sören Kierkegaard']) }}
+                                    {% else %}
+                                        {% if comment.user is not null %}
+                                            {{ comment.user.firstName }} {{ comment.user.lastName }}
+                                        {% else %}
+                                            Ancien utilisateur
+                                        {% endif %}
+                                    {% endif %}
+                                </strong>
+                            </p>
+
+                            <p>{{ comment.body }}</p>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            {# Display the list of posts #}
+            <div class="flex flex-row items-center justify-between mb-5">
+                <h1 class="text-2xl pb-2 text-gray-700">Forums</h1>
+
+                {% if is_granted('IS_AUTHENTICATED_FULLY') %}
+                    <button onclick="openPostCreateModal()" class="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">+ Créer une publication</button>
+                {% else %}
+                    <button onclick="window.location.href='{{ path('app_login') }}'" class="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">+ Créer une publication</button>
+                {% endif %}
+            </div>
+
+{# BARRE DE RECHERCHE - VERSION AMÉLIORÉE #}
+<div class="mb-6 bg-white/70 backdrop-blur-sm p-6 rounded-xl shadow-sm border border-white/30">
+    <div class="flex flex-col lg:flex-row gap-6 items-start lg:items-center w-full">
+        {# Champ de recherche - prend toute la largeur disponible #}
+        <div class="w-full lg:flex-1">
+            <div class="relative">
+                <input 
+                    type="text" 
+                    id="search-input"
+                    placeholder="Rechercher..." 
+                    class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white/80 backdrop-blur-sm text-gray-700 placeholder-gray-400"
+                >
+            </div>
+        </div>
+
+        {# Filtres de recherche - avec plus d'espace entre les sélecteurs #}
+        <div class="w-full lg:w-2/3">
+            <div class="flex flex-row gap-6 w-full">
+                {# Filtre par type de recherche #}
+                <select id="search-type" class="flex-1 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm text-gray-700">
+                    <option value="all">Tout</option>
+                    <option value="title">Titres</option>
+                    <option value="content">Contenu</option>
+                    <option value="author">Auteurs</option>
+                </select>
+
+                {# Filtre par date #}
+                <select id="date-filter" class="flex-1 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm text-gray-700">
+                    <option value="all">Toutes dates</option>
+                    <option value="today">Aujourd'hui</option>
+                    <option value="week">Semaine</option>
+                    <option value="month">Mois</option>
+                    <option value="year">Année</option>
+                </select>
+
+                {# Filtre par popularité #}
+                <select id="sort-by" class="flex-1 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/80 backdrop-blur-sm text-gray-700">
+                    <option value="recent">Récents</option>
+                    <option value="popular">Populaires (likes)</option>
+                    <option value="commented">Commentés</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    {# Indicateur de recherche #}
+    <div id="search-indicator" class="hidden mt-4 text-sm text-gray-600">
+        <span id="search-results-count">0</span> résultat(s) trouvé(s)
+        <button onclick="clearSearch()" class="ml-2 text-blue-600 hover:text-blue-800 text-xs underline">Effacer</button>
+    </div>
+</div>
+{# FIN BARRE DE RECHERCHE #}
+
+            <div class="flex flex-row text-sm pl-14 pr-2">
+                <p class="w-1/2 text-gray-700">Titre</p>
+                <p class="w-1/4 text-gray-700">Forum</p>
+                <p class="text-gray-700">Date</p>
+            </div>
+
+            {# Conteneur pour les posts avec ID pour la recherche dynamique #}
+{# Conteneur pour les posts avec scrollbar #}
+<div id="posts-container" class="max-h-[600px] overflow-y-auto custom-scrollbar">
+                {% for post in posts %}
+                    <li>
+                        <div class="relative group pl-12 cursor-pointer my-1 block">
+                            {# blue background bar #}
+                            <div class="absolute top-0 left-0 h-full w-14 bg-blue-600 rounded-lg flex items-center justify-center">
+                                <p class="mb-2 mr-2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-150 text-white text-3xl font-semibold">
+                                    ›
+                                </p>
+                            </div>
+                            <div class="absolute top-0 left-3 h-full w-20 bg-white group-hover:left-11 group-hover:bg-blue-50 rounded-lg transition-all z-10 duration-150"></div>
+
+                            {# Content #}
+                            <div class="flex items-center bg-white group-hover:bg-blue-50 transition-all duration-150 px-2 py-3 rounded-md relative z-10">
+                                <div class="w-1/2">
+                                    {# <a href="{{ path('app_forums', { category: category, postId: post.id }) }}"> #}
+                                    <a href="{{ path('app_administratif_forums_post', { category: post.forum.title, postId: post.id }) }}">
+                                        <h3 class="text-lg text-gray-700">{{ post.name }}</h3>
+                                        <p class="text-gray-500">
+                                        {# Si le forum est anonyme, on affiche le nom d'un écrivain ou philosophe célèbre #}
+                                            {% if post.forum.anonymous %}
+                                                {{ random(['Victor Hugo', 'Platon', 'René Descartes', 'Jean-Paul Sartre', 'Voltaire', 'Friedrich Nietzsche',
+                                                'Albert Camus', 'Michel de Montaigne', 'Jean-Jacques Rousseau', 'Honoré de Balzac', 'Socrates', 'Aristote',
+                                                'Emmanuel Kant', 'Sigmund Freud', 'John Locke', 'Thomas Hobbes', 'Karl Marx', 'Georg Wilhelm Friedrich Hegel', 'Sören Kierkegaard']) }}
+                                            {% else %}
+                                                {% if post.user is not null %}
+                                                    {{ post.user.firstName }} {{ post.user.lastName }}
+                                                {% else %}
+                                                    Ancien utilisateur
+                                                {% endif %}
+                                            {% endif %}
+                                        </p>
+                                    </a>
+                                </div>
+                                <p class="w-1/3 text-gray-500">{{ post.forum.title }}</p>
+                                <p class="text-gray-500">{{ post.creationDate|date('d/m/Y') }}</p>
+                            </div>
+                        </div>
+                    </li>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </ul>
+</div>
+{{ render(controller('App\\Controller\\FooterController::footer')) }}
+
+<script>
+    (function() {
+        const dropdownButtons = document.querySelectorAll('[id^="crudDropdownButton"]');
+        const dropdownMenus = document.querySelectorAll('[id^="crudDropdownMenu"]');
+
+        dropdownButtons.forEach((button) => {
+            const menuId = button.id.replace('crudDropdownButton', 'crudDropdownMenu');
+            const menu = document.getElementById(menuId);
+
+            if (menu) {
+                button.addEventListener('click', (event) => {
+                    event.stopPropagation();
+
+                    // Close all other menus
+                    dropdownMenus.forEach((otherMenu) => {
+                        if (otherMenu !== menu) {
+                            otherMenu.classList.add('hidden');
+                        }
+                    });
+
+                    // Toggle the clicked menu
+                    menu.classList.toggle('hidden');
+                });
+
+                // Close the dropdown if clicked outside
+                document.addEventListener('click', (event) => {
+                    if (!button.contains(event.target) && !menu.contains(event.target)) {
+                        menu.classList.add('hidden');
+                    }
+                });
+            }
+        });
+    })();
+
+    function likeComment(id) {
+        const btn = document.getElementById('like-btn-' + id);
+        const count = document.getElementById('like-count-' + id);
+        if (!btn || !count) return;
+        // État initial
+        const wasLiked = btn.textContent === '♥';
+        let currentCount = parseInt(count.textContent, 10) || 0;
+        // Optimiste : on change tout de suite
+        if (wasLiked) {
+            btn.textContent = '♡';
+            btn.classList.remove('text-red-500');
+            btn.classList.add('text-gray-500');
+            count.textContent = Math.max(0, currentCount - 1);
+        } else {
+            btn.textContent = '♥';
+            btn.classList.remove('text-gray-500');
+            btn.classList.add('text-red-500');
+            count.textContent = currentCount + 1;
+        }
+        // On envoie la requête
+        fetch(`/like/${id}`, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                // On restaure l'état initial si erreur
+                if (wasLiked) {
+                    btn.textContent = '♥';
+                    btn.classList.remove('text-gray-500');
+                    btn.classList.add('text-red-500');
+                    count.textContent = currentCount;
+                } else {
+                    btn.textContent = '♡';
+                    btn.classList.remove('text-red-500');
+                    btn.classList.add('text-gray-500');
+                    count.textContent = currentCount;
+                }
+                return;
+            }
+            // On synchronise avec la valeur serveur si besoin
+            fetch(`/forums/comments/${id}/likes`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(r => r.json())
+                .then(j => { if (j.count !== undefined) count.textContent = j.count; });
+        })
+        .catch(() => {
+            // En cas d'erreur réseau, on restaure l'état initial
+            if (wasLiked) {
+                btn.textContent = '♥';
+                btn.classList.remove('text-gray-500');
+                btn.classList.add('text-red-500');
+                count.textContent = currentCount;
+            } else {
+                btn.textContent = '♡';
+                btn.classList.remove('text-red-500');
+                btn.classList.add('text-gray-500');
+                count.textContent = currentCount;
+            }
+        });
+    }
+
+    function likePost(id) {
+        const btn = document.querySelector(`.post-like-btn[data-post-id="${id}"]`);
+        const count = document.querySelector(`[data-post-like-count="${id}"]`);
+        if (!btn || !count) return;
+        
+        // Éviter les doubles clics
+        if (btn.disabled) return;
+        btn.disabled = true;
+        
+        const wasLiked = btn.textContent === '♥';
+        let currentCount = parseInt(count.textContent, 10) || 0;
+        
+        // Optimistic update
+        if (wasLiked) {
+            btn.textContent = '♡';
+            btn.classList.remove('text-red-500');
+            btn.classList.add('text-gray-500');
+            count.textContent = Math.max(0, currentCount - 1);
+        } else {
+            btn.textContent = '♥';
+            btn.classList.remove('text-gray-500');
+            btn.classList.add('text-red-500');
+            count.textContent = currentCount + 1;
+        }
+
+        fetch(`/post-like/toggle/${id}`, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                // Restaurer l'état initial en cas d'erreur
+                if (wasLiked) {
+                    btn.textContent = '♥';
+                    btn.classList.remove('text-gray-500');
+                    btn.classList.add('text-red-500');
+                    count.textContent = currentCount;
+                } else {
+                    btn.textContent = '♡';
+                    btn.classList.remove('text-red-500');
+                    btn.classList.add('text-gray-500');
+                    count.textContent = currentCount;
+                }
+                return;
+            }
+            // Synchroniser avec la valeur du serveur
+            count.textContent = data.count;
+            
+            // Mettre à jour l'état du bouton selon la réponse serveur
+            if (data.liked) {
+                btn.textContent = '♥';
+                btn.classList.remove('text-gray-500');
+                btn.classList.add('text-red-500');
+            } else {
+                btn.textContent = '♡';
+                btn.classList.remove('text-red-500');
+                btn.classList.add('text-gray-500');
+            }
+        })
+        .catch(() => {
+            // Restaurer en cas d'erreur réseau
+            if (wasLiked) {
+                btn.textContent = '♥';
+                btn.classList.remove('text-gray-500');
+                btn.classList.add('text-red-500');
+                count.textContent = currentCount;
+            } else {
+                btn.textContent = '♡';
+                btn.classList.remove('text-red-500');
+                btn.classList.add('text-gray-500');
+                count.textContent = currentCount;
+            }
+        })
+        .finally(() => {
+            // Réactiver le bouton
+            btn.disabled = false;
+        });
+    }
+
+    // Event listener pour les likes de posts - éviter les doublons
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('post-like-btn')) {
+            e.preventDefault();
+            e.stopPropagation();
+            const postId = e.target.dataset.postId;
+            likePost(postId);
+        }
+    }, { once: false });
+
+    function openPostCreateModal() {
+        document.getElementById('post-create-modal').classList.remove('hidden');
+        setupForumSelect();
+    }
+    function closePostCreateModal() {
+        document.getElementById('post-create-modal').classList.add('hidden');
+    }
+    function setupForumSelect() {
+        const select = document.querySelector('#post-create-form select[name$="[forum]"]');
+        if (!select) return;
+        // Préselectionne le forum selon la catégorie courante
+        const currentCategory = "{{ category|e('js') }}";
+        if (currentCategory && currentCategory !== 'General') {
+            for (let opt of select.options) {
+                if (opt.textContent.trim() === currentCategory) {
+                    select.value = opt.value;
+                    break;
+                }
+            }
+        }
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        setupForumSelect();
+    });
+
+    function toggleReplyForm() {
+        const replyForm = document.getElementById('reply-form');
+        replyForm.classList.toggle('hidden');
+    }
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const popup = document.getElementById("music-popup");
+    
+    if (popup) {
+        // Initialiser le popup comme caché mais positionné
+        popup.classList.remove('hidden');
+        popup.style.display = 'block';
+        
+        // Fonction pour afficher le popup
+        const showPopup = () => {
+            popup.classList.remove('opacity-0', 'hidden');
+            popup.classList.add('opacity-100');
+            popup.style.transform = 'translateY(0)';
+            popup.style.pointerEvents = 'auto';
+        };
+        
+        // Fonction pour cacher le popup
+        const hidePopup = () => {
+            popup.classList.remove('opacity-100');
+            popup.classList.add('opacity-0');
+            
+            // Après l'animation, cacher complètement
+            setTimeout(() => {
+                popup.classList.add('hidden');
+                popup.style.pointerEvents = 'none';
+            }, 500);
+        };
+        
+        // Afficher après un court délai
+        setTimeout(() => {
+            showPopup();
+        }, 1000);
+        
+        // Cacher après 5 secondes
+        setTimeout(() => {
+            hidePopup();
+        }, 6000);
+        
+        // Cacher si on clique sur le popup
+        popup.addEventListener('click', hidePopup);
+        
+        // Cacher si on clique ailleurs sur la page
+        document.addEventListener('click', (e) => {
+            if (!popup.contains(e.target) && !popup.classList.contains('hidden')) {
+                hidePopup();
+            }
+        });
+    }
+
+
+});
+
+// Système de recherche dynamique
+let searchTimeout = null;
+
+// Fonction pour initialiser/re-initialiser la recherche
+function initializeSearch() {
+    const searchInput = document.getElementById('search-input');
+    const clearSearchBtn = document.getElementById('clear-search');
+    
+    if (!searchInput) return; // Élément non trouvé (page de post individuel)
+    
+    // Fonction pour lancer la recherche
+    const triggerSearch = () => {
+        performSearch(searchInput.value);
+    };
+    
+    // Recherche à la saisie
+    searchInput.addEventListener('input', function(e) {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(triggerSearch, 300);
+        
+        // Afficher/masquer le bouton effacer
+        if (e.target.value.length > 0) {
+            clearSearchBtn.classList.remove('hidden');
+        } else {
+            clearSearchBtn.classList.add('hidden');
+        }
+    });
+    
+    // Recherche avec Entrée
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            triggerSearch();
+        }
+    });
+    
+    // Écouteurs pour les filtres - recherche immédiate
+    document.getElementById('search-type').addEventListener('change', triggerSearch);
+    document.getElementById('date-filter').addEventListener('change', triggerSearch);
+    document.getElementById('sort-by').addEventListener('change', triggerSearch);
+    
+    // Recherche initiale si des filtres sont actifs
+    if (searchInput.value || 
+        document.getElementById('search-type').value !== 'all' ||
+        document.getElementById('date-filter').value !== 'all' ||
+        document.getElementById('sort-by').value !== 'recent') {
+        triggerSearch();
+    }
+}
+
+// Fonction de recherche
+function performSearch(query) {
+    const searchType = document.getElementById('search-type').value;
+    const dateFilter = document.getElementById('date-filter').value;
+    const sortBy = document.getElementById('sort-by').value;
+    
+    // Récupérer la catégorie ACTUELLE depuis l'URL ou le DOM
+    const currentCategory = getCurrentCategory();
+    
+    console.log('Recherche dans la catégorie:', currentCategory); // Debug
+    
+    // Afficher l'indicateur de chargement
+    const postsContainer = document.getElementById('posts-container');
+    const searchIndicator = document.getElementById('search-indicator');
+    
+    postsContainer.innerHTML = `
+        <div class="flex justify-center items-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span class="ml-3 text-gray-600">Recherche en cours...</span>
+        </div>
+    `;
+    
+    // Requête AJAX
+    fetch(`/forums/administratif/search?q=${encodeURIComponent(query)}&type=${searchType}&date=${dateFilter}&sort=${sortBy}&category=${encodeURIComponent(currentCategory)}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Erreur réseau');
+        }
+        return response.json();
+    })
+    .then(data => {
+        displaySearchResults(data);
+        
+        // Mettre à jour l'indicateur
+        if (query.trim() !== '' || searchType !== 'all' || dateFilter !== 'all' || sortBy !== 'recent') {
+            searchIndicator.classList.remove('hidden');
+            document.getElementById('search-results-count').textContent = data.posts.length;
+        } else {
+            searchIndicator.classList.add('hidden');
+        }
+    })
+    .catch(error => {
+        console.error('Erreur de recherche:', error);
+        postsContainer.innerHTML = `
+            <div class="text-center py-8 text-red-600">
+                Erreur lors de la recherche. Veuillez réessayer.
+            </div>
+        `;
+    });
+}
+
+// Fonction pour récupérer la catégorie actuelle
+function getCurrentCategory() {
+    // Méthode 1: Récupérer depuis l'URL
+    const path = window.location.pathname;
+    const match = path.match(/\/forums\/([^\/]+)/);
+    if (match && match[1]) {
+        return decodeURIComponent(match[1]);
+    }
+    
+    // Méthode 2: Récupérer depuis le lien actif dans le menu des catégories
+    const activeCategoryLink = document.querySelector('.bg-blue-50.text-blue-900');
+    if (activeCategoryLink) {
+        const href = activeCategoryLink.getAttribute('href');
+        const categoryMatch = href.match(/\/forums\/([^\/]+)/);
+        if (categoryMatch && categoryMatch[1]) {
+            return decodeURIComponent(categoryMatch[1]);
+        }
+    }
+    
+    // Méthode 3: Fallback - "General"
+    return "General";
+}
+
+// Affichage des résultats
+function displaySearchResults(data) {
+    const postsContainer = document.getElementById('posts-container');
+    
+    if (data.posts.length === 0) {
+        postsContainer.innerHTML = `
+            <div class="text-center py-8 text-gray-500">
+                <p class="mt-2">Aucun post trouvé pour votre recherche.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    data.posts.forEach(post => {
+        html += `
+            <li>
+                <div class="relative group pl-12 cursor-pointer my-1 block">
+                    <div class="absolute top-0 left-0 h-full w-14 bg-blue-600 rounded-lg flex items-center justify-center">
+                        <p class="mb-2 mr-2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-150 text-white text-3xl font-semibold">
+                            ›
+                        </p>
+                    </div>
+                    <div class="absolute top-0 left-3 h-full w-20 bg-white group-hover:left-11 group-hover:bg-blue-50 rounded-lg transition-all z-10 duration-150"></div>
+
+                    <div class="flex items-center bg-white group-hover:bg-blue-50 transition-all duration-150 px-2 py-3 rounded-md relative z-10">
+                        <div class="w-1/2">
+                            <a href="/administratif-forums/${encodeURIComponent(post.forum_title)}/${post.id}">
+                                <h3 class="text-lg text-gray-700">${post.name}</h3>
+                                <p class="text-gray-500">${post.author_name}</p>
+                            </a>
+                        </div>
+                        <p class="w-1/3 text-gray-500">${post.forum_title}</p>
+                        <p class="text-gray-500">${post.creation_date}</p>
+                    </div>
+                </div>
+            </li>
+        `;
+    });
+    
+    postsContainer.innerHTML = html;
+}
+
+// Effacer la recherche
+function clearSearch() {
+    
+    // Recharger la page pour afficher les posts de la catégorie ACTUELLE
+    location.reload();
+}
+
+// Initialisation au chargement de la page
+document.addEventListener('DOMContentLoaded', function() {
+    initializeSearch();
+});
+
+// Réinitialisation après navigation (pour Turbo si vous l'utilisez)
+document.addEventListener('turbo:load', function() {
+    initializeSearch();
+});
+
+// Réinitialisation classique pour les navigations normales
+window.addEventListener('load', function() {
+    initializeSearch();
+});
+</script>
+
+<script>
+// Gestion simplifiée du lecteur audio - compatible Turbo
+(function() {
+    // Vérifier si déjà initialisé pour éviter les redéclarations avec Turbo
+    if (window.audioPlayerInitialized) return;
+    window.audioPlayerInitialized = true;
+    
+    let audioInitialized = false;
+    
+    function initAudioPlayer() {
+        const audio = document.getElementById('debussy-audio');
+        const musicStatus = document.getElementById('music-status');
+        
+        if (!audio) {
+            setTimeout(initAudioPlayer, 100);
+            return;
+        }
+        
+        // Éviter les initialisations multiples
+        if (audioInitialized) return;
+        audioInitialized = true;
+        
+        console.log('Initialisation audio...');
+        
+        // Configuration
+        audio.preload = 'auto';
+        audio.volume = 0.5;
+        audio.currentTime = 0;
+        
+        let retryCount = 0;
+        const maxRetries = 3;
+        let canplayTriggered = false;
+        
+        function updateStatus(text, className = 'text-gray-500') {
+            if (musicStatus) {
+                musicStatus.textContent = text;
+                musicStatus.className = `text-xs ${className}`;
+                musicStatus.classList.remove('hidden');
+            }
+        }
+        
+        function hideStatus() {
+            if (musicStatus) {
+                musicStatus.classList.add('hidden');
+            }
+        }
+        
+        function loadAudio() {
+            console.log('Chargement audio...');
+            
+            audio.pause();
+            audio.currentTime = 0;
+            canplayTriggered = false; // Reset du flag
+            
+            // Cache busting
+            const source = audio.querySelector('source');
+            if (source) {
+                const originalSrc = source.src.replace(/\?v=.*$/, '');
+                source.src = originalSrc + '?v=' + Date.now();
+            }
+            
+            audio.load();
+            updateStatus('Chargement...', 'text-gray-500');
+        }
+        
+        function retryLoad() {
+            if (retryCount < maxRetries) {
+                retryCount++;
+                console.log('Nouvelle tentative ' + retryCount + '/' + maxRetries);
+                updateStatus('Nouvelle tentative ' + retryCount + '/' + maxRetries, 'text-yellow-500');
+                setTimeout(loadAudio, 1000);
+            } else {
+                console.error('Echec du chargement');
+                updateStatus('Echec du chargement', 'text-red-500');
+            }
+        }
+        
+        // Événements avec gestion des doublons
+        function handleCanPlay() {
+            if (canplayTriggered) return; // Éviter les déclenchements multiples
+            canplayTriggered = true;
+            
+            console.log('Audio pret');
+            audio.currentTime = 0;
+            updateStatus('Pret', 'text-green-500');
+            setTimeout(hideStatus, 2000);
+            retryCount = 0;
+        }
+        
+        function handleError() {
+            console.error('Erreur audio');
+            retryLoad();
+        }
+        
+        function handleWaiting() {
+            updateStatus('Buffering...', 'text-yellow-500');
+        }
+        
+        function handlePlaying() {
+            hideStatus();
+        }
+        
+        function handleEnded() {
+            audio.currentTime = 0;
+        }
+        
+        // Nettoyer les anciens écouteurs d'abord
+        audio.removeEventListener('canplay', handleCanPlay);
+        audio.removeEventListener('error', handleError);
+        audio.removeEventListener('waiting', handleWaiting);
+        audio.removeEventListener('playing', handlePlaying);
+        audio.removeEventListener('ended', handleEnded);
+        
+        // Ajouter les nouveaux écouteurs
+        audio.addEventListener('canplay', handleCanPlay, { once: true }); // once: true pour éviter les multiples déclenchements
+        audio.addEventListener('error', handleError);
+        audio.addEventListener('waiting', handleWaiting);
+        audio.addEventListener('playing', handlePlaying);
+        audio.addEventListener('ended', handleEnded);
+        
+        // Chargement initial
+        loadAudio();
+        
+        // Réessayer après 2s si problème détecté
+        setTimeout(() => {
+            if (audio.readyState === 0 || audio.duration === 0) {
+                console.log('Probleme detecte, rechargement...');
+                loadAudio();
+            }
+        }, 2000);
+        
+        // Fonctions globales
+        window.forceAudioReload = function() {
+            canplayTriggered = false;
+            loadAudio();
+        };
+        
+        window.debugAudio = function() {
+            console.log('Audio - currentTime:', audio.currentTime, 'duration:', audio.duration, 'readyState:', audio.readyState);
+        };
+    }
+    
+    // Démarrer l'initialisation
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initAudioPlayer);
+    } else {
+        initAudioPlayer();
+    }
+    
+    // Gérer les navigations Turbo
+    document.addEventListener('turbo:load', function() {
+        // Réinitialiser complètement pour les nouvelles pages
+        window.audioPlayerInitialized = false;
+        audioInitialized = false;
+        setTimeout(initAudioPlayer, 100);
+    });
+})();
+</script>
+
+
+{# Modal de création de post #}
+{% include 'modals/_post_create_modal_administratif.html.twig' %}
+
+{# Modal d'édition de post #}
+{% include 'modals/_post_edit_modal.html.twig' %}
+
+{% endblock %}

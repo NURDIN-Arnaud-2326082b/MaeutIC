@@ -1,0 +1,17 @@
+<!-- Navigation des onglets -->
+<div class="flex space-x-4 mb-6 border-b">
+    <a href="{{ path('app_profile_posts') }}" 
+       class="px-4 py-2 text-blue-600 font-semibold border-b-2 border-blue-600">
+        Posts/Réponses ({{ posts|length }})
+    </a>
+    <a href="{{ path('app_profile_comments') }}" 
+       class="px-4 py-2 text-gray-600 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-600">
+        Commentaires
+    </a>
+    <a href="{{ path('app_profile_replies') }}" 
+       class="px-4 py-2 text-gray-600 hover:text-blue-600 border-b-2 border-transparent hover:border-blue-600">
+        Réponses
+    </a>
+</div>
+
+{# ...existing code... #}

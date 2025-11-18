@@ -1,4 +1,10 @@
 import './bootstrap.js';
+// Désactiver Turbo Drive pour forcer des rechargements complets
+import { Turbo } from '@hotwired/turbo';
+if (Turbo && Turbo.session) {
+    Turbo.session.drive = false;
+    console.log('[app] Turbo Drive disabled — full page loads on navigation to avoid partial-state bugs.');
+}
 /*
  * Welcome to your app's main JavaScript file!
  *
