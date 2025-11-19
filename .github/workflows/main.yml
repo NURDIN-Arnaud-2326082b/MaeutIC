@@ -24,14 +24,24 @@ jobs:
           ls -R ./public || true
           if [ -f composer.json ]; then cat composer.json; fi
 
-      - name: Vérifier IONOS_PATH côté runner (ne révèle pas la valeur)
+      - name: Sanitize et valider IONOS_PATH (côté runner, ne montre pas la valeur)
         run: |
-          if [ -z "${{ env.IONOS_PATH }}" ]; then
-            echo "ERROR: IONOS_PATH est vide. Ajoutez le secret 'IONOS_PATH' dans Settings → Secrets." >&2
+          # récupère le secret sans l'afficher, retire CR/LF et stocke dans GITHUB_ENV
+          IONOS_RAW='${{ secrets.IONOS_PATH }}'
+          IONOS_CLEAN="$(printf '%s' "$IONOS_RAW" | tr -d '\r\n')"
+          if [ -z "$IONOS_CLEAN" ]; then
+            echo "ERROR: IONOS_PATH (secret) est vide. Ajoutez le secret IONOS_PATH dans Settings → Secrets." >&2
             exit 1
-          else
-            echo "IONOS_PATH est défini sur le runner (longueur: $(echo -n '${{ env.IONOS_PATH }}' | wc -c) octets)."
           fi
+          case "$IONOS_CLEAN" in
+            /home*|/homepages*|/var/www*) ;;
+            *)
+              echo "ERROR: IONOS_PATH commence par un préfixe non autorisé. Utilisez un chemin dans /home, /homepages ou /var/www." >&2
+              exit 1
+              ;;
+          esac
+          printf 'IONOS_CLEAN_PATH=%s\n' "$IONOS_CLEAN" >> $GITHUB_ENV
+          echo "IONOS_PATH sanitized and set for subsequent steps."
 
       - name: Préparer le dossier distant (création + vérification)
         uses: appleboy/ssh-action@master
@@ -41,9 +51,19 @@ jobs:
           password: ${{ env.IONOS_PASSWORD }}
           port: 22
           script: |
-            IONOS_PATH='${{ env.IONOS_PATH }}'
+            # trim again côté distant et éviter CR/LF
+            IONOS_PATH="$(printf '%s' '${{ env.IONOS_CLEAN_PATH }}' | tr -d '\r\n')"
+            if [ -z "$IONOS_PATH" ]; then
+              echo "ERROR: IONOS_PATH est vide côté distant, abort." >&2
+              exit 1
+            fi
             echo "Target path: $IONOS_PATH"
-            mkdir -p "$IONOS_PATH"
+            # attempt to create and detect read-only filesystem errors
+            if ! mkdir -p "$IONOS_PATH" 2>/tmp/mkdir.err; then
+              echo "mkdir failed: $(cat /tmp/mkdir.err)" >&2
+              echo "Check that the path is correct and writable (avoid root or read-only mounts)." >&2
+              exit 1
+            fi
             chmod 755 "$IONOS_PATH" || true
             echo "Parent and target listing:"
             ls -la "$(dirname "$IONOS_PATH")" || true
@@ -57,7 +77,7 @@ jobs:
           password: ${{ env.IONOS_PASSWORD }}
           port: 22
           source: "src/**,public/**,composer.json"
-          target: ${{ env.IONOS_PATH }}
+          target: ${{ env.IONOS_CLEAN_PATH }}
 
       - name: Exécuter des commandes sur IONOS (si besoin)
         uses: appleboy/ssh-action@master
@@ -67,7 +87,7 @@ jobs:
           password: ${{ env.IONOS_PASSWORD }}
           port: 22
           script: |
-            IONOS_PATH='${{ env.IONOS_PATH }}'
+            IONOS_PATH="$(printf '%s' '${{ env.IONOS_CLEAN_PATH }}' | tr -d '\r\n')"
             PROJECT_ROOT="$(dirname "$IONOS_PATH")"
             echo "Running composer in project root: $PROJECT_ROOT"
             if [ -f "$PROJECT_ROOT/composer.json" ]; then
@@ -86,7 +106,7 @@ jobs:
           password: ${{ env.IONOS_PASSWORD }}
           port: 22
           script: |
-            IONOS_PATH='${{ env.IONOS_PATH }}'
+            IONOS_PATH="$(printf '%s' '${{ env.IONOS_CLEAN_PATH }}' | tr -d '\r\n')"
             PROJECT_ROOT="$(dirname "$IONOS_PATH")"
             echo "Listing project root ($PROJECT_ROOT):"
             ls -la "$PROJECT_ROOT" || true
