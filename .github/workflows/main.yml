@@ -24,6 +24,15 @@ jobs:
           ls -R ./public || true
           if [ -f composer.json ]; then cat composer.json; fi
 
+      - name: Vérifier IONOS_PATH côté runner (ne révèle pas la valeur)
+        run: |
+          if [ -z "${{ env.IONOS_PATH }}" ]; then
+            echo "ERROR: IONOS_PATH est vide. Ajoutez le secret 'IONOS_PATH' dans Settings → Secrets." >&2
+            exit 1
+          else
+            echo "IONOS_PATH est défini sur le runner (longueur: $(echo -n '${{ env.IONOS_PATH }}' | wc -c) octets)."
+          fi
+
       - name: Préparer le dossier distant (création + vérification)
         uses: appleboy/ssh-action@master
         with:
@@ -32,6 +41,7 @@ jobs:
           password: ${{ env.IONOS_PASSWORD }}
           port: 22
           script: |
+            IONOS_PATH='${{ env.IONOS_PATH }}'
             echo "Target path: $IONOS_PATH"
             mkdir -p "$IONOS_PATH"
             chmod 755 "$IONOS_PATH" || true
@@ -57,9 +67,16 @@ jobs:
           password: ${{ env.IONOS_PASSWORD }}
           port: 22
           script: |
-            cd ${{ env.IONOS_PATH }}
-            composer install --no-dev --optimize-autoloader || true
-            rm -f ./*.tar.gz
+            IONOS_PATH='${{ env.IONOS_PATH }}'
+            PROJECT_ROOT="$(dirname "$IONOS_PATH")"
+            echo "Running composer in project root: $PROJECT_ROOT"
+            if [ -f "$PROJECT_ROOT/composer.json" ]; then
+              cd "$PROJECT_ROOT"
+              composer install --no-dev --optimize-autoloader || true
+            else
+              echo "No composer.json in $PROJECT_ROOT, skipping composer."
+            fi
+            rm -f "$PROJECT_ROOT"/*.tar.gz || true
 
       - name: Afficher les fichiers après déploiement
         uses: appleboy/ssh-action@master
@@ -69,5 +86,9 @@ jobs:
           password: ${{ env.IONOS_PASSWORD }}
           port: 22
           script: |
-            cd ${{ env.IONOS_PATH }}
-            ls -R
+            IONOS_PATH='${{ env.IONOS_PATH }}'
+            PROJECT_ROOT="$(dirname "$IONOS_PATH")"
+            echo "Listing project root ($PROJECT_ROOT):"
+            ls -la "$PROJECT_ROOT" || true
+            echo "Listing public folder (IONOS_PATH):"
+            ls -la "$IONOS_PATH" || true
