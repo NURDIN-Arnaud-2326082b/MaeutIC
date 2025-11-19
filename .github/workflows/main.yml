@@ -24,40 +24,14 @@ jobs:
           ls -R ./public || true
           if [ -f composer.json ]; then cat composer.json; fi
 
-      - name: Sanitize et valider IONOS_PATH (côté runner, ne montre pas la valeur)
+      - name: Vérifier IONOS_PATH côté runner (ne révèle pas la valeur)
         run: |
-          # récupère le secret sans l'afficher, retire CR/LF et stocke dans GITHUB_ENV
-          IONOS_RAW='${{ secrets.IONOS_PATH }}'
-          IONOS_CLEAN="$(printf '%s' "$IONOS_RAW" | tr -d '\r\n')"
-          if [ -z "$IONOS_CLEAN" ]; then
-            echo "ERROR: IONOS_PATH (secret) est vide. Ajoutez le secret IONOS_PATH dans Settings → Secrets." >&2
+          if [ -z "${{ env.IONOS_PATH }}" ]; then
+            echo "ERROR: IONOS_PATH est vide. Ajoutez le secret 'IONOS_PATH' dans Settings → Secrets." >&2
             exit 1
+          else
+            echo "IONOS_PATH est défini sur le runner (longueur: $(echo -n '${{ env.IONOS_PATH }}' | wc -c) octets)."
           fi
-          printf 'IONOS_CLEAN_PATH=%s\n' "$IONOS_CLEAN" >> $GITHUB_ENV
-          echo "IONOS_PATH sanitized and set for subsequent steps."
-
-      - name: Probe remote — rechercher MaieutIC / index.php (debug, affiche chemins trouvés)
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ env.IONOS_HOST }}
-          username: ${{ env.IONOS_USER }}
-          password: ${{ env.IONOS_PASSWORD }}
-          port: 22
-          script: |
-            QUERY='${{ env.IONOS_CLEAN_PATH }}'
-            NAME="$(basename "$QUERY")"
-            echo "Recherche du nom de dossier/fichier: $NAME"
-            echo "Recherche de dossiers nommés $NAME sous /home, /homepages, /var/www, /var/www/vhosts (peut prendre quelques secondes)..."
-            for base in /home /homepages /var/www /var/www/vhosts /; do
-              echo "=== Scanning $base ==="
-              # recherche dossiers portant le même nom
-              find "$base" -maxdepth 5 -type d -name "$NAME" -print 2>/dev/null || true
-            done
-            echo "Recherche de fichiers index.php contenant le nom $NAME dans leur chemin..."
-            for base in /home /homepages /var/www /var/www/vhosts /; do
-              find "$base" -maxdepth 6 -type f -name 'index.php' -path "*$NAME*" -print 2>/dev/null || true
-            done
-            echo "=== FIN recherche. Copiez le chemin absolu correct et mettez à jour le secret IONOS_PATH. ==="
 
       - name: Préparer le dossier distant (création + vérification)
         uses: appleboy/ssh-action@master
@@ -67,19 +41,9 @@ jobs:
           password: ${{ env.IONOS_PASSWORD }}
           port: 22
           script: |
-            # trim again côté distant et éviter CR/LF
-            IONOS_PATH="$(printf '%s' '${{ env.IONOS_CLEAN_PATH }}' | tr -d '\r\n')"
-            if [ -z "$IONOS_PATH" ]; then
-              echo "ERROR: IONOS_PATH est vide côté distant, abort." >&2
-              exit 1
-            fi
+            IONOS_PATH='${{ env.IONOS_PATH }}'
             echo "Target path: $IONOS_PATH"
-            # attempt to create and detect read-only filesystem errors
-            if ! mkdir -p "$IONOS_PATH" 2>/tmp/mkdir.err; then
-              echo "mkdir failed: $(cat /tmp/mkdir.err)" >&2
-              echo "Check that the path is correct and writable (avoid root or read-only mounts)." >&2
-              exit 1
-            fi
+            mkdir -p "$IONOS_PATH"
             chmod 755 "$IONOS_PATH" || true
             echo "Parent and target listing:"
             ls -la "$(dirname "$IONOS_PATH")" || true
@@ -93,7 +57,7 @@ jobs:
           password: ${{ env.IONOS_PASSWORD }}
           port: 22
           source: "src/**,public/**,composer.json"
-          target: ${{ env.IONOS_CLEAN_PATH }}
+          target: ${{ env.IONOS_PATH }}
 
       - name: Exécuter des commandes sur IONOS (si besoin)
         uses: appleboy/ssh-action@master
@@ -103,7 +67,7 @@ jobs:
           password: ${{ env.IONOS_PASSWORD }}
           port: 22
           script: |
-            IONOS_PATH="$(printf '%s' '${{ env.IONOS_CLEAN_PATH }}' | tr -d '\r\n')"
+            IONOS_PATH='${{ env.IONOS_PATH }}'
             PROJECT_ROOT="$(dirname "$IONOS_PATH")"
             echo "Running composer in project root: $PROJECT_ROOT"
             if [ -f "$PROJECT_ROOT/composer.json" ]; then
@@ -122,7 +86,7 @@ jobs:
           password: ${{ env.IONOS_PASSWORD }}
           port: 22
           script: |
-            IONOS_PATH="$(printf '%s' '${{ env.IONOS_CLEAN_PATH }}' | tr -d '\r\n')"
+            IONOS_PATH='${{ env.IONOS_PATH }}'
             PROJECT_ROOT="$(dirname "$IONOS_PATH")"
             echo "Listing project root ($PROJECT_ROOT):"
             ls -la "$PROJECT_ROOT" || true
