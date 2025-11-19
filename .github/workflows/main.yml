@@ -18,6 +18,25 @@ jobs:
       - name: Cloner le dépôt
         uses: actions/checkout@v3
 
+      - name: Build frontend (runner) — only if package.json exists
+        if: fileExists('package.json')  # note: this expression works only with a JS action; fallback below uses a run-check
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+      - name: Build frontend (runner) — fallback run-check
+        run: |
+          if [ -f package.json ]; then
+            echo "package.json found — building frontend"
+            npm ci
+            if npm run | grep -q 'build'; then
+              npm run build || true
+            else
+              echo "No npm build script, skipping."
+            fi
+          else
+            echo "No package.json — skipping frontend build."
+          fi
+
       - name: Afficher les fichiers avant déploiement
         run: |
           ls -R ./src || true
@@ -59,7 +78,7 @@ jobs:
           source: "src/**,public/**,composer.json"
           target: ${{ env.IONOS_PATH }}
 
-      - name: Exécuter des commandes sur IONOS (si besoin)
+      - name: Exécuter des commandes sur IONOS (optimisations post-déploiement)
         uses: appleboy/ssh-action@master
         with:
           host: ${{ env.IONOS_HOST }}
@@ -69,16 +88,41 @@ jobs:
           script: |
             IONOS_PATH='${{ env.IONOS_PATH }}'
             PROJECT_ROOT="$(dirname "$IONOS_PATH")"
-            echo "Running composer in project root: $PROJECT_ROOT"
+            echo "Project root: $PROJECT_ROOT"
+            # Composer: installer / optimiser l'autoload si composer.json présent
+            if ssh -V >/dev/null 2>&1; then :; fi
             if [ -f "$PROJECT_ROOT/composer.json" ]; then
               cd "$PROJECT_ROOT"
-              composer install --no-dev --optimize-autoloader || true
+              # utiliser composer présent sur le serveur si possible
+              if command -v composer >/dev/null 2>&1; then
+                composer install --no-dev --optimize-autoloader --no-interaction || true
+                composer dump-autoload --optimize || true
+              else
+                echo "composer not found on remote — skipped composer install/dump-autoload"
+              fi
             else
-              echo "No composer.json in $PROJECT_ROOT, skipping composer."
+              echo "No composer.json in $PROJECT_ROOT, skipping composer steps."
             fi
+
+            # Permissions: rendre web-readable (éviter chmod récursif dangereux)
+            if [ -d "$PROJECT_ROOT/public" ]; then
+              chmod -R u=rwX,g=rX,o=rX "$PROJECT_ROOT/public" || true
+            fi
+            # Si projet Laravel, fixer storage & cache, et mettre en cache config/routes si possible
+            if [ -f "$PROJECT_ROOT/artisan" ]; then
+              if command -v php >/dev/null 2>&1; then
+                php "$PROJECT_ROOT/artisan" storage:link || true
+                chmod -R ug+rwx "$PROJECT_ROOT/storage" "$PROJECT_ROOT/bootstrap/cache" || true
+                php "$PROJECT_ROOT/artisan" config:cache || true
+                php "$PROJECT_ROOT/artisan" route:cache || true
+              else
+                echo "php not available on remote — cannot run artisan commands"
+              fi
+            fi
+            # nettoyage de fichiers temporaires éventuels
             rm -f "$PROJECT_ROOT"/*.tar.gz || true
 
-      - name: Afficher les fichiers après déploiement
+      - name: Vérifier les fichiers déployés (remote)
         uses: appleboy/ssh-action@master
         with:
           host: ${{ env.IONOS_HOST }}
@@ -88,7 +132,11 @@ jobs:
           script: |
             IONOS_PATH='${{ env.IONOS_PATH }}'
             PROJECT_ROOT="$(dirname "$IONOS_PATH")"
-            echo "Listing project root ($PROJECT_ROOT):"
-            ls -la "$PROJECT_ROOT" || true
-            echo "Listing public folder (IONOS_PATH):"
-            ls -la "$IONOS_PATH" || true
+            echo "Check index in public folder:"
+            if [ -f "$IONOS_PATH/index.php" ]; then
+              echo "index.php exists — showing first 20 lines:"
+              sed -n '1,20p' "$IONOS_PATH/index.php" || true
+            else
+              echo "No index.php in $IONOS_PATH. List public folder:"
+              ls -la "$IONOS_PATH" || true
+            fi
