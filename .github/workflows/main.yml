@@ -1,0 +1,58 @@
+name: Déploiement sur IONOS via FTP
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      IONOS_HOST: ${{ secrets.IONOS_HOST }}
+      IONOS_USER: ${{ secrets.IONOS_USER }}
+      IONOS_PASSWORD: ${{ secrets.IONOS_PASSWORD }}
+      IONOS_PATH: ${{ secrets.IONOS_PATH }}
+
+    steps:
+      - name: Cloner le dépôt
+        uses: actions/checkout@v3
+
+      - name: Afficher les fichiers avant déploiement
+        run: |
+          ls -R ./src || true
+          ls -R ./public || true
+          if [ -f composer.json ]; then cat composer.json; fi
+
+      - name: Déployer via SCP
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ env.IONOS_HOST }}
+          username: ${{ env.IONOS_USER }}
+          password: ${{ env.IONOS_PASSWORD }}
+          port: 22
+          source: "src/**,public/**,composer.json"
+          target: ${{ env.IONOS_PATH }}
+
+      - name: Exécuter des commandes sur IONOS (si besoin)
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ env.IONOS_HOST }}
+          username: ${{ env.IONOS_USER }}
+          password: ${{ env.IONOS_PASSWORD }}
+          port: 22
+          script: |
+            cd ${{ env.IONOS_PATH }}
+            composer install --no-dev --optimize-autoloader || true
+            rm -f ./*.tar.gz
+
+      - name: Afficher les fichiers après déploiement
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ env.IONOS_HOST }}
+          username: ${{ env.IONOS_USER }}
+          password: ${{ env.IONOS_PASSWORD }}
+          port: 22
+          script: |
+            cd ${{ env.IONOS_PATH }}
+            ls -R
