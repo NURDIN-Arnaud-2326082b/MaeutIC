@@ -22,6 +22,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '16'
+
       - name: Build frontend (runner) — fallback run-check
         run: |
           if [ -f package.json ]; then
@@ -42,14 +43,27 @@ jobs:
           ls -R ./public || true
           if [ -f composer.json ]; then cat composer.json; fi
 
-      - name: Vérifier IONOS_PATH côté runner (ne révèle pas la valeur)
+      - id: compute-deploy-target
+        name: Compute deploy target (normalize IONOS_PATH)
         run: |
-          if [ -z "${{ env.IONOS_PATH }}" ]; then
-            echo "ERROR: IONOS_PATH est vide. Ajoutez le secret 'IONOS_PATH' dans Settings → Secrets." >&2
+          # read secret and trim CRLF
+          IONOS_RAW='${{ secrets.IONOS_PATH }}'
+          IONOS_CLEAN="$(printf '%s' "$IONOS_RAW" | tr -d '\r\n')"
+          if [ -z "$IONOS_CLEAN" ]; then
+            echo "ERROR: IONOS_PATH secret is empty" >&2
             exit 1
-          else
-            echo "IONOS_PATH est défini sur le runner (longueur: $(echo -n '${{ env.IONOS_PATH }}' | wc -c) octets)."
           fi
+          # if path ends with /public or /public/ -> deploy to parent (project root)
+          case "$IONOS_CLEAN" in
+            */public|*/public/)
+              DEPLOY_ROOT="$(dirname "$IONOS_CLEAN")"
+              ;;
+            *)
+              DEPLOY_ROOT="$IONOS_CLEAN"
+              ;;
+          esac
+          echo "Computed deploy root (not printed via logs for secrecy)" >&2
+          echo "deploy_target=$DEPLOY_ROOT" >> $GITHUB_OUTPUT
 
       - name: Préparer le dossier distant (création + vérification)
         uses: appleboy/ssh-action@master
@@ -59,13 +73,17 @@ jobs:
           password: ${{ env.IONOS_PASSWORD }}
           port: 22
           script: |
-            IONOS_PATH='${{ env.IONOS_PATH }}'
-            echo "Target path: $IONOS_PATH"
-            mkdir -p "$IONOS_PATH"
-            chmod 755 "$IONOS_PATH" || true
+            DEPLOY_TARGET='${{ steps.compute-deploy-target.outputs.deploy_target }}'
+            echo "Target root (used for deploy): $DEPLOY_TARGET"
+            # create project root and public if needed
+            mkdir -p "$DEPLOY_TARGET" 2>/tmp/mkdir.err || (cat /tmp/mkdir.err && exit 1)
+            mkdir -p "$DEPLOY_TARGET/public" 2>/tmp/mkdir_pub.err || true
+            chmod 755 "$DEPLOY_TARGET" || true
+            chmod 755 "$DEPLOY_TARGET/public" || true
             echo "Parent and target listing:"
-            ls -la "$(dirname "$IONOS_PATH")" || true
-            ls -la "$IONOS_PATH" || true
+            ls -la "$(dirname "$DEPLOY_TARGET")" || true
+            ls -la "$DEPLOY_TARGET" || true
+            ls -la "$DEPLOY_TARGET/public" || true
 
       - name: Déployer via SCP
         uses: appleboy/scp-action@master
@@ -75,7 +93,8 @@ jobs:
           password: ${{ env.IONOS_PASSWORD }}
           port: 22
           source: "src/**,public/**,composer.json"
-          target: ${{ env.IONOS_PATH }}
+          # use computed deploy target
+          target: ${{ steps.compute-deploy-target.outputs.deploy_target }}
 
       - name: Exécuter des commandes sur IONOS (optimisations post-déploiement)
         uses: appleboy/ssh-action@master
@@ -85,14 +104,12 @@ jobs:
           password: ${{ env.IONOS_PASSWORD }}
           port: 22
           script: |
-            IONOS_PATH='${{ env.IONOS_PATH }}'
-            PROJECT_ROOT="$(dirname "$IONOS_PATH")"
+            DEPLOY_TARGET='${{ steps.compute-deploy-target.outputs.deploy_target }}'
+            PROJECT_ROOT="$DEPLOY_TARGET"
             echo "Project root: $PROJECT_ROOT"
             # Composer: installer / optimiser l'autoload si composer.json présent
-            if ssh -V >/dev/null 2>&1; then :; fi
             if [ -f "$PROJECT_ROOT/composer.json" ]; then
               cd "$PROJECT_ROOT"
-              # utiliser composer présent sur le serveur si possible
               if command -v composer >/dev/null 2>&1; then
                 composer install --no-dev --optimize-autoloader --no-interaction || true
                 composer dump-autoload --optimize || true
@@ -107,17 +124,13 @@ jobs:
             if [ -d "$PROJECT_ROOT/public" ]; then
               chmod -R u=rwX,g=rX,o=rX "$PROJECT_ROOT/public" || true
             fi
-            # Si projet Laravel, fixer storage & cache, et mettre en cache config/routes si possible
-            if [ -f "$PROJECT_ROOT/artisan" ]; then
-              if command -v php >/dev/null 2>&1; then
-                php "$PROJECT_ROOT/artisan" storage:link || true
-                chmod -R ug+rwx "$PROJECT_ROOT/storage" "$PROJECT_ROOT/bootstrap/cache" || true
-                php "$PROJECT_ROOT/artisan" config:cache || true
-                php "$PROJECT_ROOT/artisan" route:cache || true
-              else
-                echo "php not available on remote — cannot run artisan commands"
-              fi
+
+            # If Symfony: clear/warm cache for prod if php available (safe commands)
+            if command -v php >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/bin/console" ]; then
+              php "$PROJECT_ROOT/bin/console" cache:clear --env=prod --no-warmup --no-interaction || true
+              php "$PROJECT_ROOT/bin/console" cache:warmup --env=prod --no-interaction || true
             fi
+
             # nettoyage de fichiers temporaires éventuels
             rm -f "$PROJECT_ROOT"/*.tar.gz || true
 
@@ -129,13 +142,12 @@ jobs:
           password: ${{ env.IONOS_PASSWORD }}
           port: 22
           script: |
-            IONOS_PATH='${{ env.IONOS_PATH }}'
-            PROJECT_ROOT="$(dirname "$IONOS_PATH")"
+            DEPLOY_TARGET='${{ steps.compute-deploy-target.outputs.deploy_target }}'
             echo "Check index in public folder:"
-            if [ -f "$IONOS_PATH/index.php" ]; then
-              echo "index.php exists — showing first 20 lines:"
-              sed -n '1,20p' "$IONOS_PATH/index.php" || true
+            if [ -f "$DEPLOY_TARGET/public/index.php" ]; then
+              echo "public/index.php exists — showing first 20 lines:"
+              sed -n '1,20p' "$DEPLOY_TARGET/public/index.php" || true
             else
-              echo "No index.php in $IONOS_PATH. List public folder:"
-              ls -la "$IONOS_PATH" || true
+              echo "No public/index.php in $DEPLOY_TARGET. List public folder:"
+              ls -la "$DEPLOY_TARGET/public" || true
             fi

@@ -13,7 +13,7 @@ Ensure you have the following dependencies installed:
 ## Installation
 1. **Clone the repository**:
    ```sh
-   git clone https://github.com/victorSejournes22005043/MaieutIC.git
+   git clone https://github.com/NURDIN-Arnaud-2326082b/MaeutIC.git
    cd your-symfony-project
    ```
 
