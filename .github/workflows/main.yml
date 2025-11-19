@@ -18,8 +18,7 @@ jobs:
       - name: Cloner le dépôt
         uses: actions/checkout@v3
 
-      - name: Build frontend (runner) — only if package.json exists
-        if: fileExists('package.json')  # note: this expression works only with a JS action; fallback below uses a run-check
+      - name: Setup Node (pour build frontend si présent)
         uses: actions/setup-node@v3
         with:
           node-version: '16'
