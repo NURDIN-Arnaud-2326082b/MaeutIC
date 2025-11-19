@@ -150,4 +150,4 @@ jobs:
             else
               echo "No public/index.php in $DEPLOY_TARGET. List public folder:"
               ls -la "$DEPLOY_TARGET/public" || true
-            fi
+            f
