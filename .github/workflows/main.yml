@@ -24,7 +24,7 @@ jobs:
           host: ${{ secrets.IONOS_HOST }}
           username: ${{ secrets.IONOS_USER }}
           password: ${{ secrets.IONOS_PASSWORD }}
-          source: "src/*, public/*, composer.json"
+          source: "assets/*, config/*, migrations/*, public/*, src/*, templates/*, ./*.json, ./*.lock, ./*.js, ./*.mjs"
           target: ${{ secrets.IONOS_PATH }}
 
       - name: Exécuter des commandes sur IONOS (si besoin)
