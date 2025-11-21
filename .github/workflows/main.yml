@@ -37,6 +37,7 @@ jobs:
           script: |
             cd ${{ secrets.IONOS_PATH }}
             ls
+            /usr/bin/php8.3-cli ~/composer.phar update
             /usr/bin/php8.3-cli ~/composer.phar install --no-dev --optimize-autoloader
             php bin/console doctrine:migrations:migrate --no-interaction --env=prod
             php bin/console tailwind:build
