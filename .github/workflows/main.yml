@@ -27,6 +27,7 @@ jobs:
           password: ${{ secrets.IONOS_PASSWORD }}
           script: |
             cd ${{ secrets.IONOS_PATH }}
+            git config pull.rebase false
             git pull
             /usr/bin/php8.3-cli ~/composer.phar update
             /usr/bin/php8.3-cli ~/composer.phar install --no-dev --optimize-autoloader
