@@ -28,7 +28,7 @@ jobs:
           source: "src/*, public/*, composer.json"
           target: ${{ secrets.IONOS_PATH }}
 
-      - name: Exécuter des commandes sur AlwaysData (si besoin)
+      - name: Exécuter des commandes sur IONOS (si besoin)
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.IONOS_HOST }}
