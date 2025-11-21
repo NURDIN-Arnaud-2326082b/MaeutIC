@@ -1,4 +1,4 @@
-name: Déploiement sur IONOS via FTP
+name: Déploiement sur IONOS
 
 on:
   push:
@@ -8,146 +8,46 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    env:
-      IONOS_HOST: ${{ secrets.IONOS_HOST }}
-      IONOS_USER: ${{ secrets.IONOS_USER }}
-      IONOS_PASSWORD: ${{ secrets.IONOS_PASSWORD }}
-      IONOS_PATH: ${{ secrets.IONOS_PATH }}
 
     steps:
       - name: Cloner le dépôt
         uses: actions/checkout@v3
 
-      - name: Setup Node (pour build frontend si présent)
-        uses: actions/setup-node@v3
-        with:
-          node-version: '16'
-
-      - name: Build frontend (runner) — fallback run-check
-        run: |
-          if [ -f package.json ]; then
-            echo "package.json found — building frontend"
-            npm ci
-            if npm run | grep -q 'build'; then
-              npm run build || true
-            else
-              echo "No npm build script, skipping."
-            fi
-          else
-            echo "No package.json — skipping frontend build."
-          fi
-
       - name: Afficher les fichiers avant déploiement
         run: |
-          ls -R ./src || true
-          ls -R ./public || true
-          if [ -f composer.json ]; then cat composer.json; fi
+          ls -R ./src
+          ls -R ./public
+          cat ./composer.json
 
-      - id: compute-deploy-target
-        name: Compute deploy target (normalize IONOS_PATH)
-        run: |
-          # read secret and trim CRLF
-          IONOS_RAW='${{ secrets.IONOS_PATH }}'
-          IONOS_CLEAN="$(printf '%s' "$IONOS_RAW" | tr -d '\r\n')"
-          if [ -z "$IONOS_CLEAN" ]; then
-            echo "ERROR: IONOS_PATH secret is empty" >&2
-            exit 1
-          fi
-          # if path ends with /public or /public/ -> deploy to parent (project root)
-          case "$IONOS_CLEAN" in
-            */public|*/public/)
-              DEPLOY_ROOT="$(dirname "$IONOS_CLEAN")"
-              ;;
-            *)
-              DEPLOY_ROOT="$IONOS_CLEAN"
-              ;;
-          esac
-          echo "Computed deploy root (not printed via logs for secrecy)" >&2
-          echo "deploy_target=$DEPLOY_ROOT" >> $GITHUB_OUTPUT
-
-      - name: Préparer le dossier distant (création + vérification)
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ env.IONOS_HOST }}
-          username: ${{ env.IONOS_USER }}
-          password: ${{ env.IONOS_PASSWORD }}
-          port: 22
-          script: |
-            DEPLOY_TARGET='${{ steps.compute-deploy-target.outputs.deploy_target }}'
-            echo "Target root (used for deploy): $DEPLOY_TARGET"
-            # create project root and public if needed
-            mkdir -p "$DEPLOY_TARGET" 2>/tmp/mkdir.err || (cat /tmp/mkdir.err && exit 1)
-            mkdir -p "$DEPLOY_TARGET/public" 2>/tmp/mkdir_pub.err || true
-            chmod 755 "$DEPLOY_TARGET" || true
-            chmod 755 "$DEPLOY_TARGET/public" || true
-            echo "Parent and target listing:"
-            ls -la "$(dirname "$DEPLOY_TARGET")" || true
-            ls -la "$DEPLOY_TARGET" || true
-            ls -la "$DEPLOY_TARGET/public" || true
-
-      - name: Déployer via SCP
+      - name: Déployer via SFTP
         uses: appleboy/scp-action@master
         with:
-          host: ${{ env.IONOS_HOST }}
-          username: ${{ env.IONOS_USER }}
-          password: ${{ env.IONOS_PASSWORD }}
-          port: 22
-          source: "src/**,public/**,composer.json"
-          # use computed deploy target
-          target: ${{ steps.compute-deploy-target.outputs.deploy_target }}
+          host: ${{ secrets.IONOS_HOST }}
+          username: ${{ secrets.IONOS_USER }}
+          password: ${{ secrets.IONOS_PASSWORD }}
+          source: "src/*, public/*, composer.json"
+          target: ${{ secrets.IONOS_PATH }}
 
-      - name: Exécuter des commandes sur IONOS (optimisations post-déploiement)
+      - name: Exécuter des commandes sur AlwaysData (si besoin)
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ env.IONOS_HOST }}
-          username: ${{ env.IONOS_USER }}
-          password: ${{ env.IONOS_PASSWORD }}
-          port: 22
+          host: ${{ secrets.IONOS_HOST }}
+          username: ${{ secrets.IONOS_USER }}
+          password: ${{ secrets.IONOS_PASSWORD }}
           script: |
-            DEPLOY_TARGET='${{ steps.compute-deploy-target.outputs.deploy_target }}'
-            PROJECT_ROOT="$DEPLOY_TARGET"
-            echo "Project root: $PROJECT_ROOT"
-            # Composer: installer / optimiser l'autoload si composer.json présent
-            if [ -f "$PROJECT_ROOT/composer.json" ]; then
-              cd "$PROJECT_ROOT"
-              if command -v composer >/dev/null 2>&1; then
-                composer install --no-dev --optimize-autoloader --no-interaction || true
-                composer dump-autoload --optimize || true
-              else
-                echo "composer not found on remote — skipped composer install/dump-autoload"
-              fi
-            else
-              echo "No composer.json in $PROJECT_ROOT, skipping composer steps."
-            fi
+            cd ${{ secrets.IONOS_PATH }}
+            composer update
+            php bin/console doctrine:migrations:migrate
+            php bin/console tailwind:build --watch
+            rm -f /*.tar.gz
 
-            # Permissions: rendre web-readable (éviter chmod récursif dangereux)
-            if [ -d "$PROJECT_ROOT/public" ]; then
-              chmod -R u=rwX,g=rX,o=rX "$PROJECT_ROOT/public" || true
-            fi
 
-            # If Symfony: clear/warm cache for prod if php available (safe commands)
-            if command -v php >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/bin/console" ]; then
-              php "$PROJECT_ROOT/bin/console" cache:clear --env=prod --no-warmup --no-interaction || true
-              php "$PROJECT_ROOT/bin/console" cache:warmup --env=prod --no-interaction || true
-            fi
-
-            # nettoyage de fichiers temporaires éventuels
-            rm -f "$PROJECT_ROOT"/*.tar.gz || true
-
-      - name: Vérifier les fichiers déployés (remote)
+      - name: Afficher les fichiers après déploiement
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ env.IONOS_HOST }}
-          username: ${{ env.IONOS_USER }}
-          password: ${{ env.IONOS_PASSWORD }}
-          port: 22
+          host: ${{ secrets.IONOS_HOST }}
+          username: ${{ secrets.IONOS_USER }}
+          password: ${{ secrets.IONOS_PASSWORD }}
           script: |
-            DEPLOY_TARGET='${{ steps.compute-deploy-target.outputs.deploy_target }}'
-            echo "Check index in public folder:"
-            if [ -f "$DEPLOY_TARGET/public/index.php" ]; then
-              echo "public/index.php exists — showing first 20 lines:"
-              sed -n '1,20p' "$DEPLOY_TARGET/public/index.php" || true
-            else
-              echo "No public/index.php in $DEPLOY_TARGET. List public folder:"
-              ls -la "$DEPLOY_TARGET/public" || true
-            f
+            cd ${{ secrets.IONOS_PATH }}
+            ls -R
