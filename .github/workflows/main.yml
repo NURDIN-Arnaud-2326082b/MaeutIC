@@ -19,16 +19,7 @@ jobs:
           ls -R ./public
           cat ./composer.json
 
-      - name: Déployer via SFTP
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ secrets.IONOS_HOST }}
-          username: ${{ secrets.IONOS_USER }}
-          password: ${{ secrets.IONOS_PASSWORD }}
-          source: "src/*, public/*, composer.json"
-          target: ${{ secrets.IONOS_PATH }}
-
-      - name: Exécuter des commandes sur IONOS (si besoin)
+      - name: Exécuter des commandes sur IONOS
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.IONOS_HOST }}
@@ -36,13 +27,12 @@ jobs:
           password: ${{ secrets.IONOS_PASSWORD }}
           script: |
             cd ${{ secrets.IONOS_PATH }}
-            ls
+            git pull
             /usr/bin/php8.3-cli ~/composer.phar update
             /usr/bin/php8.3-cli ~/composer.phar install --no-dev --optimize-autoloader
             php bin/console doctrine:migrations:migrate --no-interaction --env=prod
             php bin/console tailwind:build
             php bin/console asset-map:compile
-            rm -f /*.tar.gz
 
 
       - name: Afficher les fichiers après déploiement
