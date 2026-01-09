@@ -1,5 +1,7 @@
 # M@ieutIC
 
+La plateforme facilitant l’échange entre doctorants !
+
 ## Prérequis
 
 - `PHP >= 8.1`
