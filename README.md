@@ -1,22 +1,21 @@
-# 🚀 M@ieutIC
+# M@ieutIC
 
-## 🖥️ Prérequis
+## Prérequis
 
 - `PHP >= 8.1`
-- [Composer](https://getcomposer.org/)
-- [Symfony CLI](https://symfony.com/download) *(recommandé)*
+- [`Composer`](https://getcomposer.org/)
 - `MySQL`
-- [`Node.js` & `npm`](https://nodejs.org/) *(pour la compilation CSS avec Tailwind)*
+- [`Node.js` & `npm`](https://nodejs.org/)
 
 ---
 
 > [!CAUTION]
-> Ne stockez <ins>***JAMAIS***</ins> le fichier `.env` de production sur le dépôt distant !  
-> Configurez les variables d’environnement directement sur le serveur ou avec `.env.local` (non suivi par Git).
+> Ne stockez <ins>***JAMAIS***</ins> le fichier `.env` sur le dépôt !  
+> Configurez les variables d’environnement directement sur le serveur ou avec `.env.local`.
 
 ---
 
-## ⚡ Déploiement initial en développement
+## Déploiement initial en développement
 
 1. **Cloner le dépôt**
 ```sh
@@ -32,30 +31,35 @@ cp .env.exemple .env
 ```
 Modifiez les variables de `.env` (notamment `DATABASE_URL`) selon votre configuration.
 
-3. **Installer les dépendances PHP**
+3. **Optimiser les variables d'environnement**
+```sh
+composer dump-env dev
+```
+
+4. **Installer les dépendances PHP**
 ```sh
 composer install
 ```
 
-4. **Mettre à jour la base de données**
+5. **Mettre à jour la base de données**
 ```sh
 php bin/console doctrine:migrations:migrate
 ```
 
-5. **Charger les fixtures (environnement de dev uniquement, lors de l'initialisation)**
+6. **Charger les fixtures**
 > [!CAUTION]
 > Les fixtures ne doivent jamais être chargées en production !
 ```sh
 php bin/console doctrine:fixtures:load
 ```
 
-6. **Compiler les ressources front-end**
+7. **Compiler les ressources front-end**
 ```sh
 php bin/console tailwind:build
 php bin/console asset-map:compile
 ```
 
-7. **Lancer le serveur de développement**
+8. **Lancer le serveur de développement**
 ```sh
 cd public/
 php -S localhost:8080
@@ -63,7 +67,7 @@ php -S localhost:8080
 
 ---
 
-## 🚀 Déploiement en production
+## Déploiement en production
 
 1. **Configurer correctement le fichier `.env`**
 
@@ -72,7 +76,7 @@ php -S localhost:8080
 composer dump-env prod
 ```
 
-3. **Installer les dépendances (production)**
+3. **Installer les dépendances PHP**
 ```sh
 composer install --no-dev --optimize-autoloader
 ```
