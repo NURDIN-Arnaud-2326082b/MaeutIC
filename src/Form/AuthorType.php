@@ -1,21 +1,41 @@
 <?php
 
+/**
+ * Formulaire d'auteur pour la bibliothèque
+ *
+ * Ce formulaire gère la création et modification d'auteurs :
+ * - Nom de l'auteur
+ * - Années de naissance et décès
+ * - Nationalité (liste complète de pays)
+ * - Lien vers ressource externe
+ * - Upload d'image
+ * - Sélection de tags pour catégorisation
+ */
+
 namespace App\Form;
 
 use App\Entity\Author;
+use App\Entity\Tag;
+use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
-use Symfony\Component\Form\Extension\Core\Type\TextType;
-use Symfony\Component\Form\Extension\Core\Type\TextareaType;
-use Symfony\Component\Form\Extension\Core\Type\FileType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
+use Symfony\Component\Form\Extension\Core\Type\FileType;
+use Symfony\Component\Form\Extension\Core\Type\IntegerType;
+use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
-use Symfony\Bridge\Doctrine\Form\Type\EntityType;
-use App\Entity\Tag;
-use Symfony\Component\Form\Extension\Core\Type\IntegerType;
+use Symfony\Component\Validator\Constraints\File;
+use Symfony\Component\Validator\Constraints\Range;
 
 class AuthorType extends AbstractType
 {
+    /**
+     * Construction du formulaire d'auteur
+     *
+     * @param FormBuilderInterface $builder Constructeur de formulaire
+     * @param array $options Options du formulaire
+     * @return void
+     */
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $countries = [
@@ -222,7 +242,7 @@ class AuthorType extends AbstractType
                 'label' => 'Année de naissance',
                 'required' => true,
                 'constraints' => [
-                    new \Symfony\Component\Validator\Constraints\Range([
+                    new Range([
                         'max' => date('Y'),
                         'notInRangeMessage' => 'L\'année de naissance ne peut pas être supérieure à {{ max }}.',
                     ]),
@@ -232,7 +252,7 @@ class AuthorType extends AbstractType
                 'label' => 'Année de décès',
                 'required' => false,
                 'constraints' => [
-                    new \Symfony\Component\Validator\Constraints\Range([
+                    new Range([
                         'max' => date('Y'),
                         'notInRangeMessage' => 'L\'année de décès ne peut pas être supérieure à {{ max }}.',
                     ]),
@@ -256,7 +276,7 @@ class AuthorType extends AbstractType
                 'mapped' => false,
                 'required' => false,
                 'constraints' => [
-                    new \Symfony\Component\Validator\Constraints\File([
+                    new File([
                         'maxSize' => '4M',
                         'mimeTypes' => [
                             'image/jpeg',
@@ -281,6 +301,12 @@ class AuthorType extends AbstractType
             ]);
     }
 
+    /**
+     * Configuration des options du formulaire
+     *
+     * @param OptionsResolver $resolver Résolveur d'options
+     * @return void
+     */
     public function configureOptions(OptionsResolver $resolver): void
     {
         $resolver->setDefaults([

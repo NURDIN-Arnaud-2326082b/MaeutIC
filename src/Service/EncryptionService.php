@@ -2,6 +2,7 @@
 
 namespace App\Service;
 
+use Random\RandomException;
 use RuntimeException;
 
 class EncryptionService
@@ -22,6 +23,13 @@ class EncryptionService
         return bin2hex(random_bytes(16));
     }
 
+    /**
+     * Chiffre un texte en clair
+     *
+     * @param string $plaintext Le texte en clair à chiffrer
+     * @return string Le texte chiffré encodé en base64
+     * @throws RandomException Si la génération de l'IV échoue
+     */
     public function encrypt(string $plaintext): string
     {
         $iv = random_bytes(12);
@@ -45,6 +53,13 @@ class EncryptionService
         return base64_encode($iv . $tag . $ciphertext);
     }
 
+    /**
+     * Déchiffre un texte chiffré
+     *
+     * @param string $encrypted Le texte chiffré encodé en base64
+     * @return string Le texte en clair
+     * @throws RuntimeException Si le déchiffrement échoue ou si les données ont été modifiées
+     */
     public function decrypt(string $encrypted): string
     {
         $data = base64_decode($encrypted, true);

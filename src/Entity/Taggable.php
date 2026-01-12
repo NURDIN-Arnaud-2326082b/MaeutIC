@@ -1,12 +1,19 @@
 <?php
 
+/**
+ * Entité Taggable - Représente l'association entre un tag et une entité
+ *
+ * Cette entité polymorphe permet d'associer des tags à différents types d'entités :
+ * - Auteurs
+ * - Articles
+ * - Livres
+ *
+ * Stocke l'ID et le type de l'entité taggée pour une relation flexible
+ */
+
 namespace App\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
-use App\Repository\TaggableRepository;
-use App\Entity\Tag;
-use Doctrine\Common\Collections\Collection;
-use Doctrine\Common\Collections\ArrayCollection;
 
 #[ORM\Entity]
 class Taggable

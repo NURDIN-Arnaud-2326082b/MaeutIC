@@ -1,10 +1,19 @@
 <?php
 
+/**
+ * Entité Book - Représente un livre dans la bibliothèque
+ *
+ * Cette entité gère les livres référencés dans la bibliothèque académique :
+ * - Titre du livre
+ * - Auteur
+ * - Lien vers la ressource externe
+ * - Image de couverture
+ * - Utilisateur ayant ajouté le livre
+ */
+
 namespace App\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
-use App\Entity\User;
-use App\Repository\BookRepository;
 
 #[ORM\Entity]
 class Book

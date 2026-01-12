@@ -1,15 +1,29 @@
 <?php
 
+/**
+ * Entité User - Représente un utilisateur de l'application MaeutIC
+ *
+ * Cette entité centrale gère toutes les informations d'un utilisateur :
+ * - Authentification (email, username, mot de passe)
+ * - Profil (nom, prénom, photo, affiliation, spécialisation)
+ * - Réseau social (connexions, blocages)
+ * - Relations avec posts, commentaires, likes
+ * - Questions du profil chercheur
+ * - Abonnements aux posts
+ *
+ * Implémente UserInterface et PasswordAuthenticatedUserInterface de Symfony Security
+ */
+
 namespace App\Entity;
 
 use App\Repository\UserRepository;
-use Doctrine\ORM\Mapping as ORM;
-use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
-use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
-use Symfony\Component\Security\Core\User\UserInterface;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\ORM\Mapping as ORM;
+use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\HttpFoundation\File\File;
+use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
+use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
@@ -57,16 +71,16 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\JoinTable(name: 'Subscription')]
     private Collection $subscribedPosts;
 
-    #[ORM\OneToMany(mappedBy: 'user', targetEntity: UserLike::class)]
+    #[ORM\OneToMany(targetEntity: UserLike::class, mappedBy: 'user')]
     private Collection $user_likes;
 
-    #[ORM\OneToMany(mappedBy: 'user', targetEntity: UserQuestions::class, cascade: ['persist', 'remove'])]
+    #[ORM\OneToMany(targetEntity: UserQuestions::class, mappedBy: 'user', cascade: ['persist', 'remove'])]
     private Collection $userQuestions;
 
-    #[ORM\OneToMany(mappedBy: 'userId', targetEntity: Post::class)]
+    #[ORM\OneToMany(targetEntity: Post::class, mappedBy: 'userId')]
     private Collection $posts;
 
-    #[ORM\OneToMany(mappedBy: 'userId', targetEntity: Comment::class)]
+    #[ORM\OneToMany(targetEntity: Comment::class, mappedBy: 'userId')]
     private Collection $comments;
 
     /**
@@ -108,11 +122,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->comments = new ArrayCollection();
     }
 
+    /**
+     * @return int|null
+     */
     public function getId(): ?int
     {
         return $this->id;
     }
 
+    /**
+     * @param int $id
+     * @return $this
+     */
     public function setId(int $id): static
     {
         $this->id = $id;
@@ -127,13 +148,24 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      */
     public function getUserIdentifier(): string
     {
-        return (string) $this->id;
+        return (string)$this->id;
     }
 
     /**
+     * Check if the user has a specific role.
+     *
+     * @param string $role
+     * @return bool
+     */
+    public function hasRole(string $role): bool
+    {
+        return in_array($role, $this->getRoles());
+    }
+
+    /**
+     * @return list<string>
      * @see UserInterface
      *
-     * @return list<string>
      */
     public function getRoles(): array
     {
@@ -155,17 +187,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     }
 
     /**
-     * Check if the user has a specific role.
-     *
-     * @param string $role
-     * @return bool
-     */
-    public function hasRole(string $role): bool
-    {
-        return in_array($role, $this->getRoles());
-    }
-
-    /**
      * @see PasswordAuthenticatedUserInterface
      */
     public function getPassword(): ?string
@@ -173,6 +194,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->password;
     }
 
+    /**
+     * Sets the hashed password.
+     *
+     * @param string $password
+     * @return $this
+     */
     public function setPassword(string $password): static
     {
         $this->password = $password;
@@ -180,11 +207,20 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @return string|null
+     */
     public function getEmail(): ?string
     {
         return $this->email;
     }
 
+    /**
+     * Sets the email address.
+     *
+     * @param string $email
+     * @return $this
+     */
     public function setEmail(string $email): static
     {
         $this->email = $email;
@@ -192,11 +228,20 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @return string|null
+     */
     public function getUsername(): ?string
     {
         return $this->username;
     }
 
+    /**
+     * Sets the username.
+     *
+     * @param string $username
+     * @return $this
+     */
     public function setUsername(string $username): static
     {
         $this->username = $username;
@@ -204,11 +249,20 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @return string|null
+     */
     public function getLastName(): ?string
     {
         return $this->lastName;
     }
 
+    /**
+     * Sets the last name.
+     *
+     * @param string $lastName
+     * @return $this
+     */
     public function setLastName(string $lastName): static
     {
         $this->lastName = $lastName;
@@ -216,11 +270,20 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @return string|null
+     */
     public function getFirstName(): ?string
     {
         return $this->firstName;
     }
 
+    /**
+     * Sets the first name.
+     *
+     * @param string $firstName
+     * @return $this
+     */
     public function setFirstName(string $firstName): static
     {
         $this->firstName = $firstName;
@@ -228,11 +291,20 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @return string|null
+     */
     public function getAffiliationLocation(): ?string
     {
         return $this->affiliationLocation;
     }
 
+    /**
+     * Sets the affiliation location.
+     *
+     * @param string|null $affiliationLocation
+     * @return $this
+     */
     public function setAffiliationLocation(?string $affiliationLocation): static
     {
         $this->affiliationLocation = $affiliationLocation;
@@ -240,11 +312,20 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @return string|null
+     */
     public function getSpecialization(): ?string
     {
         return $this->specialization;
     }
 
+    /**
+     * Sets the specialization.
+     *
+     * @param string|null $specialization
+     * @return $this
+     */
     public function setSpecialization(?string $specialization): static
     {
         $this->specialization = $specialization;
@@ -252,11 +333,20 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @return string|null
+     */
     public function getResearchTopic(): ?string
     {
         return $this->researchTopic;
     }
 
+    /**
+     * Sets the research topic.
+     *
+     * @param string|null $researchTopic
+     * @return $this
+     */
     public function setResearchTopic(?string $researchTopic): static
     {
         $this->researchTopic = $researchTopic;
@@ -264,33 +354,58 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @return string|null
+     */
     public function getProfileImage(): ?string
     {
         return $this->profileImage;
     }
 
+    /**
+     * Sets the profile image path.
+     *
+     * @param string|null $profileImage
+     * @return $this
+     */
     public function setProfileImage(?string $profileImage): static
     {
         $this->profileImage = $profileImage;
         return $this;
     }
 
+    /**
+     * @return File|null
+     */
     public function getProfileImageFile(): ?File
     {
         return $this->profileImageFile;
     }
 
+    /**
+     * Sets the profile image file.
+     *
+     * @param File|null $file
+     * @return $this
+     */
     public function setProfileImageFile(?File $file): static
     {
         $this->profileImageFile = $file;
         return $this;
     }
 
+    /**
+     * @return Collection
+     */
     public function getSubscribedPosts(): Collection
     {
         return $this->subscribedPosts;
     }
 
+    /**
+     * @param Post $Post
+     * @return $this
+     */
     public function addSubscribedPost(Post $Post): static
     {
         if (!$this->subscribedPosts->contains($Post)) {
@@ -300,6 +415,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @param Post $Post
+     * @return $this
+     */
     public function removeSubscribedPost(Post $Post): static
     {
         $this->subscribedPosts->removeElement($Post);
@@ -307,11 +426,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @return Collection
+     */
     public function getUserLikes(): Collection
     {
         return $this->user_likes;
     }
 
+    /**
+     * @param UserLike $user_like
+     * @return $this
+     */
     public function addUserLike(UserLike $user_like): static
     {
         if (!$this->user_likes->contains($user_like)) {
@@ -322,6 +448,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @param UserLike $user_like
+     * @return $this
+     */
     public function removeUserLike(UserLike $user_like): static
     {
         if ($this->user_likes->removeElement($user_like)) {
@@ -334,11 +464,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @return Collection
+     */
     public function getUserQuestions(): Collection
     {
         return $this->userQuestions;
     }
 
+    /**
+     * @param UserQuestions $userQuestion
+     * @return $this
+     */
     public function addUserQuestion(UserQuestions $userQuestion): static
     {
         if (!$this->userQuestions->contains($userQuestion)) {
@@ -349,6 +486,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @param UserQuestions $userQuestion
+     * @return $this
+     */
     public function removeUserQuestion(UserQuestions $userQuestion): static
     {
         if ($this->userQuestions->removeElement($userQuestion)) {
@@ -361,11 +502,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @return Collection
+     */
     public function getPosts(): Collection
     {
         return $this->posts;
     }
 
+    /**
+     * @param Post $post
+     * @return $this
+     */
     public function addPost(Post $post): static
     {
         if (!$this->posts->contains($post)) {
@@ -376,6 +524,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @param Post $post
+     * @return $this
+     */
     public function removePost(Post $post): static
     {
         if ($this->posts->removeElement($post)) {
@@ -388,11 +540,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @return Collection
+     */
     public function getComments(): Collection
     {
         return $this->comments;
     }
 
+    /**
+     * @param Comment $comment
+     * @return $this
+     */
     public function addComment(Comment $comment): static
     {
         if (!$this->comments->contains($comment)) {
@@ -403,6 +562,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @param Comment $comment
+     * @return $this
+     */
     public function removeComment(Comment $comment): static
     {
         if ($this->comments->removeElement($comment)) {
@@ -415,11 +578,20 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @return int|null
+     */
     public function getUserType(): ?int
     {
         return $this->userType;
     }
 
+    /**
+     * Sets the user type.
+     *
+     * @param int $userType
+     * @return $this
+     */
     public function setUserType(int $userType): static
     {
         $this->userType = $userType;
@@ -427,18 +599,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    public function getNetwork(): array
-    {
-        return $this->network ?? [];
-    }
-
-    public function setNetwork(array $network): self
-    {
-        $this->network = array_values(array_unique(array_map('intval', $network)));
-
-        return $this;
-    }
-
+    /**
+     * @param int $userId
+     * @return $this
+     */
     public function addToNetwork(int $userId): self
     {
         $list = $this->getNetwork();
@@ -450,6 +614,31 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @return array
+     */
+    public function getNetwork(): array
+    {
+        return $this->network ?? [];
+    }
+
+    /**
+     * Sets the network list.
+     *
+     * @param array $network
+     * @return $this
+     */
+    public function setNetwork(array $network): self
+    {
+        $this->network = array_values(array_unique(array_map('intval', $network)));
+
+        return $this;
+    }
+
+    /**
+     * @param int $userId
+     * @return $this
+     */
     public function removeFromNetwork(int $userId): self
     {
         $list = $this->getNetwork();
@@ -459,23 +648,21 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @param int $userId
+     * @return bool
+     */
     public function isInNetwork(int $userId): bool
     {
         return in_array($userId, $this->getNetwork(), true);
     }
 
     // --- Blocked users (similar API to network) ---
-    public function getBlocked(): array
-    {
-        return $this->blocked ?? [];
-    }
 
-    public function setBlocked(array $blocked): self
-    {
-        $this->blocked = array_values(array_unique(array_map('intval', $blocked)));
-        return $this;
-    }
-
+    /**
+     * @param int $userId
+     * @return $this
+     */
     public function addToBlocked(int $userId): self
     {
         $list = $this->getBlocked();
@@ -486,6 +673,30 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @return array
+     */
+    public function getBlocked(): array
+    {
+        return $this->blocked ?? [];
+    }
+
+    /**
+     * Sets the blocked users list.
+     *
+     * @param array $blocked
+     * @return $this
+     */
+    public function setBlocked(array $blocked): self
+    {
+        $this->blocked = array_values(array_unique(array_map('intval', $blocked)));
+        return $this;
+    }
+
+    /**
+     * @param int $userId
+     * @return $this
+     */
     public function removeFromBlocked(int $userId): self
     {
         $list = $this->getBlocked();
@@ -494,23 +705,21 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @param int $userId
+     * @return bool
+     */
     public function isBlocked(int $userId): bool
     {
         return in_array($userId, $this->getBlocked(), true);
     }
 
     // --- "blockedBy" API: users who have blocked this user ---
-    public function getBlockedBy(): array
-    {
-        return $this->blockedBy ?? [];
-    }
 
-    public function setBlockedBy(array $blockedBy): self
-    {
-        $this->blockedBy = array_values(array_unique(array_map('intval', $blockedBy)));
-        return $this;
-    }
-
+    /**
+     * @param int $userId
+     * @return $this
+     */
     public function addToBlockedBy(int $userId): self
     {
         $list = $this->getBlockedBy();
@@ -521,6 +730,28 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @return array
+     */
+    public function getBlockedBy(): array
+    {
+        return $this->blockedBy ?? [];
+    }
+
+    /**
+     * @param array $blockedBy
+     * @return $this
+     */
+    public function setBlockedBy(array $blockedBy): self
+    {
+        $this->blockedBy = array_values(array_unique(array_map('intval', $blockedBy)));
+        return $this;
+    }
+
+    /**
+     * @param int $userId
+     * @return $this
+     */
     public function removeFromBlockedBy(int $userId): self
     {
         $list = $this->getBlockedBy();
@@ -529,6 +760,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * @param int $userId
+     * @return bool
+     */
     public function isBlockedBy(int $userId): bool
     {
         return in_array($userId, $this->getBlockedBy(), true);
@@ -543,11 +778,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         // $this->plainPassword = null;
     }
 
+    /**
+     * @return string|null
+     */
     public function getGenre(): ?string
     {
         return $this->genre;
     }
 
+    /**
+     * @param string|null $genre
+     * @return $this
+     */
     public function setGenre(?string $genre): static
     {
         $this->genre = $genre;
@@ -556,9 +798,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     }
 
     // Méthode utilitaire pour afficher "chercheur" ou "chercheuse"
+
+    /**
+     * @return string
+     */
     public function getResearcherTitle(): string
     {
-        return match($this->genre) {
+        return match ($this->genre) {
             'female' => 'chercheuse',
             'male' => 'chercheur',
             'other' => 'chercheur·euse',

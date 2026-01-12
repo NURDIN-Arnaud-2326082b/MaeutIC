@@ -1,8 +1,20 @@
 <?php
 
+/**
+ * Entité Comment - Représente un commentaire sur un post
+ *
+ * Cette entité gère les commentaires postés par les utilisateurs :
+ * - Contenu du commentaire
+ * - Date de création
+ * - Association avec l'utilisateur auteur
+ * - Association avec le post commenté
+ * - Likes reçus sur le commentaire
+ */
+
 namespace App\Entity;
 
 use App\Repository\CommentRepository;
+use DateTimeInterface;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
@@ -20,7 +32,7 @@ class Comment
     private ?string $body = null;
 
     #[ORM\Column(type: Types::DATE_MUTABLE)]
-    private ?\DateTimeInterface $creationDate = null;
+    private ?DateTimeInterface $creationDate = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
@@ -55,12 +67,12 @@ class Comment
         return $this;
     }
 
-    public function getCreationDate(): ?\DateTimeInterface
+    public function getCreationDate(): ?DateTimeInterface
     {
         return $this->creationDate;
     }
 
-    public function setCreationDate(\DateTimeInterface $creationDate): static
+    public function setCreationDate(DateTimeInterface $creationDate): static
     {
         $this->creationDate = $creationDate;
 

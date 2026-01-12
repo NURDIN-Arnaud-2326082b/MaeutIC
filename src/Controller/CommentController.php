@@ -1,10 +1,19 @@
 <?php
 
+/**
+ * Contrôleur de gestion des commentaires
+ *
+ * Ce contrôleur gère les opérations liées aux commentaires sur les posts :
+ * - Ajout de commentaires sur un post
+ * - Association du commentaire avec l'utilisateur et le post
+ */
+
 namespace App\Controller;
 
 use App\Entity\Comment;
 use App\Entity\Post;
 use App\Form\CommentFormType;
+use DateTime;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -30,6 +39,14 @@ class CommentController extends AbstractController
         ]);
     }*/
 
+    /**
+     * Ajoute un commentaire sur un post spécifique
+     *
+     * @param int $post_id L'ID du post sur lequel commenter
+     * @param Request $request La requête contenant les données du commentaire
+     * @param EntityManagerInterface $entityManager Gestionnaire d'entités
+     * @return Response Formulaire de commentaire ou redirection après succès
+     */
     #[Route('/posts/{post_id}/add-comment', name: 'app_add_comment')]
     public function addComment(int $post_id, Request $request, EntityManagerInterface $entityManager): Response
     {
@@ -51,7 +68,7 @@ class CommentController extends AbstractController
         if ($form->isSubmitted() && $form->isValid()) {
             $comment->setUser($this->getUser());
             $comment->setPost($post);
-            $comment->setCreationDate(new \DateTime());
+            $comment->setCreationDate(new DateTime());
 
             $entityManager->persist($comment);
             $entityManager->flush();

@@ -2,23 +2,31 @@
 
 namespace App\Controller;
 
-use App\Entity\Message;
 use App\Entity\Conversation;
-use App\Repository\MessageRepository;
+use App\Entity\Message;
 use App\Repository\ConversationRepository;
+use App\Repository\MessageRepository;
 use App\Repository\UserRepository;
+use DateTime;
 use Doctrine\ORM\EntityManagerInterface;
+use Exception;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
-final class ChatController extends AbstractController{
-    
+final class ChatController extends AbstractController
+{
+
     // Public chat (maybe chats in the future)
 
-    // Displays the global chat page with all conversations listed
+    /**
+     * Affiche la page du chat global avec toutes les conversations
+     *
+     * @param ConversationRepository $conversationRepo Repository des conversations
+     * @return Response Page du chat global avec liste des conversations
+     */
     #[Route('/chat/global', name: 'app_chat_global')]
     public function showGlobalChat(ConversationRepository $conversationRepo): Response
     {
@@ -27,7 +35,7 @@ final class ChatController extends AbstractController{
         if (!$user) {
             return $this->redirectToRoute('app_login');
         }
-        
+
         $conversations = $conversationRepo->createQueryBuilder('c')
             ->where('c.user1 = :user OR c.user2 = :user')
             ->setParameter('user', $user)
@@ -40,12 +48,18 @@ final class ChatController extends AbstractController{
         ]);
     }
 
+    /**
+     * Récupère tous les messages du chat global (endpoint AJAX)
+     *
+     * @param MessageRepository $messageRepository Repository des messages
+     * @return JsonResponse Liste des messages avec informations des expéditeurs
+     */
     #[Route('/chat/global/messages', name: 'chat_messages_global', methods: ['GET'])]
     public function getMessages(MessageRepository $messageRepository): JsonResponse
     {
         $messages = $messageRepository->findBy(['conversation' => null], ['sentAt' => 'ASC']);
 
-        $data = array_map(function(Message $msg) {
+        $data = array_map(function (Message $msg) {
             $sender = $msg->getSender();
 
             return [
@@ -61,6 +75,13 @@ final class ChatController extends AbstractController{
         return new JsonResponse($data);
     }
 
+    /**
+     * Envoie un message dans le chat global
+     *
+     * @param Request $request La requête contenant le texte du message
+     * @param EntityManagerInterface $em Gestionnaire d'entités
+     * @return JsonResponse Statut de l'envoi ou erreur
+     */
     #[Route('/chat/global/send', name: 'chat_send', methods: ['POST'])]
     public function sendMessage(Request $request, EntityManagerInterface $em): JsonResponse
     {
@@ -76,12 +97,12 @@ final class ChatController extends AbstractController{
             $message = new Message();
             $message->setContent($data['text']);
             $message->setSender($user);
-            $message->setSentAt(new \DateTime());
+            $message->setSentAt(new DateTime());
             $message->setConversation(null); // Chat général
             $em->persist($message);
             $em->flush();
             return new JsonResponse(['status' => 'Message sent']);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return new JsonResponse(['error' => 'An error occurred: ' . $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
@@ -111,7 +132,7 @@ final class ChatController extends AbstractController{
             throw $this->createAccessDeniedException();
         }
         $messages = $messageRepo->findBy(['conversation' => $conversation], ['sentAt' => 'ASC']);
-    
+
         return $this->render('chat/index.html.twig', [
             'controller_name' => 'ChatController',
             'conversations' => $conversations,
@@ -178,14 +199,20 @@ final class ChatController extends AbstractController{
             $message->setConversation($conversation);
             $message->setSender($user);
             $message->setContent($content);
-            $message->setSentAt(new \DateTime());
+            $message->setSentAt(new DateTime());
             $em->persist($message);
             $em->flush();
         }
         return $this->redirectToRoute('private_conversation', ['id' => $conversation->getId()]);
     }
 
-    // AJAX endpoint to fetch messages for a specific conversation
+    /**
+     * Endpoint AJAX pour récupérer les messages d'une conversation (rechargement dynamique)
+     *
+     * @param Conversation $conversation La conversation dont on veut les messages
+     * @param MessageRepository $messageRepo Repository des messages
+     * @return Response Fragment HTML avec les messages ou erreur JSON si blocage
+     */
     #[Route('/chat/private/{id}/ajax', name: 'private_conversation_ajax')]
     public function ajaxMessages(Conversation $conversation, MessageRepository $messageRepo): Response
     {

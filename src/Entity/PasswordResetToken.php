@@ -1,8 +1,21 @@
 <?php
 
+/**
+ * Entité PasswordResetToken - Représente un token de réinitialisation de mot de passe
+ *
+ * Cette entité gère les tokens générés pour la réinitialisation de mot de passe :
+ * - Association avec l'utilisateur demandeur
+ * - Token haché pour la sécurité
+ * - Date d'expiration
+ * - Flag 'used' pour marquer les tokens déjà utilisés
+ * - Date de création
+ * - Suppression en cascade si l'utilisateur est supprimé
+ */
+
 namespace App\Entity;
 
 use App\Repository\PasswordResetTokenRepository;
+use DateTimeImmutable;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: PasswordResetTokenRepository::class)]
@@ -22,17 +35,17 @@ class PasswordResetToken
     private ?string $token = null;
 
     #[ORM\Column]
-    private ?\DateTimeImmutable $expiresAt = null;
+    private ?DateTimeImmutable $expiresAt = null;
 
     #[ORM\Column]
     private bool $used = false;
 
     #[ORM\Column]
-    private ?\DateTimeImmutable $createdAt = null;
+    private ?DateTimeImmutable $createdAt = null;
 
     public function __construct()
     {
-        $this->createdAt = new \DateTimeImmutable();
+        $this->createdAt = new DateTimeImmutable();
     }
 
     public function getId(): ?int
@@ -64,12 +77,12 @@ class PasswordResetToken
         return $this;
     }
 
-    public function getExpiresAt(): ?\DateTimeImmutable
+    public function getExpiresAt(): ?DateTimeImmutable
     {
         return $this->expiresAt;
     }
 
-    public function setExpiresAt(\DateTimeImmutable $expiresAt): static
+    public function setExpiresAt(DateTimeImmutable $expiresAt): static
     {
         $this->expiresAt = $expiresAt;
 
@@ -88,12 +101,12 @@ class PasswordResetToken
         return $this;
     }
 
-    public function getCreatedAt(): ?\DateTimeImmutable
+    public function getCreatedAt(): ?DateTimeImmutable
     {
         return $this->createdAt;
     }
 
-    public function setCreatedAt(\DateTimeImmutable $createdAt): static
+    public function setCreatedAt(DateTimeImmutable $createdAt): static
     {
         $this->createdAt = $createdAt;
 
@@ -102,6 +115,6 @@ class PasswordResetToken
 
     public function isValid(): bool
     {
-        return !$this->used && $this->expiresAt > new \DateTimeImmutable();
+        return !$this->used && $this->expiresAt > new DateTimeImmutable();
     }
 }

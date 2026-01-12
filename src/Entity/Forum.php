@@ -1,13 +1,24 @@
 <?php
 
+/**
+ * Entité Forum - Représente un forum de discussion
+ *
+ * Cette entité définit les forums :
+ * - Titre et description du forum
+ * - Type de forum
+ * - Date de dernière activité
+ * - Collection de posts associés
+ * - Options spéciales
+ */
+
 namespace App\Entity;
 
 use App\Repository\ForumRepository;
-use Doctrine\DBAL\Types\Types;
-use Doctrine\ORM\Mapping as ORM;
+use DateTimeInterface;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
-use App\Entity\Post;
+use Doctrine\DBAL\Types\Types;
+use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: ForumRepository::class)]
 class Forum
@@ -33,7 +44,7 @@ class Forum
     private ?string $special = null;
 
     #[ORM\Column(type: Types::DATE_MUTABLE)]
-    private ?\DateTimeInterface $lastActivity = null;
+    private ?DateTimeInterface $lastActivity = null;
 
     #[ORM\OneToMany(mappedBy: 'forum', targetEntity: Post::class, orphanRemoval: true)]
     private Collection $posts;
@@ -72,12 +83,12 @@ class Forum
         return $this;
     }
 
-    public function getLastActivity(): ?\DateTimeInterface
+    public function getLastActivity(): ?DateTimeInterface
     {
         return $this->lastActivity;
     }
 
-    public function setLastActivity(\DateTimeInterface $lastActivity): static
+    public function setLastActivity(DateTimeInterface $lastActivity): static
     {
         $this->lastActivity = $lastActivity;
 

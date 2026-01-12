@@ -1,14 +1,25 @@
 <?php
 
+/**
+ * Entité Post - Représente un post dans un forum
+ *
+ * Cette entité gère les posts dans les forums :
+ * - Contenu du post
+ * - Association avec un utilisateur
+ * - Association avec un forum
+ * - Dates de création et dernière activité
+ * - Relations avec commentaires, likes et abonnés
+ * - Système de réponses aux posts
+ */
+
 namespace App\Entity;
 
 use App\Repository\PostRepository;
+use DateTimeInterface;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
-use App\Entity\User;
-use App\Entity\Forum;
 
 #[ORM\Entity(repositoryClass: PostRepository::class)]
 class Post
@@ -33,10 +44,10 @@ class Post
     private ?Forum $forum = null;
 
     #[ORM\Column(type: Types::DATE_MUTABLE)]
-    private ?\DateTimeInterface $creationDate = null;
+    private ?DateTimeInterface $creationDate = null;
 
     #[ORM\Column(type: Types::DATE_MUTABLE)]
-    private ?\DateTimeInterface $lastActivity = null;
+    private ?DateTimeInterface $lastActivity = null;
 
     #[ORM\ManyToMany(targetEntity: User::class, mappedBy: 'subscribedPosts')]
     private Collection $subscribedUsers;
@@ -125,24 +136,24 @@ class Post
         return $this;
     }
 
-    public function getCreationDate(): ?\DateTimeInterface
+    public function getCreationDate(): ?DateTimeInterface
     {
         return $this->creationDate;
     }
 
-    public function setCreationDate(\DateTimeInterface $creationDate): static
+    public function setCreationDate(DateTimeInterface $creationDate): static
     {
         $this->creationDate = $creationDate;
 
         return $this;
     }
 
-    public function getLastActivity(): ?\DateTimeInterface
+    public function getLastActivity(): ?DateTimeInterface
     {
         return $this->lastActivity;
     }
 
-    public function setLastActivity(\DateTimeInterface $lastActivity): static
+    public function setLastActivity(DateTimeInterface $lastActivity): static
     {
         $this->lastActivity = $lastActivity;
 
@@ -230,18 +241,6 @@ class Post
         return $this;
     }
 
-    public function getParentPost(): ?self
-    {
-        return $this->parentPost;
-    }
-
-    public function setParentPost(?self $parentPost): static
-    {
-        $this->parentPost = $parentPost;
-
-        return $this;
-    }
-
     /**
      * @return Collection<int, self>
      */
@@ -268,6 +267,18 @@ class Post
                 $reply->setParentPost(null);
             }
         }
+
+        return $this;
+    }
+
+    public function getParentPost(): ?self
+    {
+        return $this->parentPost;
+    }
+
+    public function setParentPost(?self $parentPost): static
+    {
+        $this->parentPost = $parentPost;
 
         return $this;
     }
