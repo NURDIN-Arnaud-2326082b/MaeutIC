@@ -56,14 +56,12 @@ final class ProfileController extends AbstractController
      * @param User $user L'utilisateur dont le profil doit être affiché
      * @return Response Le profil rendu avec questions et labels
      */
-    private function renderProfile($user): Response
+    private function renderProfile(User $user): Response
     {
         // Récupérer les réponses aux questions
         $userQuestions = [];
-        if ($user) {
-            foreach ($user->getUserQuestions() as $question) {
-                $userQuestions[$question->getQuestion()][] = $question->getAnswer();
-            }
+        foreach ($user->getUserQuestions() as $question) {
+            $userQuestions[$question->getQuestion()][] = $question->getAnswer();
         }
 
         // Libellés des questions classiques

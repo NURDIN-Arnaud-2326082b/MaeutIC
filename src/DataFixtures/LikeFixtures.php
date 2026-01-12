@@ -2,14 +2,14 @@
 
 namespace App\DataFixtures;
 
-use App\Entity\User;
-use App\Entity\UserLike;
-use App\Entity\PostLike;
 use App\Entity\Comment;
 use App\Entity\Post;
+use App\Entity\PostLike;
+use App\Entity\User;
+use App\Entity\UserLike;
 use Doctrine\Bundle\FixturesBundle\Fixture;
-use Doctrine\Persistence\ObjectManager;
 use Doctrine\Common\DataFixtures\DependentFixtureInterface;
+use Doctrine\Persistence\ObjectManager;
 
 class LikeFixtures extends Fixture implements DependentFixtureInterface
 {
@@ -29,7 +29,7 @@ class LikeFixtures extends Fixture implements DependentFixtureInterface
         }
 
         for ($i = 0; $i < 3; $i++) {
-            $comment = $this->getReference("comment" . (($i + 1)*2), Comment::class);
+            $comment = $this->getReference("comment" . (($i + 1) * 2), Comment::class);
 
             $userLike = new UserLike();
             $userLike->setUser($user1)
@@ -40,9 +40,9 @@ class LikeFixtures extends Fixture implements DependentFixtureInterface
 
         // Ajouter des likes sur les posts
         for ($i = 1; $i <= 5; $i++) {
-            if ($this->hasReference("post$i",Post::class)) { 
+            if ($this->hasReference("post$i", Post::class)) {
                 $post = $this->getReference("post$i", Post::class);
-                
+
                 // User2 like certains posts
                 if ($i % 2 === 0) {
                     $postLike = new PostLike();
@@ -50,7 +50,7 @@ class LikeFixtures extends Fixture implements DependentFixtureInterface
                     $postLike->setPost($post);
                     $manager->persist($postLike);
                 }
-                
+
                 // User1 like d'autres posts
                 if ($i % 3 === 0) {
                     $postLike = new PostLike();

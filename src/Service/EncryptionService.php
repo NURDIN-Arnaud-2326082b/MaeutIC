@@ -18,6 +18,9 @@ class EncryptionService
         $this->encryptionKey = $encryptionKey;
     }
 
+    /**
+     * @throws RandomException
+     */
     public static function generateKey(): string
     {
         return bin2hex(random_bytes(16));

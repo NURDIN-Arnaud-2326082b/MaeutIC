@@ -45,12 +45,12 @@ class OptimizedRecommendationService
     ];
 
     public function __construct(
-        private UserRepository         $userRepository,
-        private PostRepository         $postRepository,
-        private EntityManagerInterface $entityManager,
-        private CacheInterface         $cache,
-        private Security               $security,
-        private LoggerInterface        $logger
+        private readonly UserRepository         $userRepository,
+        private readonly PostRepository         $postRepository,
+        private readonly EntityManagerInterface $entityManager,
+        private readonly CacheInterface         $cache,
+        private readonly Security               $security,
+        private readonly LoggerInterface        $logger
     )
     {
     }
@@ -148,6 +148,7 @@ class OptimizedRecommendationService
      *
      * @param User $currentUser
      * @return array Données comportementales structurées
+     * @throws \Doctrine\DBAL\Exception
      */
     private function getBehavioralData(User $currentUser): array
     {

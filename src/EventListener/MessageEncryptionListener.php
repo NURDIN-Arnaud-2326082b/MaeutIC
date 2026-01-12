@@ -22,11 +22,12 @@ use Doctrine\Bundle\DoctrineBundle\Attribute\AsEntityListener;
 use Doctrine\ORM\Events;
 use Doctrine\Persistence\Event\LifecycleEventArgs;
 use Exception;
+use Random\RandomException;
 
 #[AsEntityListener(event: Events::prePersist, entity: Message::class)]
 #[AsEntityListener(event: Events::preUpdate, entity: Message::class)]
 #[AsEntityListener(event: Events::postLoad, entity: Message::class)]
-class MessageEncryptionListener
+readonly class MessageEncryptionListener
 {
     public function __construct(
         private EncryptionService $encryptionService
@@ -40,6 +41,7 @@ class MessageEncryptionListener
      * @param Message $message L'entité Message en cours de persistance
      * @param LifecycleEventArgs $event Les arguments de l'événement
      * @return void
+     * @throws RandomException
      */
     public function prePersist(Message $message, LifecycleEventArgs $event): void
     {
@@ -51,6 +53,7 @@ class MessageEncryptionListener
      *
      * @param Message $message L'entité Message à chiffrer
      * @return void
+     * @throws RandomException
      */
     private function encryptContent(Message $message): void
     {
@@ -66,6 +69,7 @@ class MessageEncryptionListener
      * @param Message $message L'entité Message en cours de mise à jour
      * @param LifecycleEventArgs $event Les arguments de l'événement
      * @return void
+     * @throws RandomException
      */
     public function preUpdate(Message $message, LifecycleEventArgs $event): void
     {

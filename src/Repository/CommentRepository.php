@@ -3,6 +3,7 @@
 namespace App\Repository;
 
 use App\Entity\Comment;
+use DateTime;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -33,7 +34,7 @@ class CommentRepository extends ServiceEntityRepository
         $comment->setBody($body);
         $comment->setPost($post);
         $comment->setUser($user);
-        $comment->setCreationDate(new \DateTime());
+        $comment->setCreationDate(new DateTime());
 
         $this->getEntityManager()->persist($comment);
         $this->getEntityManager()->flush();
