@@ -2,41 +2,33 @@
 
 namespace App\Controller;
 
-use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Bundle\SecurityBundle\Security;
 use App\Entity\UserQuestions;
-use App\Repository\PostRepository;
-use App\Repository\CommentRepository;
-use Symfony\Component\HttpFoundation\Request;
 use App\Form\ProfileEditFormType;
-use Doctrine\ORM\EntityManagerInterface;
+use App\Repository\CommentRepository;
+use App\Repository\PostLikeRepository;
+use App\Repository\PostRepository;
 use App\Repository\TagRepository;
 use App\Repository\UserQuestionsRepository;
-use Symfony\Component\HttpFoundation\Session\SessionInterface;
-use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use App\Repository\UserRepository;
-use App\Entity\User;
-use App\Repository\PostLikeRepository;
+use Doctrine\ORM\EntityManagerInterface;
+use Exception;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Session\SessionInterface;
+use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
+use Symfony\Component\String\Slugger\AsciiSlugger;
 
-final class ProfileController extends AbstractController{
+final class ProfileController extends AbstractController
+{
     #[Route('/profile', name: 'app_profile')]
     public function index(Security $security): Response
     {
         $user = $security->getUser();
         if (!$user) {
             return $this->redirectToRoute('app_login');
-        }
-        return $this->renderProfile($user);
-    }
-
-    #[Route('/profile/show/{username}', name: 'app_profile_show')]
-    public function show(string $username, UserRepository $userRepository): Response
-    {
-        $user = $userRepository->findOneBy(['username' => $username]);
-        if (!$user) {
-            throw $this->createNotFoundException('Utilisateur non trouvé');
         }
         return $this->renderProfile($user);
     }
@@ -82,6 +74,16 @@ final class ProfileController extends AbstractController{
         ]);
     }
 
+    #[Route('/profile/show/{username}', name: 'app_profile_show')]
+    public function show(string $username, UserRepository $userRepository): Response
+    {
+        $user = $userRepository->findOneBy(['username' => $username]);
+        if (!$user) {
+            throw $this->createNotFoundException('Utilisateur non trouvé');
+        }
+        return $this->renderProfile($user);
+    }
+
     #[Route('/profile/posts/{username}', name: 'app_profile_posts')]
     public function posts(string $username, UserRepository $userRepository, PostRepository $postRepository): Response
     {
@@ -95,6 +97,7 @@ final class ProfileController extends AbstractController{
             'posts' => $posts,
         ]);
     }
+
     #[Route('/profile/comments/{username}', name: 'app_profile_comments')]
     public function comments(string $username, UserRepository $userRepository, CommentRepository $commentRepository): Response
     {
@@ -108,22 +111,22 @@ final class ProfileController extends AbstractController{
         ]);
     }
 
-    #[Route('/profile/edit/{username}', name: 'app_profile_edit')]
+    #[Route('/profile/edit', name: 'app_profile_edit')]
     public function edit(
-        string $username,
-        UserRepository $userRepository,
-        Request $request,
-        EntityManagerInterface $entityManager,
-        TagRepository $tagRepository,
+        Request                 $request,
+        EntityManagerInterface  $entityManager,
+        TagRepository           $tagRepository,
         UserQuestionsRepository $userQuestionsRepository
-    ): Response {
-         if($this->getUser()) {
+    ): Response
+    {
+        $user = $this->getUser();
+        if (!$user) {
             return $this->redirectToRoute('app_home');
         }
-        $user = $userRepository->findOneBy(['username' => $username]);
-        if (!$user) {
-            throw $this->createNotFoundException('Utilisateur non trouvé');
-        }
+//        $user = $userRepository->findOneBy(['username' => $username]);
+//        if (!$user) {
+//            throw $this->createNotFoundException('Utilisateur non trouvé');
+//        }
         // Questions classiques
         $dynamicQuestions = [
             'Pourquoi cette thématique de recherche vous intéresse-t-elle ?',
@@ -153,13 +156,13 @@ final class ProfileController extends AbstractController{
         $taggableQuestionsData = [[], []];
         foreach ($userQuestions as $uq) {
             if (str_starts_with($uq->getQuestion(), 'Taggable')) {
-                $index = (int) filter_var($uq->getQuestion(), FILTER_SANITIZE_NUMBER_INT);
+                $index = (int)filter_var($uq->getQuestion(), FILTER_SANITIZE_NUMBER_INT);
                 $tag = $tagRepository->findOneBy(['name' => $uq->getAnswer()]);
                 if ($tag) {
                     $taggableQuestionsData[$index][] = $tag->getId();
                 }
             } else {
-                $index = (int) filter_var($uq->getQuestion(), FILTER_SANITIZE_NUMBER_INT);
+                $index = (int)filter_var($uq->getQuestion(), FILTER_SANITIZE_NUMBER_INT);
                 $userQuestionsData[$index] = $uq->getAnswer();
             }
         }
@@ -201,14 +204,14 @@ final class ProfileController extends AbstractController{
             $profileImageFile = $form->get('profileImageFile')->getData();
             if ($profileImageFile) {
                 $originalFilename = pathinfo($profileImageFile->getClientOriginalName(), PATHINFO_FILENAME);
-                $safeFilename = (new \Symfony\Component\String\Slugger\AsciiSlugger())->slug($originalFilename);
-                $newFilename = $safeFilename.'-'.uniqid().'.'.$profileImageFile->guessExtension();
+                $safeFilename = (new AsciiSlugger())->slug($originalFilename);
+                $newFilename = $safeFilename . '-' . uniqid() . '.' . $profileImageFile->guessExtension();
                 try {
                     $profileImageFile->move(
-                        $this->getParameter('kernel.project_dir').'/public/profile_images',
+                        $this->getParameter('kernel.project_dir') . '/public/profile_images',
                         $newFilename
                     );
-                } catch (\Exception $e) {
+                } catch (Exception $e) {
                     $this->addFlash('danger', "Erreur lors de l'upload de la photo de profil.");
                 }
                 $user->setProfileImage($newFilename);
@@ -226,7 +229,7 @@ final class ProfileController extends AbstractController{
             $questions = $form->get('userQuestions')->getData();
             foreach ($questions as $index => $answer) {
                 if (!empty($answer)) {
-                    $uq = new \App\Entity\UserQuestions();
+                    $uq = new UserQuestions();
                     $uq->setUser($user);
                     $uq->setQuestion('Question ' . $index);
                     $uq->setAnswer($answer);
@@ -241,7 +244,7 @@ final class ProfileController extends AbstractController{
                 $already = [];
                 foreach ($tagsArray as $tag) {
                     if ($tag && !in_array($tag->getName(), $already, true)) {
-                        $uq = new \App\Entity\UserQuestions();
+                        $uq = new UserQuestions();
                         $uq->setUser($user);
                         $uq->setQuestion('Taggable Question ' . $index);
                         $uq->setAnswer($tag->getName());
@@ -263,12 +266,13 @@ final class ProfileController extends AbstractController{
 
     #[Route('/profile/delete', name: 'app_profile_delete', methods: ['POST'])]
     public function delete(
-        Security $security,
-        Request $request,
-        TokenStorageInterface $tokenStorage,
-        SessionInterface $session,
+        Security               $security,
+        Request                $request,
+        TokenStorageInterface  $tokenStorage,
+        SessionInterface       $session,
         EntityManagerInterface $entityManager
-    ): Response {
+    ): Response
+    {
         $user = $security->getUser();
         if (!$user) {
             return $this->redirectToRoute('app_login');
@@ -310,20 +314,21 @@ final class ProfileController extends AbstractController{
 
     #[Route('/profile/replies', name: 'app_profile_replies')]
     public function replies(
-        PostRepository $postRepository,
+        PostRepository     $postRepository,
         PostLikeRepository $postLikeRepository
-    ): Response {
+    ): Response
+    {
         $user = $this->getUser();
         if (!$user) {
             throw $this->createAccessDeniedException('Vous devez être connecté pour accéder à cette page.');
         }
 
         $replies = $postRepository->findRepliesByUser($user);
-        
+
         // Initialiser les données de likes pour les réponses
         $repliesLikes = [];
         $userRepliesLikes = [];
-        
+
         foreach ($replies as $reply) {
             $repliesLikes[$reply->getId()] = $postLikeRepository->countByPost($reply);
             $userRepliesLikes[$reply->getId()] = $postLikeRepository->isLikedByUser($reply, $user);
