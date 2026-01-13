@@ -117,9 +117,6 @@ final class ProfileController extends AbstractController{
         TagRepository $tagRepository,
         UserQuestionsRepository $userQuestionsRepository
     ): Response {
-         if($this->getUser()) {
-            return $this->redirectToRoute('app_home');
-        }
         $user = $userRepository->findOneBy(['username' => $username]);
         if (!$user) {
             throw $this->createNotFoundException('Utilisateur non trouvé');
