@@ -180,8 +180,10 @@ final class ProfileController extends AbstractController
         EntityManagerInterface  $entityManager,
         TagRepository           $tagRepository,
         UserQuestionsRepository $userQuestionsRepository
-    ): Response
-    {
+    ): Response {
+         if($this->getUser()) {
+            return $this->redirectToRoute('app_home');
+        }
         $user = $userRepository->findOneBy(['username' => $username]);
         if (!$user) {
             throw $this->createNotFoundException('Utilisateur non trouvé');
