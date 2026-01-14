@@ -1,11 +1,19 @@
 <?php
 
+/**
+ * Entité Tag - Représente un tag/mot-clé
+ *
+ * Cette entité gère les tags utilisés pour catégoriser :
+ * - Les auteurs de la bibliothèque
+ * - Les articles et livres
+ * - Les profils utilisateurs
+ *
+ * Les tags permettent de filtrer et rechercher du contenu par thématiques
+ */
+
 namespace App\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
-use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\Common\Collections\Collection;
-use App\Entity\Author;
 
 #[ORM\Entity]
 class Tag

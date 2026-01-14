@@ -2,9 +2,9 @@
 
 namespace App\Controller;
 
+use App\Entity\Notification;
 use App\Entity\Post;
 use App\Entity\PostLike;
-use App\Entity\Notification;
 use App\Repository\PostLikeRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -17,8 +17,10 @@ class PostLikeController extends AbstractController
 {
     public function __construct(
         private EntityManagerInterface $entityManager,
-        private PostLikeRepository $postLikeRepository
-    ) {}
+        private PostLikeRepository     $postLikeRepository
+    )
+    {
+    }
 
     #[Route('/toggle/{id}', name: 'post_like_toggle', methods: ['POST'])]
     #[IsGranted('ROLE_USER')]
@@ -36,7 +38,7 @@ class PostLikeController extends AbstractController
             $postLike = new PostLike();
             $postLike->setUser($user);
             $postLike->setPost($post);
-            
+
             $this->entityManager->persist($postLike);
 
             // --- NEW: create notification to post author ---
@@ -75,6 +77,12 @@ class PostLikeController extends AbstractController
         ]);
     }
 
+    /**
+     * Retourne le nombre de likes sur un post
+     *
+     * @param Post $post Le post dont on veut compter les likes
+     * @return JsonResponse Le nombre total de likes
+     */
     #[Route('/count/{id}', name: 'post_like_count', methods: ['GET'])]
     public function count(Post $post): JsonResponse
     {
@@ -83,6 +91,12 @@ class PostLikeController extends AbstractController
         ]);
     }
 
+    /**
+     * Vérifie si l'utilisateur connecté a liké un post
+     *
+     * @param Post $post Le post à vérifier
+     * @return JsonResponse Le statut de like (true/false)
+     */
     #[Route('/status/{id}', name: 'post_like_status', methods: ['GET'])]
     #[IsGranted('ROLE_USER')]
     public function status(Post $post): JsonResponse
