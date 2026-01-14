@@ -1095,6 +1095,17 @@ window.addEventListener('load', function() {
 })();
 </script>
 
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    // FORCER la recherche au chargement de la page
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+        setTimeout(() => {
+            performSearch(searchInput.value);
+        }, 100);
+    }
+});
+</script>
 
 {# Modal de création de post #}
 {% include 'modals/_post_create_modal_methodology.html.twig' %}
