@@ -1,14 +1,5 @@
 <?php
 
-/**
- * Configuration des bundles Symfony
- *
- * Définit tous les bundles activés dans l'application
- * et spécifie les environnements dans lesquels ils doivent être chargés
- * (Les bundles fournissent des fonctionnalités comme Twig, Doctrine ORM,
- * la sécurité, les migrations de base de données, etc.)
- */
-
 return [
     Symfony\Bundle\FrameworkBundle\FrameworkBundle::class => ['all' => true],
     Symfony\Bundle\TwigBundle\TwigBundle::class => ['all' => true],

@@ -1,19 +1,5 @@
 <?php
 
-/**
- * Listener pour le chiffrement automatique des messages
- *
- * Intercepte les événements du cycle de vie des entités Message
- * pour automatiquement chiffrer/déchiffrer le contenu :
- *
- * - prePersist : Chiffre le contenu avant l'insertion en base
- * - preUpdate : Chiffre le contenu avant la mise à jour
- * - postLoad : Déchiffre le contenu après le chargement depuis la base
- *
- * Assure que les messages sont toujours chiffrés en base de données
- * mais accessibles en clair dans l'application
- */
-
 namespace App\EventListener;
 
 use App\Entity\Message;
@@ -22,12 +8,11 @@ use Doctrine\Bundle\DoctrineBundle\Attribute\AsEntityListener;
 use Doctrine\ORM\Events;
 use Doctrine\Persistence\Event\LifecycleEventArgs;
 use Exception;
-use Random\RandomException;
 
 #[AsEntityListener(event: Events::prePersist, entity: Message::class)]
 #[AsEntityListener(event: Events::preUpdate, entity: Message::class)]
 #[AsEntityListener(event: Events::postLoad, entity: Message::class)]
-readonly class MessageEncryptionListener
+class MessageEncryptionListener
 {
     public function __construct(
         private EncryptionService $encryptionService
@@ -35,26 +20,11 @@ readonly class MessageEncryptionListener
     {
     }
 
-    /**
-     * Chiffre le contenu avant l'insertion en base
-     *
-     * @param Message $message L'entité Message en cours de persistance
-     * @param LifecycleEventArgs $event Les arguments de l'événement
-     * @return void
-     * @throws RandomException
-     */
     public function prePersist(Message $message, LifecycleEventArgs $event): void
     {
         $this->encryptContent($message);
     }
 
-    /**
-     * Chiffre le contenu du message
-     *
-     * @param Message $message L'entité Message à chiffrer
-     * @return void
-     * @throws RandomException
-     */
     private function encryptContent(Message $message): void
     {
         if ($content = $message->getContent()) {
@@ -63,37 +33,16 @@ readonly class MessageEncryptionListener
         }
     }
 
-    /**
-     * Chiffre le contenu avant la mise à jour
-     *
-     * @param Message $message L'entité Message en cours de mise à jour
-     * @param LifecycleEventArgs $event Les arguments de l'événement
-     * @return void
-     * @throws RandomException
-     */
     public function preUpdate(Message $message, LifecycleEventArgs $event): void
     {
         $this->encryptContent($message);
     }
 
-    /**
-     * Déchiffre le contenu après chargement depuis la base
-     *
-     * @param Message $message L'entité Message chargée
-     * @param LifecycleEventArgs $event Les arguments de l'événement
-     * @return void
-     */
     public function postLoad(Message $message, LifecycleEventArgs $event): void
     {
         $this->decryptContent($message);
     }
 
-    /**
-     * Déchiffre le contenu du message
-     *
-     * @param Message $message L'entité Message à déchiffrer
-     * @return void
-     */
     private function decryptContent(Message $message): void
     {
         if ($encrypted = $message->getEncryptedContent()) {

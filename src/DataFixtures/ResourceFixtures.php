@@ -30,12 +30,12 @@ class ResourceFixtures extends Fixture
         }
 
         $resource = new Resource();
-        $resource->setTitle("Resource Title $i")
-            ->setDescription("Description for resource $i")
-            ->setLink("https://www.youtube.com/watch?v=OMo5Y_AERPg")
-            ->setPage($pageTypes[array_rand($pageTypes)])
-            ->setUser($user);
-        $manager->persist($resource);
+            $resource->setTitle("Resource Title $i")
+                ->setDescription("Description for resource $i")
+                ->setLink("https://www.youtube.com/watch?v=OMo5Y_AERPg")
+                ->setPage($pageTypes[array_rand($pageTypes)])
+                ->setUser($user);
+            $manager->persist($resource);
 
         $manager->flush();
     }
