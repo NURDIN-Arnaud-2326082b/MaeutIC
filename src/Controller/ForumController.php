@@ -64,6 +64,20 @@ class ForumController extends AbstractController
         ]);
     }
 
+    // Génère 3 lettres aléatoires, un point puis 3 chiffres pour un identifiant anonyme
+    public function generateAnonymousId(): string
+    {
+        $letters = '';
+        for ($i = 0; $i < 3; $i++) {
+            $letters .= chr(rand(97, 122)); // lettres minuscules a-z
+        }
+        $numbers = '';
+        for ($i = 0; $i < 3; $i++) {
+            $numbers .= rand(0, 9);
+        }
+        return $letters . '.' . $numbers;
+    }
+
     #[Route('/forums/detente/search', name: 'app_detente_forums_search', methods: ['GET'])]
     public function searchDetente(
         Request $request,
