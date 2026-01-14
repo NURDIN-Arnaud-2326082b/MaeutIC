@@ -53,12 +53,8 @@ class UserController extends AbstractController
             }
 
             $ids = $target->getNetwork();
-            if (is_string($ids)) {
-                $decoded = json_decode($ids, true);
-                $ids = (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) ? $decoded : [];
-            }
 
-            if (empty($ids) || !is_array($ids)) {
+            if (empty($ids)) {
                 return $this->json(['connections' => []]);
             }
 

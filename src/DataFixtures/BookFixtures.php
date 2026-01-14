@@ -5,8 +5,8 @@ namespace App\DataFixtures;
 use App\Entity\Book;
 use App\Entity\User;
 use Doctrine\Bundle\FixturesBundle\Fixture;
-use Doctrine\Persistence\ObjectManager;
 use Doctrine\Common\DataFixtures\DependentFixtureInterface;
+use Doctrine\Persistence\ObjectManager;
 
 class BookFixtures extends Fixture implements DependentFixtureInterface
 {

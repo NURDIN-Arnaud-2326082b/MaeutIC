@@ -3,11 +3,12 @@
 namespace App\DataFixtures;
 
 use App\Entity\Comment;
-use App\Entity\User;
 use App\Entity\Post;
+use App\Entity\User;
+use DateTime;
 use Doctrine\Bundle\FixturesBundle\Fixture;
-use Doctrine\Persistence\ObjectManager;
 use Doctrine\Common\DataFixtures\DependentFixtureInterface;
+use Doctrine\Persistence\ObjectManager;
 
 
 class CommentFixtures extends Fixture implements DependentFixtureInterface
@@ -23,10 +24,10 @@ class CommentFixtures extends Fixture implements DependentFixtureInterface
             // Create 5 comments for each post
             for ($j = 1; $j <= 5; $j++) {
                 $comment = new Comment();
-                $comment->setBody("This is comment number $j for post " . ($i + 1) . ". je m'appelle ". $user->getUsername() ." et j'adore commenter.")
-                        ->setCreationDate(new \DateTime())
-                        ->setUser($user)
-                        ->setPost($post);
+                $comment->setBody("This is comment number $j for post " . ($i + 1) . ". je m'appelle " . $user->getUsername() . " et j'adore commenter.")
+                    ->setCreationDate(new DateTime())
+                    ->setUser($user)
+                    ->setPost($post);
 
                 $manager->persist($comment);
 

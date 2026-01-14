@@ -22,11 +22,12 @@ use Doctrine\Bundle\DoctrineBundle\Attribute\AsEntityListener;
 use Doctrine\ORM\Events;
 use Doctrine\Persistence\Event\LifecycleEventArgs;
 use Exception;
+use Random\RandomException;
 
 #[AsEntityListener(event: Events::prePersist, entity: Message::class)]
 #[AsEntityListener(event: Events::preUpdate, entity: Message::class)]
 #[AsEntityListener(event: Events::postLoad, entity: Message::class)]
-class MessageEncryptionListener
+readonly class MessageEncryptionListener
 {
     public function __construct(
         private EncryptionService $encryptionService

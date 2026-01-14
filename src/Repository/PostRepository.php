@@ -3,9 +3,10 @@
 namespace App\Repository;
 
 use App\Entity\Post;
+use App\Entity\User;
+use DateTime;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
-use App\Entity\User;
 
 /**
  * @extends ServiceEntityRepository<Post>
@@ -96,7 +97,7 @@ class PostRepository extends ServiceEntityRepository
         // Filtre par catégorie
         if ($category !== 'General') {
             $qb->andWhere('f.title = :category')
-            ->setParameter('category', $category);
+                ->setParameter('category', $category);
         }
 
         // Filtre par texte de recherche
@@ -104,51 +105,51 @@ class PostRepository extends ServiceEntityRepository
             switch ($type) {
                 case 'title':
                     $qb->andWhere('p.name LIKE :query')
-                    ->setParameter('query', '%' . $query . '%');
+                        ->setParameter('query', '%' . $query . '%');
                     break;
                 case 'content':
                     $qb->andWhere('p.description LIKE :query')
-                    ->setParameter('query', '%' . $query . '%');
+                        ->setParameter('query', '%' . $query . '%');
                     break;
                 case 'author':
                     // Pour la recherche par auteur, on exclut les forums anonymes
                     $qb->andWhere('(u.firstName LIKE :query OR u.lastName LIKE :query)')
-                    ->andWhere('f.anonymous = false')
-                    ->setParameter('query', '%' . $query . '%');
+                        ->andWhere('f.anonymous = false')
+                        ->setParameter('query', '%' . $query . '%');
                     break;
                 case 'all':
                 default:
                     // Pour la recherche "Tout", on cherche dans titre + contenu + auteur (seulement si forum est non anonyme)
                     $qb->andWhere('(p.name LIKE :query OR p.description LIKE :query OR (f.anonymous = false AND (u.firstName LIKE :query OR u.lastName LIKE :query)))')
-                    ->setParameter('query', '%' . $query . '%');
+                        ->setParameter('query', '%' . $query . '%');
                     break;
             }
         }
 
         // Filtre par date
-        $now = new \DateTime();
+        $now = new DateTime();
         switch ($dateFilter) {
             case 'today':
                 $qb->andWhere('p.creationDate >= :today')
-                ->setParameter('today', $now->format('Y-m-d 00:00:00'));
+                    ->setParameter('today', $now->format('Y-m-d 00:00:00'));
                 break;
             case 'week':
                 $weekAgo = clone $now;
                 $weekAgo->modify('-1 week');
                 $qb->andWhere('p.creationDate >= :weekAgo')
-                ->setParameter('weekAgo', $weekAgo);
+                    ->setParameter('weekAgo', $weekAgo);
                 break;
             case 'month':
                 $monthAgo = clone $now;
                 $monthAgo->modify('-1 month');
                 $qb->andWhere('p.creationDate >= :monthAgo')
-                ->setParameter('monthAgo', $monthAgo);
+                    ->setParameter('monthAgo', $monthAgo);
                 break;
             case 'year':
                 $yearAgo = clone $now;
                 $yearAgo->modify('-1 year');
                 $qb->andWhere('p.creationDate >= :yearAgo')
-                ->setParameter('yearAgo', $yearAgo);
+                    ->setParameter('yearAgo', $yearAgo);
                 break;
         }
 
@@ -157,19 +158,19 @@ class PostRepository extends ServiceEntityRepository
             case 'popular':
                 // Tri par nombre de likes (le plus populaire en premier)
                 $qb->leftJoin('p.likes', 'pl')
-                ->addSelect('COUNT(pl.id) as HIDDEN likeCount')
-                ->groupBy('p.id')
-                ->orderBy('likeCount', 'DESC');
+                    ->addSelect('COUNT(pl.id) as HIDDEN likeCount')
+                    ->groupBy('p.id')
+                    ->orderBy('likeCount', 'DESC');
                 break;
-                
+
             case 'commented':
                 // Tri par nombre de commentaires (le plus commenté en premier)
                 $qb->leftJoin('p.comments', 'c')
-                ->addSelect('COUNT(c.id) as HIDDEN commentCount')
-                ->groupBy('p.id')
-                ->orderBy('commentCount', 'DESC');
+                    ->addSelect('COUNT(c.id) as HIDDEN commentCount')
+                    ->groupBy('p.id')
+                    ->orderBy('commentCount', 'DESC');
                 break;
-                
+
             case 'recent':
                 $qb->orderBy('p.creationDate', 'DESC');
                 break;
@@ -192,7 +193,7 @@ class PostRepository extends ServiceEntityRepository
         // Filtrer uniquement par type spécial (methodology, administratif, detente)
         if ($specialType) {
             $qb->andWhere('f.special = :specialType')
-            ->setParameter('specialType', $specialType);
+                ->setParameter('specialType', $specialType);
         }
 
         // Filtre par texte de recherche
@@ -200,51 +201,51 @@ class PostRepository extends ServiceEntityRepository
             switch ($type) {
                 case 'title':
                     $qb->andWhere('p.name LIKE :query')
-                    ->setParameter('query', '%' . $query . '%');
+                        ->setParameter('query', '%' . $query . '%');
                     break;
                 case 'content':
                     $qb->andWhere('p.description LIKE :query')
-                    ->setParameter('query', '%' . $query . '%');
+                        ->setParameter('query', '%' . $query . '%');
                     break;
                 case 'author':
                     // Pour la recherche par auteur, on exclut les forums anonymes
                     $qb->andWhere('(u.firstName LIKE :query OR u.lastName LIKE :query)')
-                    ->andWhere('f.anonymous = false')
-                    ->setParameter('query', '%' . $query . '%');
+                        ->andWhere('f.anonymous = false')
+                        ->setParameter('query', '%' . $query . '%');
                     break;
                 case 'all':
                 default:
                     // Pour la recherche "Tout", on cherche dans titre + contenu + auteur (seulement si forum est non anonyme)
                     $qb->andWhere('(p.name LIKE :query OR p.description LIKE :query OR (f.anonymous = false AND (u.firstName LIKE :query OR u.lastName LIKE :query)))')
-                    ->setParameter('query', '%' . $query . '%');
+                        ->setParameter('query', '%' . $query . '%');
                     break;
             }
         }
 
         // Filtre par date
-        $now = new \DateTime();
+        $now = new DateTime();
         switch ($dateFilter) {
             case 'today':
                 $qb->andWhere('p.creationDate >= :today')
-                ->setParameter('today', $now->format('Y-m-d 00:00:00'));
+                    ->setParameter('today', $now->format('Y-m-d 00:00:00'));
                 break;
             case 'week':
                 $weekAgo = clone $now;
                 $weekAgo->modify('-1 week');
                 $qb->andWhere('p.creationDate >= :weekAgo')
-                ->setParameter('weekAgo', $weekAgo);
+                    ->setParameter('weekAgo', $weekAgo);
                 break;
             case 'month':
                 $monthAgo = clone $now;
                 $monthAgo->modify('-1 month');
                 $qb->andWhere('p.creationDate >= :monthAgo')
-                ->setParameter('monthAgo', $monthAgo);
+                    ->setParameter('monthAgo', $monthAgo);
                 break;
             case 'year':
                 $yearAgo = clone $now;
                 $yearAgo->modify('-1 year');
                 $qb->andWhere('p.creationDate >= :yearAgo')
-                ->setParameter('yearAgo', $yearAgo);
+                    ->setParameter('yearAgo', $yearAgo);
                 break;
         }
 
@@ -253,19 +254,19 @@ class PostRepository extends ServiceEntityRepository
             case 'popular':
                 // Tri par nombre de likes (le plus populaire en premier)
                 $qb->leftJoin('p.likes', 'pl')
-                ->addSelect('COUNT(pl.id) as HIDDEN likeCount')
-                ->groupBy('p.id')
-                ->orderBy('likeCount', 'DESC');
+                    ->addSelect('COUNT(pl.id) as HIDDEN likeCount')
+                    ->groupBy('p.id')
+                    ->orderBy('likeCount', 'DESC');
                 break;
-                
+
             case 'commented':
                 // Tri par nombre de commentaires (le plus commenté en premier)
                 $qb->leftJoin('p.comments', 'c')
-                ->addSelect('COUNT(c.id) as HIDDEN commentCount')
-                ->groupBy('p.id')
-                ->orderBy('commentCount', 'DESC');
+                    ->addSelect('COUNT(c.id) as HIDDEN commentCount')
+                    ->groupBy('p.id')
+                    ->orderBy('commentCount', 'DESC');
                 break;
-                
+
             case 'recent':
                 $qb->orderBy('p.creationDate', 'DESC');
                 break;

@@ -264,8 +264,6 @@ class ForumController extends AbstractController
         $likes = [];
         $userLikes = [];
         $replies = []; // Nouvelle variable pour les réponses
-        $form = null;
-        $editForm = null;
 
         // Toujours créer les formulaires
         $post = new Post();
@@ -377,7 +375,7 @@ class ForumController extends AbstractController
             'comments' => $comments,
             'likes' => $likes,
             'userLikes' => $userLikes,
-            'replies' => $replies ?? [], // Assurer que replies existe
+            'replies' => $replies, // Assurer que replies existe
             'form' => $form,
             'editForm' => $editForm,
         ]);
@@ -551,8 +549,6 @@ class ForumController extends AbstractController
         $likes = [];
         $userLikes = [];
         $replies = [];
-        $form = null;
-        $editForm = null;
 
         // Toujours créer les formulaires
         $post = new Post();
@@ -660,7 +656,7 @@ class ForumController extends AbstractController
             'comments' => $comments,
             'likes' => $likes,
             'userLikes' => $userLikes,
-            'replies' => $replies ?? [],
+            'replies' => $replies,
             'form' => $form,
             'editForm' => $editForm,
             'special' => 'methodology',
@@ -921,7 +917,7 @@ class ForumController extends AbstractController
                 'description' => $post->getDescription(),
                 'creationDate' => $post->getCreationDate()->format('Y-m-d H:i:s'),
                 'lastActivity' => $post->getLastActivity()->format('Y-m-d H:i:s'),
-                'forumId' => $post->getForum() ? $post->getForum()->getId() : null, // <-- Ajouté
+                'forumId' => $post->getForum()?->getId(), // <-- Ajouté
             ],
             'comments' => $comments,
             'likes' => $likes,
@@ -1173,8 +1169,6 @@ class ForumController extends AbstractController
         $likes = [];
         $userLikes = [];
         $replies = [];
-        $form = null;
-        $editForm = null;
 
         // Toujours créer les formulaires
         $post = new Post();
@@ -1282,7 +1276,7 @@ class ForumController extends AbstractController
             'comments' => $comments,
             'likes' => $likes,
             'userLikes' => $userLikes,
-            'replies' => $replies ?? [],
+            'replies' => $replies,
             'form' => $form,
             'editForm' => $editForm,
             'special' => 'administratif',
@@ -1529,8 +1523,6 @@ class ForumController extends AbstractController
         $likes = [];
         $userLikes = [];
         $replies = [];
-        $form = null;
-        $editForm = null;
 
         // Toujours créer les formulaires
         $post = new Post();
@@ -1638,7 +1630,7 @@ class ForumController extends AbstractController
             'comments' => $comments,
             'likes' => $likes,
             'userLikes' => $userLikes,
-            'replies' => $replies ?? [],
+            'replies' => $replies,
             'form' => $form,
             'editForm' => $editForm,
             'special' => 'detente',
@@ -1885,8 +1877,6 @@ class ForumController extends AbstractController
         $likes = [];
         $userLikes = [];
         $replies = [];
-        $form = null;
-        $editForm = null;
 
         // Toujours créer les formulaires
         $post = new Post();
@@ -1994,7 +1984,7 @@ class ForumController extends AbstractController
             'comments' => $comments,
             'likes' => $likes,
             'userLikes' => $userLikes,
-            'replies' => $replies ?? [],
+            'replies' => $replies,
             'form' => $form,
             'editForm' => $editForm,
             'special' => 'cafe_des_lumieres',

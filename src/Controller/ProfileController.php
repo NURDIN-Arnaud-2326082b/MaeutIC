@@ -60,10 +60,8 @@ final class ProfileController extends AbstractController
     {
         // Récupérer les réponses aux questions
         $userQuestions = [];
-        if ($user) {
-            foreach ($user->getUserQuestions() as $question) {
-                $userQuestions[$question->getQuestion()][] = $question->getAnswer();
-            }
+        foreach ($user->getUserQuestions() as $question) {
+            $userQuestions[$question->getQuestion()][] = $question->getAnswer();
         }
 
         // Libellés des questions classiques

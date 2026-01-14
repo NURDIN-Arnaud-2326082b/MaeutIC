@@ -200,10 +200,6 @@ final class LibraryController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        if (!$author) {
-            throw $this->createNotFoundException('Auteur non trouvé');
-        }
-
         $form = $this->createForm(AuthorType::class, $author);
         $form->handleRequest($request);
 
@@ -272,10 +268,6 @@ final class LibraryController extends AbstractController
         $user = $this->getUser();
         if (!$user || ($user->getUserType() !== 1 && $user->getId() !== $author->getUser()->getId())) {
             return $this->redirectToRoute('app_login'); // Ou utilisez throw $this->createAccessDeniedException();
-        }
-
-        if (!$author) {
-            throw $this->createNotFoundException('Auteur non trouvé');
         }
 
         if ($this->isCsrfTokenValid('delete_author_' . $author->getId(), $request->request->get('_token'))) {
@@ -400,9 +392,6 @@ final class LibraryController extends AbstractController
         TaggableRepository     $taggableRepository
     ): Response
     {
-        if (!$article) {
-            throw $this->createNotFoundException('Article non trouvé');
-        }
 
         $user = $this->getUser();
         if (!$user || ($user->getUserType() !== 1 && $user->getId() !== $article->getUser()->getId())) {
@@ -709,7 +698,7 @@ final class LibraryController extends AbstractController
         if (empty($tagIds)) {
             $books = $bookRepository->findAllOrderedByTitle();
         } else {
-            $books = $bookRepository->findByTags($tagIds, $taggableRepository);
+            $books = $bookRepository->findByTags($tagIds);
         }
         return $this->render('library/_books_grid.html.twig', [
             'books' => $books,

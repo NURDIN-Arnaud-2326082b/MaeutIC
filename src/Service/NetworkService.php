@@ -7,7 +7,7 @@ use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Exception;
 
-class NetworkService
+readonly class NetworkService
 {
     public function __construct(
         private UserRepository         $userRepository,

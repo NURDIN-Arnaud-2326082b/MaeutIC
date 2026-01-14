@@ -5,8 +5,8 @@ namespace App\DataFixtures;
 use App\Entity\Author;
 use App\Entity\User;
 use Doctrine\Bundle\FixturesBundle\Fixture;
-use Doctrine\Persistence\ObjectManager;
 use Doctrine\Common\DataFixtures\DependentFixtureInterface;
+use Doctrine\Persistence\ObjectManager;
 
 class AuthorFixtures extends Fixture implements DependentFixtureInterface
 {

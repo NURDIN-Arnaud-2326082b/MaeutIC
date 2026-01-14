@@ -40,7 +40,7 @@ class ForumRepository extends ServiceEntityRepository
     //            ->getOneOrNullResult()
     //        ;
     //    }
-    
+
     /**
      * Find all forums ordered by title.
      *

@@ -110,7 +110,7 @@ final class MapsController extends AbstractController
             'controller_name' => 'MapsController',
             'users' => $usersToDisplay,
             'friend_ids' => $friendIds,
-            'current_user_id' => $currentUser ? $currentUser->getId() : null,
+            'current_user_id' => $currentUser?->getId(),
             'user_scores' => $userScores,
         ]);
     }
@@ -300,7 +300,7 @@ final class MapsController extends AbstractController
         $response = $this->render('maps/_bubbles.html.twig', [
             'users' => $usersToDisplay,
             'friend_ids' => $friendIds,
-            'current_user_id' => $currentUser ? $currentUser->getId() : null,
+            'current_user_id' => $currentUser?->getId(),
             'user_scores' => $userScores,
         ]);
 
@@ -401,7 +401,7 @@ final class MapsController extends AbstractController
         return $this->render('maps/_bubbles.html.twig', [
             'users' => $usersToDisplay,
             'friend_ids' => $friendIds,
-            'current_user_id' => $currentUser ? $currentUser->getId() : null,
+            'current_user_id' => $currentUser?->getId(),
             'user_scores' => $userScores,
         ]);
     }
@@ -492,7 +492,7 @@ final class MapsController extends AbstractController
         $response = $this->render('maps/_bubbles.html.twig', [
             'users' => $usersToDisplay,
             'friend_ids' => $friendIds,
-            'current_user_id' => $currentUser ? $currentUser->getId() : null,
+            'current_user_id' => $currentUser?->getId(),
             'user_scores' => $userScores,
         ]);
 

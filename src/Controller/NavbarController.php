@@ -34,7 +34,7 @@ final class NavbarController extends AbstractController
         $notificationsCount = 0;
         if ($user) {
             $pending = $notificationRepo->findPendingByRecipient($user);
-            $notificationsCount = is_array($pending) ? count($pending) : 0;
+            $notificationsCount = count($pending);
         }
 
         // Tenter de générer la route nommée 'notifications_list' si elle existe,

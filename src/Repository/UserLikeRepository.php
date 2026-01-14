@@ -43,7 +43,7 @@ class UserLikeRepository extends ServiceEntityRepository
 
     public function hasUserLikedComment(int $userId, int $commentId): bool
     {
-        return (bool) $this->createQueryBuilder('ul')
+        return (bool)$this->createQueryBuilder('ul')
             ->select('COUNT(ul.id)')
             ->where('ul.user = :userId')
             ->andWhere('ul.comment = :commentId')
