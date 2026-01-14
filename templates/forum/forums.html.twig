@@ -781,11 +781,6 @@ function initializeSearch() {
 // Fonction de recherche
 function performSearch(query) {
     
-    if(!query) {
-        // Si la requête est vide, recharger les posts de la catégorie actuelle
-        clearSearch();
-        return;
-    }
     const searchType = document.getElementById('search-type').value;
     const dateFilter = document.getElementById('date-filter').value;
     const sortBy = document.getElementById('sort-by').value;
