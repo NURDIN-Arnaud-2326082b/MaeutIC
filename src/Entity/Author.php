@@ -1,12 +1,21 @@
 <?php
 
+/**
+ * Entité Author - Représente un auteur dans la bibliothèque
+ *
+ * Cette entité gère les auteurs référencés dans la bibliothèque académique :
+ * - Nom de l'auteur
+ * - Années de naissance et décès
+ * - Nationalité
+ * - Lien vers une ressource externe
+ * - Photo/image de l'auteur
+ * - Tags associés pour catégorisation
+ * - Utilisateur ayant ajouté l'auteur
+ */
+
 namespace App\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
-use App\Entity\User;
-use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\Common\Collections\Collection;
-use App\Entity\Tag;
 use Symfony\Component\HttpFoundation\File\File;
 use Symfony\Component\Validator\Constraints as Assert;
 

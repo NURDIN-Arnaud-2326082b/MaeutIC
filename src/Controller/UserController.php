@@ -1,18 +1,39 @@
 <?php
 
+/**
+ * Contrôleur de gestion des utilisateurs et du réseau social
+ *
+ * Ce contrôleur gère toutes les interactions sociales entre utilisateurs :
+ * - Gestion du réseau/connexions
+ * - Blocage et déblocage d'utilisateurs
+ * - Notifications de demandes de connexion
+ * - Consultation du réseau d'un utilisateur
+ * - Respect des règles de blocage dans toutes les interactions
+ */
+
 namespace App\Controller;
 
-use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
-use Doctrine\ORM\EntityManagerInterface;
-use App\Entity\User;
 use App\Entity\Conversation;
 use App\Entity\Notification;
+use App\Entity\User;
+use DateTime;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Annotation\Route;
+use Throwable;
 
 class UserController extends AbstractController
 {
+    /**
+     * Liste le réseau d'un utilisateur donné
+     *
+     * @param int $userId ID de l'utilisateur dont on veut le réseau
+     * @param EntityManagerInterface $entityManager Le gestionnaire d'entités
+     * @return JsonResponse La réponse JSON contenant le réseau de l'utilisateur
+     */
     #[Route('/network/list/{userId}', name: 'network_list', methods: ['GET'])]
     public function listNetwork(int $userId, EntityManagerInterface $entityManager): JsonResponse
     {
@@ -32,12 +53,8 @@ class UserController extends AbstractController
             }
 
             $ids = $target->getNetwork();
-            if (is_string($ids)) {
-                $decoded = json_decode($ids, true);
-                $ids = (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) ? $decoded : [];
-            }
 
-            if (empty($ids) || !is_array($ids)) {
+            if (empty($ids)) {
                 return $this->json(['connections' => []]);
             }
 
@@ -72,11 +89,18 @@ class UserController extends AbstractController
             }
 
             return $this->json(['connections' => $connections]);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             return $this->json(['error' => 'Server error', 'message' => $e->getMessage()], 500);
         }
     }
 
+    /**
+     * Vérifie le statut de connexion entre l'utilisateur courant et un autre utilisateur
+     *
+     * @param int $userId ID de l'autre utilisateur
+     * @param EntityManagerInterface $entityManager Le gestionnaire d'entités
+     * @return JsonResponse La réponse JSON contenant le statut de connexion
+     */
     #[Route('/network/status/{userId}', name: 'network_status', methods: ['GET'])]
     public function networkStatus(int $userId, EntityManagerInterface $entityManager): JsonResponse
     {
@@ -84,7 +108,7 @@ class UserController extends AbstractController
         if (!$me) {
             return $this->json(['error' => 'Unauthorized'], 401);
         }
-        if ($me->getId() === (int) $userId) {
+        if ($me->getId() === (int)$userId) {
             return $this->json(['status' => 'self']);
         }
 
@@ -124,6 +148,13 @@ class UserController extends AbstractController
         ]);
     }
 
+    /**
+     * Bloque ou débloque un utilisateur
+     *
+     * @param int $userId ID de l'utilisateur à bloquer/débloquer
+     * @param EntityManagerInterface $entityManager Le gestionnaire d'entités
+     * @return JsonResponse La réponse JSON indiquant le résultat de l'opération
+     */
     #[Route('/user/block/toggle/{userId}', name: 'user_block_toggle', methods: ['POST'])]
     public function toggleBlock(int $userId, EntityManagerInterface $entityManager): JsonResponse
     {
@@ -132,7 +163,7 @@ class UserController extends AbstractController
             if (!$me) {
                 return $this->json(['error' => 'Unauthorized'], 401);
             }
-            if ($me->getId() === (int) $userId) {
+            if ($me->getId() === (int)$userId) {
                 return $this->json(['error' => 'Cannot block yourself'], 400);
             }
 
@@ -167,11 +198,11 @@ class UserController extends AbstractController
             $notifRepo = $entityManager->getRepository(Notification::class);
             $qb = $notifRepo->createQueryBuilder('n');
             $qb->where('(n.sender = :a AND n.recipient = :b) OR (n.sender = :b AND n.recipient = :a)')
-               ->andWhere('n.type = :t')->andWhere('n.status = :s')
-               ->setParameter('a', $me)
-               ->setParameter('b', $other)
-               ->setParameter('t', 'network_request')
-               ->setParameter('s', 'pending');
+                ->andWhere('n.type = :t')->andWhere('n.status = :s')
+                ->setParameter('a', $me)
+                ->setParameter('b', $other)
+                ->setParameter('t', 'network_request')
+                ->setParameter('s', 'pending');
             $pending = $qb->getQuery()->getResult();
             foreach ($pending as $p) $entityManager->remove($p);
 
@@ -188,11 +219,17 @@ class UserController extends AbstractController
             $entityManager->flush();
 
             return $this->json(['success' => true, 'blocked' => true]);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             return $this->json(['error' => 'Exception', 'message' => $e->getMessage()], 500);
         }
     }
 
+    /**
+     * Affiche la page des paramètres utilisateur, y compris la liste des utilisateurs bloqués
+     *
+     * @param EntityManagerInterface $entityManager Le gestionnaire d'entités
+     * @return Response La réponse HTTP avec la page des paramètres
+     */
     #[Route('/settings', name: 'app_settings', methods: ['GET'])]
     public function settings(EntityManagerInterface $entityManager): Response
     {
@@ -202,7 +239,7 @@ class UserController extends AbstractController
         }
 
         $blockedIds = $user->getBlocked() ?? [];
-        $blockedIds = array_values(array_filter(array_map('intval', (array) $blockedIds), fn($v) => $v > 0));
+        $blockedIds = array_values(array_filter(array_map('intval', (array)$blockedIds), fn($v) => $v > 0));
 
         $blockedUsers = [];
         if (!empty($blockedIds)) {
@@ -220,18 +257,25 @@ class UserController extends AbstractController
         ]);
     }
 
+    /**
+     * Ajoute ou supprime un utilisateur du réseau de l'utilisateur courant
+     *
+     * @param int $userId ID de l'utilisateur à ajouter/supprimer du réseau
+     * @param EntityManagerInterface $entityManager Le gestionnaire d'entités
+     * @return JsonResponse La réponse JSON indiquant le résultat de l'opération
+     */
     #[Route('/network/toggle/{userId}', name: 'network_toggle', methods: ['POST'])]
-    public function toggleNetwork(int $userId, \Doctrine\ORM\EntityManagerInterface $entityManager): \Symfony\Component\HttpFoundation\JsonResponse
+    public function toggleNetwork(int $userId, EntityManagerInterface $entityManager): JsonResponse
     {
         $me = $this->getUser();
         if (!$me) {
             return $this->json(['error' => 'Unauthorized'], 401);
         }
-        if ($me->getId() === (int) $userId) {
+        if ($me->getId() === (int)$userId) {
             return $this->json(['error' => 'Cannot add yourself to network'], 400);
         }
 
-        $userRepo = $entityManager->getRepository(\App\Entity\User::class);
+        $userRepo = $entityManager->getRepository(User::class);
         $other = $userRepo->find($userId);
         if (!$other) {
             return $this->json(['error' => 'User not found'], 404);
@@ -242,7 +286,7 @@ class UserController extends AbstractController
             return $this->json(['error' => 'Blocked'], 403);
         }
 
-        $notifRepo = $entityManager->getRepository(\App\Entity\Notification::class);
+        $notifRepo = $entityManager->getRepository(Notification::class);
 
         // 1) Si déjà en réseau -> suppression mutuelle
         if ($me->isInNetwork($other->getId())) {
@@ -284,16 +328,16 @@ class UserController extends AbstractController
             $entityManager->remove($incoming);
 
             // créer conversation si nécessaire
-            $convRepo = $entityManager->getRepository(\App\Entity\Conversation::class);
+            $convRepo = $entityManager->getRepository(Conversation::class);
             $qb = $convRepo->createQueryBuilder('c');
             $qb->where('(c.user1 = :a AND c.user2 = :b) OR (c.user1 = :b AND c.user2 = :a)')
-               ->setParameter('a', $me)
-               ->setParameter('b', $other)
-               ->setMaxResults(1);
+                ->setParameter('a', $me)
+                ->setParameter('b', $other)
+                ->setMaxResults(1);
             $conv = $qb->getQuery()->getOneOrNullResult();
 
             if (!$conv) {
-                $conv = new \App\Entity\Conversation();
+                $conv = new Conversation();
                 if (method_exists($conv, 'setUser1') && method_exists($conv, 'setUser2')) {
                     $conv->setUser1($me);
                     $conv->setUser2($other);
@@ -316,7 +360,7 @@ class UserController extends AbstractController
         }
 
         // 4) Sinon : créer une notification de demande (pending) — l'autre devra accepter via notifications
-        $notification = new \App\Entity\Notification();
+        $notification = new Notification();
         $notification->setType('network_request');
         $notification->setSender($me);
         $notification->setRecipient($other);
@@ -332,9 +376,15 @@ class UserController extends AbstractController
         ]);
     }
 
-    // --- Notifications API: lister / accepter / refuser ---
+    /**
+     * Liste les notifications de l'utilisateur courant
+     *
+     * @param Request $request La requête HTTP
+     * @param EntityManagerInterface $entityManager Le gestionnaire d'entités
+     * @return JsonResponse La réponse JSON contenant les notifications
+     */
     #[Route('/notifications', name: 'notifications_list', methods: ['GET'])]
-    public function listNotifications(\Symfony\Component\HttpFoundation\Request $request, \Doctrine\ORM\EntityManagerInterface $entityManager): JsonResponse
+    public function listNotifications(Request $request, EntityManagerInterface $entityManager): JsonResponse
     {
         $me = $this->getUser();
         if (!$me) {
@@ -356,7 +406,7 @@ class UserController extends AbstractController
                 'status' => $n->getStatus(),
                 'isRead' => $n->isRead(),
                 'sender' => $sender ? ['id' => $sender->getId(), 'username' => $sender->getUsername()] : null,
-                'createdAt' => $n->getCreatedAt()->format(\DateTime::ATOM),
+                'createdAt' => $n->getCreatedAt()->format(DateTime::ATOM),
             ];
             if (!$n->isRead()) $unread++;
         }
@@ -364,8 +414,15 @@ class UserController extends AbstractController
         return $this->json(['notifications' => $out, 'count' => count($out), 'unread' => $unread]);
     }
 
+    /**
+     * Accepte une notification (ex: demande de connexion)
+     *
+     * @param int $id ID de la notification
+     * @param EntityManagerInterface $entityManager Le gestionnaire d'entités
+     * @return JsonResponse La réponse JSON
+     */
     #[Route('/notifications/accept/{id}', name: 'notifications_accept', methods: ['POST'])]
-    public function acceptNotification(int $id, \Doctrine\ORM\EntityManagerInterface $entityManager): JsonResponse
+    public function acceptNotification(int $id, EntityManagerInterface $entityManager): JsonResponse
     {
         $me = $this->getUser();
         if (!$me) {
@@ -404,9 +461,9 @@ class UserController extends AbstractController
         $convRepo = $entityManager->getRepository(Conversation::class);
         $qb = $convRepo->createQueryBuilder('c');
         $qb->where('(c.user1 = :a AND c.user2 = :b) OR (c.user1 = :b AND c.user2 = :a)')
-           ->setParameter('a', $me)
-           ->setParameter('b', $sender)
-           ->setMaxResults(1);
+            ->setParameter('a', $me)
+            ->setParameter('b', $sender)
+            ->setMaxResults(1);
         $conv = $qb->getQuery()->getOneOrNullResult();
 
         if (!$conv) {
@@ -427,8 +484,15 @@ class UserController extends AbstractController
         return $this->json(['success' => true, 'accepted' => true, 'conversationId' => $conv->getId() ?? null]);
     }
 
+    /**
+     * Décline une notification (ex: demande de connexion)
+     *
+     * @param int $id ID de la notification
+     * @param EntityManagerInterface $entityManager Le gestionnaire d'entités
+     * @return JsonResponse La réponse JSON
+     */
     #[Route('/notifications/decline/{id}', name: 'notifications_decline', methods: ['POST'])]
-    public function declineNotification(int $id, \Doctrine\ORM\EntityManagerInterface $entityManager): JsonResponse
+    public function declineNotification(int $id, EntityManagerInterface $entityManager): JsonResponse
     {
         $me = $this->getUser();
         if (!$me) {
@@ -451,8 +515,14 @@ class UserController extends AbstractController
         return $this->json(['success' => true, 'declined' => true]);
     }
 
+    /**
+     * Efface toutes les notifications de l'utilisateur courant
+     *
+     * @param EntityManagerInterface $entityManager Le gestionnaire d'entités
+     * @return JsonResponse La réponse JSON
+     */
     #[Route('/notifications/clear-all', name: 'notifications_clear_all', methods: ['POST'])]
-    public function clearAllNotifications(\Doctrine\ORM\EntityManagerInterface $entityManager): JsonResponse
+    public function clearAllNotifications(EntityManagerInterface $entityManager): JsonResponse
     {
         $me = $this->getUser();
         if (!$me) {

@@ -1,37 +1,59 @@
 <?php
 
+/**
+ * Contrôleur de gestion des forums
+ *
+ * Ce contrôleur gère tout le système de forums de discussion :
+ * - Affichage des forums et posts
+ * - Création, édition et suppression de posts
+ * - Gestion des commentaires et likes
+ * - Système de recherche avancée avec filtres
+ * - Abonnements aux posts
+ * - Forums anonymes et publics
+ * - Gestion des différentes catégories
+ */
+
 namespace App\Controller;
 
+use App\Entity\Comment;
+use App\Entity\Notification;
+use App\Entity\Post;
+use App\Entity\User;
+use App\Entity\UserLike;
+use App\Form\formType;
+use App\Form\PostFormType;
+use App\Repository\CommentRepository;
+use App\Repository\ForumRepository;
+use App\Repository\PostLikeRepository;
+use App\Repository\PostRepository;
+use App\Repository\UserLikeRepository;
+use DateTime;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
-use App\Entity\Comment;
-use App\Entity\UserLike;
-use App\Repository\ForumRepository;
-use App\Repository\PostRepository;
-use App\Repository\CommentRepository;
-use App\Repository\UserLikeRepository;
-use App\Repository\PostLikeRepository;
-use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\HttpFoundation\Request;
-use App\Form\formType;
-use App\Entity\Post;
-use App\Form\PostFormType;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
-use Symfony\Component\HttpFoundation\JsonResponse;
-use App\Entity\Conversation;
-use App\Entity\User;
-use App\Entity\Notification;
-use App\Repository\NotificationRepository;
 
+/**
+ *
+ */
 class ForumController extends AbstractController
 {
-
+    /**
+     * Recherche avancée dans les forums
+     *
+     * @param Request $request
+     * @param PostRepository $postRepository
+     * @return JsonResponse
+     */
     #[Route('/forums/search', name: 'app_forums_search', methods: ['GET'])]
     public function search(
-        Request $request,
+        Request        $request,
         PostRepository $postRepository
-    ): JsonResponse {
+    ): JsonResponse
+    {
         $query = $request->query->get('q', '');
         $type = $request->query->get('type', 'all');
         $dateFilter = $request->query->get('date', 'all');
@@ -49,9 +71,9 @@ class ForumController extends AbstractController
                 'description' => $post->getDescription(),
                 'creation_date' => $post->getCreationDate()->format('d/m/Y'),
                 'forum_title' => $post->getForum()->getTitle(),
-                'author_name' => $post->getForum()->isAnonymous() 
+                'author_name' => $post->getForum()->isAnonymous()
                     ? $this->generateAnonymousId()
-                    : ($post->getUser() 
+                    : ($post->getUser()
                         ? $post->getUser()->getFirstName() . ' ' . $post->getUser()->getLastName()
                         : 'Ancien utilisateur'
                     )
@@ -64,6 +86,13 @@ class ForumController extends AbstractController
         ]);
     }
 
+    /**
+     * Recherche avancée dans les forums Détente
+     *
+     * @param Request $request
+     * @param PostRepository $postRepository
+     * @return JsonResponse
+     */
     // Génère 3 lettres aléatoires, un point puis 3 chiffres pour un identifiant anonyme
     public function generateAnonymousId(): string
     {
@@ -80,37 +109,21 @@ class ForumController extends AbstractController
 
     #[Route('/forums/detente/search', name: 'app_detente_forums_search', methods: ['GET'])]
     public function searchDetente(
-        Request $request,
+        Request        $request,
         PostRepository $postRepository
-    ): JsonResponse {
+    ): JsonResponse
+    {
         return $this->handleSpecialSearch($request, $postRepository, 'detente');
     }
 
-    #[Route('/forums/administratif/search', name: 'app_administratif_forums_search', methods: ['GET'])]
-    public function searchAdministratif(
-        Request $request,
-        PostRepository $postRepository
-    ): JsonResponse {
-        return $this->handleSpecialSearch($request, $postRepository, 'administratif');
-    }
-
-    #[Route('/forums/methodology/search', name: 'app_methodology_forums_search', methods: ['GET'])]
-    public function searchMethodology(
-        Request $request,
-        PostRepository $postRepository
-    ): JsonResponse {
-        return $this->handleSpecialSearch($request, $postRepository, 'methodology');
-    }
-
-    #[Route('/forums/cafe_des_lumieres/search', name: 'app_cafe_des_lumieres_forums_search', methods: ['GET'])]
-    public function searchCafeDesLumieres(
-        Request $request,
-        PostRepository $postRepository
-    ): JsonResponse {
-        return $this->handleSpecialSearch($request, $postRepository, 'cafe_des_lumieres');
-    }
-
-    // Méthode privée pour gérer la recherche des catégories spéciales
+    /**
+     * Gestion de la recherche spéciale pour les catégories spécifiques
+     *
+     * @param Request $request
+     * @param PostRepository $postRepository
+     * @param string $specialType
+     * @return JsonResponse
+     */
     private function handleSpecialSearch(Request $request, PostRepository $postRepository, string $specialType): JsonResponse
     {
         $query = $request->query->get('q', '');
@@ -131,9 +144,9 @@ class ForumController extends AbstractController
                 'description' => $post->getDescription(),
                 'creation_date' => $post->getCreationDate()->format('d/m/Y'),
                 'forum_title' => $post->getForum()->getTitle(),
-                'author_name' => $post->getForum()->isAnonymous() 
+                'author_name' => $post->getForum()->isAnonymous()
                     ? $this->generateAnonymousId()
-                    : ($post->getUser() 
+                    : ($post->getUser()
                         ? $post->getUser()->getFirstName() . ' ' . $post->getUser()->getLastName()
                         : 'Ancien utilisateur'
                     )
@@ -146,71 +159,80 @@ class ForumController extends AbstractController
         ]);
     }
 
-    #[Route('forums/{category}/add', name: 'app_post_add')]
-    public function addPost(
-        ForumRepository $forumRepository,
-        PostRepository $postRepository,
-        Request $request
-    ): Response {
-        $forums = $forumRepository->findAllOrderedByTitle();
-        $category = urldecode($request->attributes->get('category'));
-        if (!$category) {
-            $category = 'General';
-        }
-
-        $post = new Post();
-        // Préselection du forum si catégorie courante
-        if ($category !== 'General') {
-            foreach ($forums as $forum) {
-                if ($forum->getTitle() === $category) {
-                    $post->setForum($forum);
-                    break;
-                }
-            }
-        }
-        $form = $this->createForm(PostFormType::class, $post);
-
-        $form->handleRequest($request);
-
-        
-        // dd($form->getData());
-        // dd($form->isSubmitted());
-        // dd($form->isValid());
-        // dd($form->getErrors(true, false));
-
-        if ($form->isSubmitted() && $form->isValid()) {
-            $post = $form->getData();
-            $post->setUser($this->getUser());
-            $post->setCreationDate(new \DateTime());
-            $post->setLastActivity(new \DateTime());
-            $postRepository->addPost($post);
-            return $this->redirectToRoute('app_forums', [
-                'category' => $post->getForum()->getTitle(),
-                'postId' => $post->getId(),
-            ]);
-        }
-
-        return $this->redirectToRoute('app_forums', [
-            'category' => $category,
-        ]);
-        // return $this->render('forum/create_post.html.twig', [
-        //     'forums' => $forums,
-        //     'category' => $category,
-        //     'form' => $form->createView(),
-        // ]);
+    /**
+     * Recherche avancée dans les forums Administratif
+     *
+     * @param Request $request
+     * @param PostRepository $postRepository
+     * @return JsonResponse
+     */
+    #[Route('/forums/administratif/search', name: 'app_administratif_forums_search', methods: ['GET'])]
+    public function searchAdministratif(
+        Request        $request,
+        PostRepository $postRepository
+    ): JsonResponse
+    {
+        return $this->handleSpecialSearch($request, $postRepository, 'administratif');
     }
 
+    /**
+     * Recherche avancée dans les forums Méthodologie
+     *
+     * @param Request $request
+     * @param PostRepository $postRepository
+     * @return JsonResponse
+     */
+    #[Route('/forums/methodology/search', name: 'app_methodology_forums_search', methods: ['GET'])]
+    public function searchMethodology(
+        Request        $request,
+        PostRepository $postRepository
+    ): JsonResponse
+    {
+        return $this->handleSpecialSearch($request, $postRepository, 'methodology');
+    }
+
+    // Méthode privée pour gérer la recherche des catégories spéciales
+
+    /**
+     * Recherche avancée dans les forums Café des Lumières
+     *
+     * @param Request $request
+     * @param PostRepository $postRepository
+     * @return JsonResponse
+     */
+    #[Route('/forums/cafe_des_lumieres/search', name: 'app_cafe_des_lumieres_forums_search', methods: ['GET'])]
+    public function searchCafeDesLumieres(
+        Request        $request,
+        PostRepository $postRepository
+    ): JsonResponse
+    {
+        return $this->handleSpecialSearch($request, $postRepository, 'cafe_des_lumieres');
+    }
+
+    /**
+     * Affichage des forums et gestion des posts
+     *
+     * @param ForumRepository $forumRepository
+     * @param PostRepository $postRepository
+     * @param CommentRepository $commentRepository
+     * @param UserLikeRepository $userLikeRepository
+     * @param PostLikeRepository $postLikeRepository
+     * @param Request $request
+     * @param int|null $postId
+     * @return Response
+     */
     #[Route('forums/{category}/{postId}', name: 'app_forums', requirements: ['postId' => '\d+'])]
     #[Route('forums/{category}', name: 'app_forums_no_post')]
     public function index(
-        ForumRepository $forumRepository, 
-        PostRepository $postRepository, 
-        CommentRepository $commentRepository, 
+        ForumRepository    $forumRepository,
+        PostRepository     $postRepository,
+        CommentRepository  $commentRepository,
         UserLikeRepository $userLikeRepository,
         PostLikeRepository $postLikeRepository,
-        Request $request, 
-        ?int $postId = null
-    ): Response {
+        Request            $request,
+        ?int               $postId = null
+    ): Response
+    {
         $category = $request->attributes->get('category', 'General');
         $currentForum = $forumRepository->findOneBy(['title' => $category]);
         $forums = $forumRepository->findAll();
@@ -229,9 +251,7 @@ class ForumController extends AbstractController
         $userPostLikes = [];
         foreach ($posts as $post) {
             $postLikes[$post->getId()] = $postLikeRepository->countByPost($post);
-            $userPostLikes[$post->getId()] = $this->getUser() 
-                ? $postLikeRepository->isLikedByUser($post, $this->getUser()) 
-                : false;
+            $userPostLikes[$post->getId()] = $this->getUser() && $postLikeRepository->isLikedByUser($post, $this->getUser());
         }
 
         // Si un post spécifique est sélectionné
@@ -242,8 +262,6 @@ class ForumController extends AbstractController
         $likes = [];
         $userLikes = [];
         $replies = []; // Nouvelle variable pour les réponses
-        $form = null;
-        $editForm = null;
 
         // Toujours créer les formulaires
         $post = new Post();
@@ -264,26 +282,20 @@ class ForumController extends AbstractController
 
                     // Ajouter les likes du post sélectionné
                     $selectedPostLikes = $postLikeRepository->countByPost($selectedPost);
-                    $userSelectedPostLike = $this->getUser() 
-                        ? $postLikeRepository->isLikedByUser($selectedPost, $this->getUser()) 
-                        : false;
+                    $userSelectedPostLike = $this->getUser() && $postLikeRepository->isLikedByUser($selectedPost, $this->getUser());
 
                     foreach ($comments as $comment) {
                         $likes[] = $userLikeRepository->countByCommentId($comment->getId());
-                        $userLikes[$comment->getId()] = $this->getUser() 
-                            ? $userLikeRepository->hasUserLikedComment($this->getUser()->getId(), $comment->getId()) 
-                            : false;
+                        $userLikes[$comment->getId()] = $this->getUser() && $userLikeRepository->hasUserLikedComment($this->getUser()->getId(), $comment->getId());
                     }
 
                     // Récupérer les réponses au post
                     $replies = $postRepository->findBy(['parentPost' => $selectedPost], ['id' => 'ASC']);
-                    
+
                     // Initialiser les likes pour les réponses
                     foreach ($replies as $reply) {
                         $postLikes[$reply->getId()] = $postLikeRepository->countByPost($reply);
-                        $userPostLikes[$reply->getId()] = $this->getUser() 
-                            ? $postLikeRepository->isLikedByUser($reply, $this->getUser()) 
-                            : false;
+                        $userPostLikes[$reply->getId()] = $this->getUser() && $postLikeRepository->isLikedByUser($reply, $this->getUser());
                     }
 
                     // Traitement du formulaire de création de post
@@ -291,8 +303,8 @@ class ForumController extends AbstractController
                     if ($form->isSubmitted() && $form->isValid()) {
                         $post = $form->getData();
                         $post->setUser($this->getUser());
-                        $post->setCreationDate(new \DateTime());
-                        $post->setLastActivity(new \DateTime());
+                        $post->setCreationDate(new DateTime());
+                        $post->setLastActivity(new DateTime());
                         $postRepository->addPost($post);
                         return $this->redirectToRoute('app_forums', [
                             'category' => $post->getForum()->getTitle(),
@@ -306,7 +318,7 @@ class ForumController extends AbstractController
                         if ($commentBody) {
                             // Ajouter le commentaire
                             $commentRepository->addComment($commentBody, $selectedPost, $this->getUser());
-                            
+
                             // Notifier l'auteur du post (si pas auto-commentaire et pas de blocage)
                             $author = $selectedPost->getUser();
                             $actor = $this->getUser();
@@ -355,28 +367,140 @@ class ForumController extends AbstractController
             'comments' => $comments,
             'likes' => $likes,
             'userLikes' => $userLikes,
-            'replies' => $replies ?? [], // Assurer que replies existe
+            'replies' => $replies, // Assurer que replies existe
             'form' => $form,
             'editForm' => $editForm,
         ]);
     }
 
+    /**
+     * Filtrer les posts dont l'auteur est bloqué ou nous a bloqué
+     *
+     * @param array $posts
+     * @param User|null $currentUser
+     * @return array
+     */
+    private function filterPostsByBlock(array $posts, ?User $currentUser): array
+    {
+        if (!$currentUser) return $posts;
+        $out = [];
+        foreach ($posts as $p) {
+            $author = $p->getUser();
+            if ($author && $this->isBlockedRelation($currentUser, $author)) {
+                continue;
+            }
+            $out[] = $p;
+        }
+        return array_values($out);
+    }
+
+    /**
+     * Vérifier si une relation de blocage existe entre deux utilisateurs
+     *
+     * @param User|null $currentUser
+     * @param User|null $otherUser
+     * @return bool
+     */
+    private function isBlockedRelation(?User $currentUser, ?User $otherUser): bool
+    {
+        if (!$currentUser || !$otherUser) return false;
+        if ($currentUser->getId() === $otherUser->getId()) return false;
+        return $currentUser->isBlocked($otherUser->getId()) || $currentUser->isBlockedBy($otherUser->getId());
+    }
+
+    /**
+     * Ajout d'un nouveau post
+     *
+     * @param ForumRepository $forumRepository
+     * @param PostRepository $postRepository
+     * @param Request $request
+     * @return Response
+     */
+    #[Route('forums/{category}/add', name: 'app_post_add')]
+    public function addPost(
+        ForumRepository $forumRepository,
+        PostRepository  $postRepository,
+        Request         $request
+    ): Response
+    {
+        $forums = $forumRepository->findAllOrderedByTitle();
+        $category = urldecode($request->attributes->get('category'));
+        if (!$category) {
+            $category = 'General';
+        }
+
+        $post = new Post();
+        // Préselection du forum si catégorie courante
+        if ($category !== 'General') {
+            foreach ($forums as $forum) {
+                if ($forum->getTitle() === $category) {
+                    $post->setForum($forum);
+                    break;
+                }
+            }
+        }
+        $form = $this->createForm(PostFormType::class, $post);
+
+        $form->handleRequest($request);
+
+
+        // dd($form->getData());
+        // dd($form->isSubmitted());
+        // dd($form->isValid());
+        // dd($form->getErrors(true, false));
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            $post = $form->getData();
+            $post->setUser($this->getUser());
+            $post->setCreationDate(new DateTime());
+            $post->setLastActivity(new DateTime());
+            $postRepository->addPost($post);
+            return $this->redirectToRoute('app_forums', [
+                'category' => $post->getForum()->getTitle(),
+                'postId' => $post->getId(),
+            ]);
+        }
+
+        return $this->redirectToRoute('app_forums', [
+            'category' => $category,
+        ]);
+        // return $this->render('forum/create_post.html.twig', [
+        //     'forums' => $forums,
+        //     'category' => $category,
+        //     'form' => $form->createView(),
+        // ]);
+    }
+
+    /**
+     * Affichage des forums Méthodologie et gestion des posts
+     *
+     * @param ForumRepository $forumRepository
+     * @param PostRepository $postRepository
+     * @param CommentRepository $commentRepository
+     * @param UserLikeRepository $userLikeRepository
+     * @param PostLikeRepository $postLikeRepository
+     * @param Request $request
+     * @param string|null $category
+     * @param int|null $postId
+     * @return Response
+     */
     #[Route('/methodology-forums', name: 'app_methodology_forums')]
     #[Route('/methodology-forums/{category}', name: 'app_methodology_forums_category')]
     #[Route('/methodology-forums/{category}/{postId}', name: 'app_methodology_forums_post', requirements: ['postId' => '\d+'])]
     public function methodologyForums(
-        ForumRepository $forumRepository, 
-        PostRepository $postRepository, 
-        CommentRepository $commentRepository, 
+        ForumRepository    $forumRepository,
+        PostRepository     $postRepository,
+        CommentRepository  $commentRepository,
         UserLikeRepository $userLikeRepository,
         PostLikeRepository $postLikeRepository,
-        Request $request, 
-        ?string $category = null,
-        ?int $postId = null
-    ): Response {
+        Request            $request,
+        ?string            $category = null,
+        ?int               $postId = null
+    ): Response
+    {
         // Récupérer uniquement les forums methodology
         $forums = $forumRepository->findBy(['special' => 'methodology']);
-        
+
         // Si aucune catégorie n'est spécifiée, afficher tous les posts methodology
         if (!$category || $category === 'methodology') {
             $category = 'methodology';
@@ -404,9 +528,7 @@ class ForumController extends AbstractController
         $userPostLikes = [];
         foreach ($posts as $post) {
             $postLikes[$post->getId()] = $postLikeRepository->countByPost($post);
-            $userPostLikes[$post->getId()] = $this->getUser() 
-                ? $postLikeRepository->isLikedByUser($post, $this->getUser()) 
-                : false;
+            $userPostLikes[$post->getId()] = $this->getUser() && $postLikeRepository->isLikedByUser($post, $this->getUser());
         }
 
         // Si un post spécifique est sélectionné
@@ -417,8 +539,6 @@ class ForumController extends AbstractController
         $likes = [];
         $userLikes = [];
         $replies = [];
-        $form = null;
-        $editForm = null;
 
         // Toujours créer les formulaires
         $post = new Post();
@@ -434,26 +554,20 @@ class ForumController extends AbstractController
 
                 // Ajouter les likes du post sélectionné
                 $selectedPostLikes = $postLikeRepository->countByPost($selectedPost);
-                $userSelectedPostLike = $this->getUser() 
-                    ? $postLikeRepository->isLikedByUser($selectedPost, $this->getUser()) 
-                    : false;
+                $userSelectedPostLike = $this->getUser() && $postLikeRepository->isLikedByUser($selectedPost, $this->getUser());
 
                 foreach ($comments as $comment) {
                     $likes[] = $userLikeRepository->countByCommentId($comment->getId());
-                    $userLikes[$comment->getId()] = $this->getUser() 
-                        ? $userLikeRepository->hasUserLikedComment($this->getUser()->getId(), $comment->getId()) 
-                        : false;
+                    $userLikes[$comment->getId()] = $this->getUser() && $userLikeRepository->hasUserLikedComment($this->getUser()->getId(), $comment->getId());
                 }
 
                 // Récupérer les réponses au post
                 $replies = $postRepository->findBy(['parentPost' => $selectedPost], ['id' => 'ASC']);
-                
+
                 // Initialiser les likes pour les réponses
                 foreach ($replies as $reply) {
                     $postLikes[$reply->getId()] = $postLikeRepository->countByPost($reply);
-                    $userPostLikes[$reply->getId()] = $this->getUser() 
-                        ? $postLikeRepository->isLikedByUser($reply, $this->getUser()) 
-                        : false;
+                    $userPostLikes[$reply->getId()] = $this->getUser() && $postLikeRepository->isLikedByUser($reply, $this->getUser());
                 }
 
                 // Traitement du formulaire de création de post
@@ -461,10 +575,10 @@ class ForumController extends AbstractController
                 if ($form->isSubmitted() && $form->isValid()) {
                     $post = $form->getData();
                     $post->setUser($this->getUser());
-                    $post->setCreationDate(new \DateTime());
-                    $post->setLastActivity(new \DateTime());
+                    $post->setCreationDate(new DateTime());
+                    $post->setLastActivity(new DateTime());
                     $postRepository->addPost($post);
-                    
+
                     // Rediriger vers la page methodology avec le nouveau post
                     return $this->redirectToRoute('app_methodology_forums_post', [
                         'category' => $category,
@@ -478,7 +592,7 @@ class ForumController extends AbstractController
                     if ($commentBody) {
                         // Ajouter le commentaire
                         $commentRepository->addComment($commentBody, $selectedPost, $this->getUser());
-                        
+
                         // Notifier l'auteur du post (si pas auto-commentaire et pas de blocage)
                         $author = $selectedPost->getUser();
                         $actor = $this->getUser();
@@ -526,20 +640,28 @@ class ForumController extends AbstractController
             'comments' => $comments,
             'likes' => $likes,
             'userLikes' => $userLikes,
-            'replies' => $replies ?? [],
+            'replies' => $replies,
             'form' => $form,
             'editForm' => $editForm,
             'special' => 'methodology',
         ]);
     }
 
+    /**
+     * Like ou unlike un commentaire
+     *
+     * @param Comment|null $comment
+     * @param UserLikeRepository $userLikeRepository
+     * @param EntityManagerInterface $entityManager
+     * @return Response
+     */
     #[Route('/like/{id}', name: 'app_forums_like', methods: ['POST'])]
     public function likeComment(
-        ?Comment $comment,
-        CommentRepository $commentRepository, 
-        UserLikeRepository $userLikeRepository, 
+        ?Comment               $comment,
+        UserLikeRepository     $userLikeRepository,
         EntityManagerInterface $entityManager
-    ): Response {
+    ): Response
+    {
         if (!$comment) {
             return $this->json(['error' => 'Comment not found'], 404);
         }
@@ -566,13 +688,23 @@ class ForumController extends AbstractController
         return $this->json(['liked' => true]);
     }
 
+    /**
+     * Édition d'un post existant
+     *
+     * @param ForumRepository $forumRepository
+     * @param PostRepository $postRepository
+     * @param Request $request
+     * @param int $postId
+     * @return Response
+     */
     #[Route('forums/{category}/{postId}/edit', name: 'app_post_edit')]
     public function editPost(
         ForumRepository $forumRepository,
-        PostRepository $postRepository,
-        Request $request,
-        int $postId
-    ): Response {
+        PostRepository  $postRepository,
+        Request         $request,
+        int             $postId
+    ): Response
+    {
         $post = $postRepository->find($postId);
         if (!$post) {
             throw $this->createNotFoundException('Post not found');
@@ -601,14 +733,25 @@ class ForumController extends AbstractController
         ]);
     }
 
+    /**
+     * Édition d'un post existant dans les forums Méthodologie
+     *
+     * @param ForumRepository $forumRepository
+     * @param PostRepository $postRepository
+     * @param Request $request
+     * @param string $category
+     * @param int $postId
+     * @return Response
+     */
     #[Route('/methodology-forums/{category}/{postId}/edit', name: 'app_methodology_post_edit')]
     public function editMethodologyPost(
         ForumRepository $forumRepository,
-        PostRepository $postRepository,
-        Request $request,
-        string $category,
-        int $postId
-    ): Response {
+        PostRepository  $postRepository,
+        Request         $request,
+        string          $category,
+        int             $postId
+    ): Response
+    {
         $post = $postRepository->find($postId);
         if (!$post) {
             throw $this->createNotFoundException('Post not found');
@@ -638,12 +781,21 @@ class ForumController extends AbstractController
         ]);
     }
 
+    /**
+     * Suppression d'un post
+     *
+     * @param PostRepository $postRepository
+     * @param Request $request
+     * @param int $postId
+     * @return Response
+     */
     #[Route('forums/{category}/delete/{postId}', name: 'app_post_delete', methods: ['POST'])]
     public function deletePost(
         PostRepository $postRepository,
-        Request $request,
-        int $postId
-    ): Response {
+        Request        $request,
+        int            $postId
+    ): Response
+    {
         $post = $postRepository->find($postId);
         if (!$post) {
             throw $this->createNotFoundException('Post not found');
@@ -669,13 +821,23 @@ class ForumController extends AbstractController
         ]);
     }
 
+    /**
+     * Suppression d'un post dans les forums Méthodologie
+     *
+     * @param PostRepository $postRepository
+     * @param Request $request
+     * @param string $category
+     * @param int $postId
+     * @return Response
+     */
     #[Route('/methodology-forums/{category}/delete/{postId}', name: 'app_methodology_post_delete', methods: ['POST'])]
     public function deleteMethodologyPost(
         PostRepository $postRepository,
-        Request $request,
-        string $category,
-        int $postId
-    ): Response {
+        Request        $request,
+        string         $category,
+        int            $postId
+    ): Response
+    {
         $post = $postRepository->find($postId);
         if (!$post) {
             throw $this->createNotFoundException('Post not found');
@@ -699,13 +861,23 @@ class ForumController extends AbstractController
         }
     }
 
+    /**
+     * Récupération des données d'un post via AJAX
+     *
+     * @param PostRepository $postRepository
+     * @param CommentRepository $commentRepository
+     * @param UserLikeRepository $userLikeRepository
+     * @param int $postId
+     * @return Response
+     */
     #[Route('forums/posts/data/{postId}', name: 'app_post_data', methods: ['GET'])]
     public function getPostData(
-        PostRepository $postRepository,
-        CommentRepository $commentRepository,
+        PostRepository     $postRepository,
+        CommentRepository  $commentRepository,
         UserLikeRepository $userLikeRepository,
-        int $postId
-    ): Response {
+        int                $postId
+    ): Response
+    {
         $post = $postRepository->find($postId);
         if (!$post) {
             return $this->json(['error' => 'Post not found'], 404);
@@ -727,18 +899,26 @@ class ForumController extends AbstractController
                 'description' => $post->getDescription(),
                 'creationDate' => $post->getCreationDate()->format('Y-m-d H:i:s'),
                 'lastActivity' => $post->getLastActivity()->format('Y-m-d H:i:s'),
-                'forumId' => $post->getForum() ? $post->getForum()->getId() : null, // <-- Ajouté
+                'forumId' => $post->getForum()?->getId(), // <-- Ajouté
             ],
             'comments' => $comments,
             'likes' => $likes,
         ]);
     }
 
+    /**
+     * Récupération du nombre de likes d'un commentaire
+     *
+     * @param Comment|null $comment
+     * @param UserLikeRepository $userLikeRepository
+     * @return Response
+     */
     #[Route('/forums/comments/{id}/likes', name: 'app_comment_likes_count', methods: ['GET'])]
     public function getCommentLikesCount(
-        ?Comment $comment,
+        ?Comment           $comment,
         UserLikeRepository $userLikeRepository
-    ): Response {
+    ): Response
+    {
         if (!$comment) {
             return $this->json(['error' => 'Comment not found'], 404);
         }
@@ -746,14 +926,25 @@ class ForumController extends AbstractController
         return $this->json(['count' => $count]);
     }
 
+    /**
+     * Répondre à un post
+     *
+     * @param int $postId
+     * @param string $category
+     * @param Request $request
+     * @param PostRepository $postRepository
+     * @param EntityManagerInterface $entityManager
+     * @return Response
+     */
     #[Route('forums/{category}/{postId}/reply', name: 'app_post_reply', requirements: ['postId' => '\d+'], methods: ['POST'])]
     public function replyToPost(
-        int $postId,
-        string $category,
-        Request $request,
-        PostRepository $postRepository,
+        int                    $postId,
+        string                 $category,
+        Request                $request,
+        PostRepository         $postRepository,
         EntityManagerInterface $entityManager
-    ): Response {
+    ): Response
+    {
         if (!$this->getUser()) {
             throw $this->createAccessDeniedException('Vous devez être connecté pour répondre à un post.');
         }
@@ -776,8 +967,8 @@ class ForumController extends AbstractController
         $reply->setForum($parentPost->getForum());
         $reply->setParentPost($parentPost);
         $reply->setIsReply(true);
-        $reply->setCreationDate(new \DateTime()); // Ajout de la date de création
-        $reply->setLastActivity(new \DateTime()); // Ajout de la date de dernière activité
+        $reply->setCreationDate(new DateTime()); // Ajout de la date de création
+        $reply->setLastActivity(new DateTime()); // Ajout de la date de dernière activité
 
         $entityManager->persist($reply);
         $entityManager->flush();
@@ -806,19 +997,30 @@ class ForumController extends AbstractController
                 $entityManager->flush();
             }
         }
-+
+        +
         $this->addFlash('success', 'Votre réponse a été ajoutée avec succès.');
         return $this->redirectToRoute('app_forums', ['category' => $category, 'postId' => $postId]);
     }
 
+    /**
+     * Répondre à un post dans les forums Méthodologie
+     *
+     * @param string $category
+     * @param int $postId
+     * @param Request $request
+     * @param PostRepository $postRepository
+     * @param EntityManagerInterface $entityManager
+     * @return Response
+     */
     #[Route('/methodology-forums/{category}/{postId}/reply', name: 'app_methodology_post_reply', requirements: ['postId' => '\d+'], methods: ['POST'])]
     public function replyToMethodologyPost(
-        string $category,
-        int $postId,
-        Request $request,
-        PostRepository $postRepository,
+        string                 $category,
+        int                    $postId,
+        Request                $request,
+        PostRepository         $postRepository,
         EntityManagerInterface $entityManager
-    ): Response {
+    ): Response
+    {
         if (!$this->getUser()) {
             throw $this->createAccessDeniedException('Vous devez être connecté pour répondre à un post.');
         }
@@ -844,8 +1046,8 @@ class ForumController extends AbstractController
         $reply->setForum($parentPost->getForum());
         $reply->setParentPost($parentPost);
         $reply->setIsReply(true);
-        $reply->setCreationDate(new \DateTime());
-        $reply->setLastActivity(new \DateTime());
+        $reply->setCreationDate(new DateTime());
+        $reply->setLastActivity(new DateTime());
 
         $entityManager->persist($reply);
         $entityManager->flush();
@@ -882,22 +1084,36 @@ class ForumController extends AbstractController
         ]);
     }
 
+    /**
+     * Affichage des forums Administratif et gestion des posts
+     *
+     * @param ForumRepository $forumRepository
+     * @param PostRepository $postRepository
+     * @param CommentRepository $commentRepository
+     * @param UserLikeRepository $userLikeRepository
+     * @param PostLikeRepository $postLikeRepository
+     * @param Request $request
+     * @param string|null $category
+     * @param int|null $postId
+     * @return Response
+     */
     #[Route('/administratif-forums', name: 'app_administratif_forums')]
     #[Route('/administratif-forums/{category}', name: 'app_administratif_forums_category')]
     #[Route('/administratif-forums/{category}/{postId}', name: 'app_administratif_forums_post', requirements: ['postId' => '\d+'])]
     public function administratifForums(
-        ForumRepository $forumRepository, 
-        PostRepository $postRepository, 
-        CommentRepository $commentRepository, 
+        ForumRepository    $forumRepository,
+        PostRepository     $postRepository,
+        CommentRepository  $commentRepository,
         UserLikeRepository $userLikeRepository,
         PostLikeRepository $postLikeRepository,
-        Request $request, 
-        ?string $category = null,
-        ?int $postId = null
-    ): Response {
+        Request            $request,
+        ?string            $category = null,
+        ?int               $postId = null
+    ): Response
+    {
         // Récupérer uniquement les forums administratifs
         $forums = $forumRepository->findBy(['special' => 'administratif']);
-        
+
         // Si aucune catégorie n'est spécifiée, afficher tous les posts administratifs
         if (!$category || $category === 'administratif') {
             $category = 'administratif';
@@ -922,9 +1138,7 @@ class ForumController extends AbstractController
         $userPostLikes = [];
         foreach ($posts as $post) {
             $postLikes[$post->getId()] = $postLikeRepository->countByPost($post);
-            $userPostLikes[$post->getId()] = $this->getUser() 
-                ? $postLikeRepository->isLikedByUser($post, $this->getUser()) 
-                : false;
+            $userPostLikes[$post->getId()] = $this->getUser() && $postLikeRepository->isLikedByUser($post, $this->getUser());
         }
 
         // Si un post spécifique est sélectionné
@@ -935,8 +1149,6 @@ class ForumController extends AbstractController
         $likes = [];
         $userLikes = [];
         $replies = [];
-        $form = null;
-        $editForm = null;
 
         // Toujours créer les formulaires
         $post = new Post();
@@ -952,26 +1164,20 @@ class ForumController extends AbstractController
 
                 // Ajouter les likes du post sélectionné
                 $selectedPostLikes = $postLikeRepository->countByPost($selectedPost);
-                $userSelectedPostLike = $this->getUser() 
-                    ? $postLikeRepository->isLikedByUser($selectedPost, $this->getUser()) 
-                    : false;
+                $userSelectedPostLike = $this->getUser() && $postLikeRepository->isLikedByUser($selectedPost, $this->getUser());
 
                 foreach ($comments as $comment) {
                     $likes[] = $userLikeRepository->countByCommentId($comment->getId());
-                    $userLikes[$comment->getId()] = $this->getUser() 
-                        ? $userLikeRepository->hasUserLikedComment($this->getUser()->getId(), $comment->getId()) 
-                        : false;
+                    $userLikes[$comment->getId()] = $this->getUser() && $userLikeRepository->hasUserLikedComment($this->getUser()->getId(), $comment->getId());
                 }
 
                 // Récupérer les réponses au post
                 $replies = $postRepository->findBy(['parentPost' => $selectedPost], ['id' => 'ASC']);
-                
+
                 // Initialiser les likes pour les réponses
                 foreach ($replies as $reply) {
                     $postLikes[$reply->getId()] = $postLikeRepository->countByPost($reply);
-                    $userPostLikes[$reply->getId()] = $this->getUser() 
-                        ? $postLikeRepository->isLikedByUser($reply, $this->getUser()) 
-                        : false;
+                    $userPostLikes[$reply->getId()] = $this->getUser() && $postLikeRepository->isLikedByUser($reply, $this->getUser());
                 }
 
                 // Traitement du formulaire de création de post
@@ -979,10 +1185,10 @@ class ForumController extends AbstractController
                 if ($form->isSubmitted() && $form->isValid()) {
                     $post = $form->getData();
                     $post->setUser($this->getUser());
-                    $post->setCreationDate(new \DateTime());
-                    $post->setLastActivity(new \DateTime());
+                    $post->setCreationDate(new DateTime());
+                    $post->setLastActivity(new DateTime());
                     $postRepository->addPost($post);
-                    
+
                     // Rediriger vers la page administratif avec le nouveau post
                     return $this->redirectToRoute('app_administratif_forums_post', [
                         'category' => $category,
@@ -996,7 +1202,7 @@ class ForumController extends AbstractController
                     if ($commentBody) {
                         // Ajouter le commentaire
                         $commentRepository->addComment($commentBody, $selectedPost, $this->getUser());
-                        
+
                         // Notifier l'auteur du post (si pas auto-commentaire et pas de blocage)
                         $author = $selectedPost->getUser();
                         $actor = $this->getUser();
@@ -1044,21 +1250,32 @@ class ForumController extends AbstractController
             'comments' => $comments,
             'likes' => $likes,
             'userLikes' => $userLikes,
-            'replies' => $replies ?? [],
+            'replies' => $replies,
             'form' => $form,
             'editForm' => $editForm,
             'special' => 'administratif',
         ]);
     }
 
+    /**
+     * Édition d'un post existant dans les forums Administratif
+     *
+     * @param ForumRepository $forumRepository
+     * @param PostRepository $postRepository
+     * @param Request $request
+     * @param string $category
+     * @param int $postId
+     * @return Response
+     */
     #[Route('/administratif-forums/{category}/{postId}/edit', name: 'app_administratif_post_edit')]
     public function editAdministratifPost(
         ForumRepository $forumRepository,
-        PostRepository $postRepository,
-        Request $request,
-        string $category,
-        int $postId
-    ): Response {
+        PostRepository  $postRepository,
+        Request         $request,
+        string          $category,
+        int             $postId
+    ): Response
+    {
         $post = $postRepository->find($postId);
         if (!$post) {
             throw $this->createNotFoundException('Post not found');
@@ -1088,13 +1305,23 @@ class ForumController extends AbstractController
         ]);
     }
 
+    /**
+     * Suppression d'un post dans les forums Administratif
+     *
+     * @param PostRepository $postRepository
+     * @param Request $request
+     * @param string $category
+     * @param int $postId
+     * @return Response
+     */
     #[Route('/administratif-forums/{category}/delete/{postId}', name: 'app_administratif_post_delete', methods: ['POST'])]
     public function deleteAdministratifPost(
         PostRepository $postRepository,
-        Request $request,
-        string $category,
-        int $postId
-    ): Response {
+        Request        $request,
+        string         $category,
+        int            $postId
+    ): Response
+    {
         $post = $postRepository->find($postId);
         if (!$post) {
             throw $this->createNotFoundException('Post not found');
@@ -1118,14 +1345,25 @@ class ForumController extends AbstractController
         }
     }
 
+    /**
+     * Répondre à un post dans les forums Administratif
+     *
+     * @param string $category
+     * @param int $postId
+     * @param Request $request
+     * @param PostRepository $postRepository
+     * @param EntityManagerInterface $entityManager
+     * @return Response
+     */
     #[Route('/administratif-forums/{category}/{postId}/reply', name: 'app_administratif_post_reply', requirements: ['postId' => '\d+'], methods: ['POST'])]
     public function replyToAdministratifPost(
-        string $category,
-        int $postId,
-        Request $request,
-        PostRepository $postRepository,
+        string                 $category,
+        int                    $postId,
+        Request                $request,
+        PostRepository         $postRepository,
         EntityManagerInterface $entityManager
-    ): Response {
+    ): Response
+    {
         if (!$this->getUser()) {
             throw $this->createAccessDeniedException('Vous devez être connecté pour répondre à un post.');
         }
@@ -1151,8 +1389,8 @@ class ForumController extends AbstractController
         $reply->setForum($parentPost->getForum());
         $reply->setParentPost($parentPost);
         $reply->setIsReply(true);
-        $reply->setCreationDate(new \DateTime());
-        $reply->setLastActivity(new \DateTime());
+        $reply->setCreationDate(new DateTime());
+        $reply->setLastActivity(new DateTime());
 
         $entityManager->persist($reply);
         $entityManager->flush();
@@ -1189,22 +1427,36 @@ class ForumController extends AbstractController
         ]);
     }
 
+    /**
+     * Affichage des forums Détente et gestion des posts
+     *
+     * @param ForumRepository $forumRepository
+     * @param PostRepository $postRepository
+     * @param CommentRepository $commentRepository
+     * @param UserLikeRepository $userLikeRepository
+     * @param PostLikeRepository $postLikeRepository
+     * @param Request $request
+     * @param string|null $category
+     * @param int|null $postId
+     * @return Response
+     */
     #[Route('/detente-forums', name: 'app_detente_forums')]
     #[Route('/detente-forums/{category}', name: 'app_detente_forums_category')]
     #[Route('/detente-forums/{category}/{postId}', name: 'app_detente_forums_post', requirements: ['postId' => '\d+'])]
     public function detenteForums(
-        ForumRepository $forumRepository, 
-        PostRepository $postRepository, 
-        CommentRepository $commentRepository, 
+        ForumRepository    $forumRepository,
+        PostRepository     $postRepository,
+        CommentRepository  $commentRepository,
         UserLikeRepository $userLikeRepository,
         PostLikeRepository $postLikeRepository,
-        Request $request, 
-        ?string $category = null,
-        ?int $postId = null
-    ): Response {
+        Request            $request,
+        ?string            $category = null,
+        ?int               $postId = null
+    ): Response
+    {
         // Récupérer uniquement les forums détente
         $forums = $forumRepository->findBy(['special' => 'detente']);
-        
+
         // Si aucune catégorie n'est spécifiée, afficher tous les posts détente
         if (!$category || $category === 'detente') {
             $category = 'detente';
@@ -1232,9 +1484,7 @@ class ForumController extends AbstractController
         $userPostLikes = [];
         foreach ($posts as $post) {
             $postLikes[$post->getId()] = $postLikeRepository->countByPost($post);
-            $userPostLikes[$post->getId()] = $this->getUser() 
-                ? $postLikeRepository->isLikedByUser($post, $this->getUser()) 
-                : false;
+            $userPostLikes[$post->getId()] = $this->getUser() && $postLikeRepository->isLikedByUser($post, $this->getUser());
         }
 
         // Si un post spécifique est sélectionné
@@ -1245,8 +1495,6 @@ class ForumController extends AbstractController
         $likes = [];
         $userLikes = [];
         $replies = [];
-        $form = null;
-        $editForm = null;
 
         // Toujours créer les formulaires
         $post = new Post();
@@ -1262,26 +1510,20 @@ class ForumController extends AbstractController
 
                 // Ajouter les likes du post sélectionné
                 $selectedPostLikes = $postLikeRepository->countByPost($selectedPost);
-                $userSelectedPostLike = $this->getUser() 
-                    ? $postLikeRepository->isLikedByUser($selectedPost, $this->getUser()) 
-                    : false;
+                $userSelectedPostLike = $this->getUser() && $postLikeRepository->isLikedByUser($selectedPost, $this->getUser());
 
                 foreach ($comments as $comment) {
                     $likes[] = $userLikeRepository->countByCommentId($comment->getId());
-                    $userLikes[$comment->getId()] = $this->getUser() 
-                        ? $userLikeRepository->hasUserLikedComment($this->getUser()->getId(), $comment->getId()) 
-                        : false;
+                    $userLikes[$comment->getId()] = $this->getUser() && $userLikeRepository->hasUserLikedComment($this->getUser()->getId(), $comment->getId());
                 }
 
                 // Récupérer les réponses au post
                 $replies = $postRepository->findBy(['parentPost' => $selectedPost], ['id' => 'ASC']);
-                
+
                 // Initialiser les likes pour les réponses
                 foreach ($replies as $reply) {
                     $postLikes[$reply->getId()] = $postLikeRepository->countByPost($reply);
-                    $userPostLikes[$reply->getId()] = $this->getUser() 
-                        ? $postLikeRepository->isLikedByUser($reply, $this->getUser()) 
-                        : false;
+                    $userPostLikes[$reply->getId()] = $this->getUser() && $postLikeRepository->isLikedByUser($reply, $this->getUser());
                 }
 
                 // Traitement du formulaire de création de post
@@ -1289,10 +1531,10 @@ class ForumController extends AbstractController
                 if ($form->isSubmitted() && $form->isValid()) {
                     $post = $form->getData();
                     $post->setUser($this->getUser());
-                    $post->setCreationDate(new \DateTime());
-                    $post->setLastActivity(new \DateTime());
+                    $post->setCreationDate(new DateTime());
+                    $post->setLastActivity(new DateTime());
                     $postRepository->addPost($post);
-                    
+
                     // Rediriger vers la page détente avec le nouveau post
                     return $this->redirectToRoute('app_detente_forums_post', [
                         'category' => $category,
@@ -1306,7 +1548,7 @@ class ForumController extends AbstractController
                     if ($commentBody) {
                         // Ajouter le commentaire
                         $commentRepository->addComment($commentBody, $selectedPost, $this->getUser());
-                        
+
                         // Notifier l'auteur du post (si pas auto-commentaire et pas de blocage)
                         $author = $selectedPost->getUser();
                         $actor = $this->getUser();
@@ -1354,21 +1596,32 @@ class ForumController extends AbstractController
             'comments' => $comments,
             'likes' => $likes,
             'userLikes' => $userLikes,
-            'replies' => $replies ?? [],
+            'replies' => $replies,
             'form' => $form,
             'editForm' => $editForm,
             'special' => 'detente',
         ]);
     }
 
+    /**
+     * Édition d'un post existant dans les forums Détente
+     *
+     * @param ForumRepository $forumRepository
+     * @param PostRepository $postRepository
+     * @param Request $request
+     * @param string $category
+     * @param int $postId
+     * @return Response
+     */
     #[Route('/detente-forums/{category}/{postId}/edit', name: 'app_detente_post_edit')]
     public function editDetentePost(
         ForumRepository $forumRepository,
-        PostRepository $postRepository,
-        Request $request,
-        string $category,
-        int $postId
-    ): Response {
+        PostRepository  $postRepository,
+        Request         $request,
+        string          $category,
+        int             $postId
+    ): Response
+    {
         $post = $postRepository->find($postId);
         if (!$post) {
             throw $this->createNotFoundException('Post not found');
@@ -1398,13 +1651,23 @@ class ForumController extends AbstractController
         ]);
     }
 
+    /**
+     * Suppression d'un post dans les forums Détente
+     *
+     * @param PostRepository $postRepository
+     * @param Request $request
+     * @param string $category
+     * @param int $postId
+     * @return Response
+     */
     #[Route('/detente-forums/{category}/delete/{postId}', name: 'app_detente_post_delete', methods: ['POST'])]
     public function deleteDetentePost(
         PostRepository $postRepository,
-        Request $request,
-        string $category,
-        int $postId
-    ): Response {
+        Request        $request,
+        string         $category,
+        int            $postId
+    ): Response
+    {
         $post = $postRepository->find($postId);
         if (!$post) {
             throw $this->createNotFoundException('Post not found');
@@ -1428,14 +1691,25 @@ class ForumController extends AbstractController
         }
     }
 
+    /**
+     * Répondre à un post dans les forums Détente
+     *
+     * @param string $category
+     * @param int $postId
+     * @param Request $request
+     * @param PostRepository $postRepository
+     * @param EntityManagerInterface $entityManager
+     * @return Response
+     */
     #[Route('/detente-forums/{category}/{postId}/reply', name: 'app_detente_post_reply', requirements: ['postId' => '\d+'], methods: ['POST'])]
     public function replyToDetentePost(
-        string $category,
-        int $postId,
-        Request $request,
-        PostRepository $postRepository,
+        string                 $category,
+        int                    $postId,
+        Request                $request,
+        PostRepository         $postRepository,
         EntityManagerInterface $entityManager
-    ): Response {
+    ): Response
+    {
         if (!$this->getUser()) {
             throw $this->createAccessDeniedException('Vous devez être connecté pour répondre à un post.');
         }
@@ -1461,8 +1735,8 @@ class ForumController extends AbstractController
         $reply->setForum($parentPost->getForum());
         $reply->setParentPost($parentPost);
         $reply->setIsReply(true);
-        $reply->setCreationDate(new \DateTime());
-        $reply->setLastActivity(new \DateTime());
+        $reply->setCreationDate(new DateTime());
+        $reply->setLastActivity(new DateTime());
 
         $entityManager->persist($reply);
         $entityManager->flush();
@@ -1499,22 +1773,36 @@ class ForumController extends AbstractController
         ]);
     }
 
+    /**
+     * Répondre à un post dans les forums Détente
+     *
+     * @param ForumRepository $forumRepository
+     * @param PostRepository $postRepository
+     * @param CommentRepository $commentRepository
+     * @param UserLikeRepository $userLikeRepository
+     * @param PostLikeRepository $postLikeRepository
+     * @param Request $request
+     * @param string|null $category
+     * @param int|null $postId
+     * @return Response
+     */
     #[Route('/cafe_des_lumieres-forums', name: 'app_cafe_des_lumieres_forums')]
     #[Route('/cafe_des_lumieres-forums/{category}', name: 'app_cafe_des_lumieres_forums_category')]
     #[Route('/cafe_des_lumieres-forums/{category}/{postId}', name: 'app_cafe_des_lumieres_forums_post', requirements: ['postId' => '\d+'])]
     public function cafeDesLumieresForums(
-        ForumRepository $forumRepository, 
-        PostRepository $postRepository, 
-        CommentRepository $commentRepository, 
+        ForumRepository    $forumRepository,
+        PostRepository     $postRepository,
+        CommentRepository  $commentRepository,
         UserLikeRepository $userLikeRepository,
         PostLikeRepository $postLikeRepository,
-        Request $request, 
-        ?string $category = null,
-        ?int $postId = null
-    ): Response {
+        Request            $request,
+        ?string            $category = null,
+        ?int               $postId = null
+    ): Response
+    {
         // Récupérer uniquement les forums cafe_des_lumieres
         $forums = $forumRepository->findBy(['special' => 'cafe_des_lumieres']);
-        
+
         // Si aucune catégorie n'est spécifiée, afficher tous les posts cafe_des_lumieres
         if (!$category || $category === 'cafe_des_lumieres') {
             $category = 'cafe_des_lumieres';
@@ -1542,9 +1830,7 @@ class ForumController extends AbstractController
         $userPostLikes = [];
         foreach ($posts as $post) {
             $postLikes[$post->getId()] = $postLikeRepository->countByPost($post);
-            $userPostLikes[$post->getId()] = $this->getUser() 
-                ? $postLikeRepository->isLikedByUser($post, $this->getUser()) 
-                : false;
+            $userPostLikes[$post->getId()] = $this->getUser() && $postLikeRepository->isLikedByUser($post, $this->getUser());
         }
 
         // Si un post spécifique est sélectionné
@@ -1555,8 +1841,6 @@ class ForumController extends AbstractController
         $likes = [];
         $userLikes = [];
         $replies = [];
-        $form = null;
-        $editForm = null;
 
         // Toujours créer les formulaires
         $post = new Post();
@@ -1572,26 +1856,20 @@ class ForumController extends AbstractController
 
                 // Ajouter les likes du post sélectionné
                 $selectedPostLikes = $postLikeRepository->countByPost($selectedPost);
-                $userSelectedPostLike = $this->getUser() 
-                    ? $postLikeRepository->isLikedByUser($selectedPost, $this->getUser()) 
-                    : false;
+                $userSelectedPostLike = $this->getUser() && $postLikeRepository->isLikedByUser($selectedPost, $this->getUser());
 
                 foreach ($comments as $comment) {
                     $likes[] = $userLikeRepository->countByCommentId($comment->getId());
-                    $userLikes[$comment->getId()] = $this->getUser() 
-                        ? $userLikeRepository->hasUserLikedComment($this->getUser()->getId(), $comment->getId()) 
-                        : false;
+                    $userLikes[$comment->getId()] = $this->getUser() && $userLikeRepository->hasUserLikedComment($this->getUser()->getId(), $comment->getId());
                 }
 
                 // Récupérer les réponses au post
                 $replies = $postRepository->findBy(['parentPost' => $selectedPost], ['id' => 'ASC']);
-                
+
                 // Initialiser les likes pour les réponses
                 foreach ($replies as $reply) {
                     $postLikes[$reply->getId()] = $postLikeRepository->countByPost($reply);
-                    $userPostLikes[$reply->getId()] = $this->getUser() 
-                        ? $postLikeRepository->isLikedByUser($reply, $this->getUser()) 
-                        : false;
+                    $userPostLikes[$reply->getId()] = $this->getUser() && $postLikeRepository->isLikedByUser($reply, $this->getUser());
                 }
 
                 // Traitement du formulaire de création de post
@@ -1599,10 +1877,10 @@ class ForumController extends AbstractController
                 if ($form->isSubmitted() && $form->isValid()) {
                     $post = $form->getData();
                     $post->setUser($this->getUser());
-                    $post->setCreationDate(new \DateTime());
-                    $post->setLastActivity(new \DateTime());
+                    $post->setCreationDate(new DateTime());
+                    $post->setLastActivity(new DateTime());
                     $postRepository->addPost($post);
-                    
+
                     // Rediriger vers la page cafe_des_lumieres avec le nouveau post
                     return $this->redirectToRoute('app_cafe_des_lumieres_forums_post', [
                         'category' => $category,
@@ -1616,7 +1894,7 @@ class ForumController extends AbstractController
                     if ($commentBody) {
                         // Ajouter le commentaire
                         $commentRepository->addComment($commentBody, $selectedPost, $this->getUser());
-                        
+
                         // Notifier l'auteur du post (si pas auto-commentaire et pas de blocage)
                         $author = $selectedPost->getUser();
                         $actor = $this->getUser();
@@ -1664,21 +1942,32 @@ class ForumController extends AbstractController
             'comments' => $comments,
             'likes' => $likes,
             'userLikes' => $userLikes,
-            'replies' => $replies ?? [],
+            'replies' => $replies,
             'form' => $form,
             'editForm' => $editForm,
             'special' => 'cafe_des_lumieres',
         ]);
     }
 
+    /**
+     * Édition d'un post existant dans les forums Détente
+     *
+     * @param ForumRepository $forumRepository
+     * @param PostRepository $postRepository
+     * @param Request $request
+     * @param string $category
+     * @param int $postId
+     * @return Response
+     */
     #[Route('/cafe_des_lumieres-forums/{category}/{postId}/edit', name: 'app_cafe_des_lumieres_post_edit')]
     public function editCafeDesLumieresPost(
         ForumRepository $forumRepository,
-        PostRepository $postRepository,
-        Request $request,
-        string $category,
-        int $postId
-    ): Response {
+        PostRepository  $postRepository,
+        Request         $request,
+        string          $category,
+        int             $postId
+    ): Response
+    {
         $post = $postRepository->find($postId);
         if (!$post) {
             throw $this->createNotFoundException('Post not found');
@@ -1708,13 +1997,23 @@ class ForumController extends AbstractController
         ]);
     }
 
+    /**
+     * Suppression d'un post dans les forums Détente
+     *
+     * @param PostRepository $postRepository
+     * @param Request $request
+     * @param string $category
+     * @param int $postId
+     * @return Response
+     */
     #[Route('/cafe_des_lumieres-forums/{category}/delete/{postId}', name: 'app_cafe_des_lumieres_post_delete', methods: ['POST'])]
     public function deleteCafeDesLumieresPost(
         PostRepository $postRepository,
-        Request $request,
-        string $category,
-        int $postId
-    ): Response {
+        Request        $request,
+        string         $category,
+        int            $postId
+    ): Response
+    {
         $post = $postRepository->find($postId);
         if (!$post) {
             throw $this->createNotFoundException('Post not found');
@@ -1740,14 +2039,25 @@ class ForumController extends AbstractController
         }
     }
 
+    /**
+     * Répondre à un post dans les forums Détente
+     *
+     * @param string $category
+     * @param int $postId
+     * @param Request $request
+     * @param PostRepository $postRepository
+     * @param EntityManagerInterface $entityManager
+     * @return Response
+     */
     #[Route('/cafe_des_lumieres-forums/{category}/{postId}/reply', name: 'app_cafe_des_lumieres_post_reply', requirements: ['postId' => '\d+'], methods: ['POST'])]
     public function replyToCafeDesLumieresPost(
-        string $category,
-        int $postId,
-        Request $request,
-        PostRepository $postRepository,
+        string                 $category,
+        int                    $postId,
+        Request                $request,
+        PostRepository         $postRepository,
         EntityManagerInterface $entityManager
-    ): Response {
+    ): Response
+    {
         if (!$this->getUser()) {
             throw $this->createAccessDeniedException('Vous devez être connecté pour répondre à un post.');
         }
@@ -1773,8 +2083,8 @@ class ForumController extends AbstractController
         $reply->setForum($parentPost->getForum());
         $reply->setParentPost($parentPost);
         $reply->setIsReply(true);
-        $reply->setCreationDate(new \DateTime());
-        $reply->setLastActivity(new \DateTime());
+        $reply->setCreationDate(new DateTime());
+        $reply->setLastActivity(new DateTime());
 
         $entityManager->persist($reply);
         $entityManager->flush();
@@ -1811,147 +2121,200 @@ class ForumController extends AbstractController
         ]);
     }
 
-#[Route('/cafe_des_lumieres-forums/{category}/create-post', name: 'app_cafe_des_lumieres_post_create', methods: ['POST'])]
-public function addCafeDesLumieresPost(
-    ForumRepository $forumRepository,
-    PostRepository $postRepository,
-    Request $request,
-    string $category
-): Response {
-    // Récupérer uniquement les forums cafe_des_lumieres
-    $forums = $forumRepository->findBy(['special' => 'cafe_des_lumieres']);
-    
-    $post = new Post();
-    $form = $this->createForm(PostFormType::class, $post);
+    /**
+     * Créer un nouveau post dans les forums Cafe des Lumières
+     *
+     * @param ForumRepository $forumRepository
+     * @param PostRepository $postRepository
+     * @param Request $request
+     * @param string $category
+     * @return Response
+     */
+    #[Route('/cafe_des_lumieres-forums/{category}/create-post', name: 'app_cafe_des_lumieres_post_create', methods: ['POST'])]
+    public function addCafeDesLumieresPost(
+        ForumRepository $forumRepository,
+        PostRepository  $postRepository,
+        Request         $request,
+        string          $category
+    ): Response
+    {
+        // Récupérer uniquement les forums cafe_des_lumieres
+        $forums = $forumRepository->findBy(['special' => 'cafe_des_lumieres']);
 
-    $form->handleRequest($request);
+        $post = new Post();
+        $form = $this->createForm(PostFormType::class, $post);
 
-    if ($form->isSubmitted() && $form->isValid()) {
-        $post = $form->getData();
-        $post->setUser($this->getUser());
-        $post->setCreationDate(new \DateTime());
-        $post->setLastActivity(new \DateTime());
-        $postRepository->addPost($post);
-        
-        // Rediriger avec la catégorie du forum
-        return $this->redirectToRoute('app_cafe_des_lumieres_forums_post', [
-            'category' => $post->getForum()->getTitle(),
-            'postId' => $post->getId(),
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            $post = $form->getData();
+            $post->setUser($this->getUser());
+            $post->setCreationDate(new DateTime());
+            $post->setLastActivity(new DateTime());
+            $postRepository->addPost($post);
+
+            // Rediriger avec la catégorie du forum
+            return $this->redirectToRoute('app_cafe_des_lumieres_forums_post', [
+                'category' => $post->getForum()->getTitle(),
+                'postId' => $post->getId(),
+            ]);
+        }
+
+        // En cas d'erreur, rediriger vers la page principale
+        return $this->redirectToRoute('app_cafe_des_lumieres_forums', [
+            'category' => $category,
         ]);
     }
 
-    // En cas d'erreur, rediriger vers la page principale
-    return $this->redirectToRoute('app_cafe_des_lumieres_forums', [
-        'category' => $category,
-    ]);
-}
+    /**
+     * Créer un nouveau post dans les forums Cafe des Lumières
+     *
+     * @param ForumRepository $forumRepository
+     * @param PostRepository $postRepository
+     * @param Request $request
+     * @param string $category
+     * @return Response
+     */
+    #[Route('/detente-forums/{category}/create-post', name: 'app_detente_post_create', methods: ['POST'])]
+    public function addDetentePost(
+        ForumRepository $forumRepository,
+        PostRepository  $postRepository,
+        Request         $request,
+        string          $category
+    ): Response
+    {
+        // Récupérer uniquement les forums détente
+        $forums = $forumRepository->findBy(['special' => 'detente']);
 
-#[Route('/detente-forums/{category}/create-post', name: 'app_detente_post_create', methods: ['POST'])]
-public function addDetentePost(
-    ForumRepository $forumRepository,
-    PostRepository $postRepository,
-    Request $request,
-    string $category
-): Response {
-    // Récupérer uniquement les forums détente
-    $forums = $forumRepository->findBy(['special' => 'detente']);
-    
-    $post = new Post();
-    $form = $this->createForm(PostFormType::class, $post);
+        $post = new Post();
+        $form = $this->createForm(PostFormType::class, $post);
 
-    $form->handleRequest($request);
+        $form->handleRequest($request);
 
-    if ($form->isSubmitted() && $form->isValid()) {
-        $post = $form->getData();
-        $post->setUser($this->getUser());
-        $post->setCreationDate(new \DateTime());
-        $post->setLastActivity(new \DateTime());
-        $postRepository->addPost($post);
-        
-        // Rediriger avec la catégorie du forum
-        return $this->redirectToRoute('app_detente_forums_post', [
-            'category' => $post->getForum()->getTitle(),
-            'postId' => $post->getId(),
+        if ($form->isSubmitted() && $form->isValid()) {
+            $post = $form->getData();
+            $post->setUser($this->getUser());
+            $post->setCreationDate(new DateTime());
+            $post->setLastActivity(new DateTime());
+            $postRepository->addPost($post);
+
+            // Rediriger avec la catégorie du forum
+            return $this->redirectToRoute('app_detente_forums_post', [
+                'category' => $post->getForum()->getTitle(),
+                'postId' => $post->getId(),
+            ]);
+        }
+
+        // En cas d'erreur, rediriger vers la page principale
+        return $this->redirectToRoute('app_detente_forums', [
+            'category' => $category,
         ]);
     }
-
-    // En cas d'erreur, rediriger vers la page principale
-    return $this->redirectToRoute('app_detente_forums', [
-        'category' => $category,
-    ]);
-}
-
-#[Route('/methodology-forums/{category}/create-post', name: 'app_methodology_post_create', methods: ['POST'])]
-public function addMethodologyPost(
-    ForumRepository $forumRepository,
-    PostRepository $postRepository,
-    Request $request,
-    string $category
-): Response {
-    // Récupérer uniquement les forums methodology
-    $forums = $forumRepository->findBy(['special' => 'methodology']);
-    
-    $post = new Post();
-    $form = $this->createForm(PostFormType::class, $post);
-
-    $form->handleRequest($request);
-
-    if ($form->isSubmitted() && $form->isValid()) {
-        $post = $form->getData();
-        $post->setUser($this->getUser());
-        $post->setCreationDate(new \DateTime());
-        $post->setLastActivity(new \DateTime());
-        $postRepository->addPost($post);
-        
-        // Rediriger avec la catégorie du forum
-        return $this->redirectToRoute('app_methodology_forums_post', [
-            'category' => $post->getForum()->getTitle(),
-            'postId' => $post->getId(),
-        ]);
-    }
-
-    // En cas d'erreur, rediriger vers la page principale
-    return $this->redirectToRoute('app_methodology_forums', [
-        'category' => $category,
-    ]);
-}
-
-#[Route('/administratif-forums/{category}/create-post', name: 'app_administratif_post_create', methods: ['POST'])]
-public function addAdministratifPost(
-    ForumRepository $forumRepository,
-    PostRepository $postRepository,
-    Request $request,
-    string $category
-): Response {
-    // Récupérer uniquement les forums administratifs
-    $forums = $forumRepository->findBy(['special' => 'administratif']);
-    
-    $post = new Post();
-    $form = $this->createForm(PostFormType::class, $post);
-
-    $form->handleRequest($request);
-
-    if ($form->isSubmitted() && $form->isValid()) {
-        $post = $form->getData();
-        $post->setUser($this->getUser());
-        $post->setCreationDate(new \DateTime());
-        $post->setLastActivity(new \DateTime());
-        $postRepository->addPost($post);
-        
-        // Rediriger avec la catégorie du forum
-        return $this->redirectToRoute('app_administratif_forums_post', [
-            'category' => $post->getForum()->getTitle(),
-            'postId' => $post->getId(),
-        ]);
-    }
-
-    // En cas d'erreur, rediriger vers la page principale
-    return $this->redirectToRoute('app_administratif_forums', [
-        'category' => $category,
-    ]);
-}
 
     // Fonction utilitaire pour gérer l'auto-sélection du forum dans les formulaires
+
+    /**
+     * Créer un nouveau post dans les forums Methodology
+     *
+     * @param ForumRepository $forumRepository
+     * @param PostRepository $postRepository
+     * @param Request $request
+     * @param string $category
+     * @return Response
+     */
+    #[Route('/methodology-forums/{category}/create-post', name: 'app_methodology_post_create', methods: ['POST'])]
+    public function addMethodologyPost(
+        ForumRepository $forumRepository,
+        PostRepository  $postRepository,
+        Request         $request,
+        string          $category
+    ): Response
+    {
+        // Récupérer uniquement les forums methodology
+        $forums = $forumRepository->findBy(['special' => 'methodology']);
+
+        $post = new Post();
+        $form = $this->createForm(PostFormType::class, $post);
+
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            $post = $form->getData();
+            $post->setUser($this->getUser());
+            $post->setCreationDate(new DateTime());
+            $post->setLastActivity(new DateTime());
+            $postRepository->addPost($post);
+
+            // Rediriger avec la catégorie du forum
+            return $this->redirectToRoute('app_methodology_forums_post', [
+                'category' => $post->getForum()->getTitle(),
+                'postId' => $post->getId(),
+            ]);
+        }
+
+        // En cas d'erreur, rediriger vers la page principale
+        return $this->redirectToRoute('app_methodology_forums', [
+            'category' => $category,
+        ]);
+    }
+
+    // Helper: retourne true si $currentUser bloque ou est bloqué par $otherUser
+
+    /**
+     * Créer un nouveau post dans les forums Administratif
+     *
+     * @param ForumRepository $forumRepository
+     * @param PostRepository $postRepository
+     * @param Request $request
+     * @param string $category
+     * @return Response
+     */
+    #[Route('/administratif-forums/{category}/create-post', name: 'app_administratif_post_create', methods: ['POST'])]
+    public function addAdministratifPost(
+        ForumRepository $forumRepository,
+        PostRepository  $postRepository,
+        Request         $request,
+        string          $category
+    ): Response
+    {
+        // Récupérer uniquement les forums administratifs
+        $forums = $forumRepository->findBy(['special' => 'administratif']);
+
+        $post = new Post();
+        $form = $this->createForm(PostFormType::class, $post);
+
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            $post = $form->getData();
+            $post->setUser($this->getUser());
+            $post->setCreationDate(new DateTime());
+            $post->setLastActivity(new DateTime());
+            $postRepository->addPost($post);
+
+            // Rediriger avec la catégorie du forum
+            return $this->redirectToRoute('app_administratif_forums_post', [
+                'category' => $post->getForum()->getTitle(),
+                'postId' => $post->getId(),
+            ]);
+        }
+
+        // En cas d'erreur, rediriger vers la page principale
+        return $this->redirectToRoute('app_administratif_forums', [
+            'category' => $category,
+        ]);
+    }
+
+    // Helper: filtre une liste de Post pour retirer ceux dont l'auteur est bloqué / bloque le visiteur
+
+    /**
+     * Configurer la sélection automatique du forum dans le formulaire de post
+     *
+     * @param Post $post
+     * @param array $forums
+     * @param string $currentCategory
+     * @return void
+     */
     private function setupForumSelection(Post $post, array $forums, string $currentCategory): void
     {
         // Si une catégorie est spécifiée et qu'elle correspond à un forum spécial, auto-sélectionner
@@ -1961,30 +2324,7 @@ public function addAdministratifPost(
                     $post->setForum($forum);
                     break;
                 }
- }
-    }
-}
-
-    // Helper: retourne true si $currentUser bloque ou est bloqué par $otherUser
-    private function isBlockedRelation(?User $currentUser, ?User $otherUser): bool
-    {
-        if (!$currentUser || !$otherUser) return false;
-        if ($currentUser->getId() === $otherUser->getId()) return false;
-        return $currentUser->isBlocked($otherUser->getId()) || $currentUser->isBlockedBy($otherUser->getId());
-    }
-
-    // Helper: filtre une liste de Post pour retirer ceux dont l'auteur est bloqué / bloque le visiteur
-    private function filterPostsByBlock(array $posts, ?User $currentUser): array
-    {
-        if (!$currentUser) return $posts;
-        $out = [];
-        foreach ($posts as $p) {
-            $author = $p->getUser();
-            if ($author && $this->isBlockedRelation($currentUser, $author)) {
-                continue;
             }
-            $out[] = $p;
         }
-        return array_values($out);
     }
 }

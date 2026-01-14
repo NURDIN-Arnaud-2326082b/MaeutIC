@@ -1,31 +1,50 @@
 <?php
 
+/**
+ * Contrôleur de gestion de la bibliothèque
+ *
+ * Ce contrôleur gère la bibliothèque de ressources académiques :
+ * - Gestion des auteurs
+ * - Gestion des livres
+ * - Gestion des articles
+ * - Association avec des tags pour la catégorisation
+ * - Upload d'images pour les auteurs
+ * - Recherche et filtrage par tags
+ */
+
 namespace App\Controller;
 
-use App\Repository\AuthorRepository;
-use App\Repository\ArticleRepository;
-use App\Repository\BookRepository;
-use App\Form\AuthorType;
+use App\Entity\Article;
 use App\Entity\Author;
-use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\RedirectResponse;
-use Symfony\Component\HttpFoundation\JsonResponse;
-use Doctrine\ORM\EntityManagerInterface;
+use App\Entity\Book;
 use App\Entity\Tag;
 use App\Entity\Taggable;
-use App\Repository\TaggableRepository;
 use App\Form\ArticleType;
+use App\Form\AuthorType;
 use App\Form\BookType;
-use App\Entity\Article;
-use App\Entity\Book;
+use App\Repository\ArticleRepository;
+use App\Repository\AuthorRepository;
+use App\Repository\BookRepository;
+use App\Repository\TaggableRepository;
 use App\Repository\TagRepository;
-use Symfony\Component\String\Slugger\SluggerInterface;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\Exception\FileException;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\String\Slugger\SluggerInterface;
 
-final class LibraryController extends AbstractController{
+final class LibraryController extends AbstractController
+{
+    /**
+     * Affiche la page principale de la bibliothèque avec la liste des auteurs
+     *
+     * @param AuthorRepository $authorRepository
+     * @return Response
+     */
     #[Route('/library', name: 'app_library')]
     public function index(AuthorRepository $authorRepository): Response
     {
@@ -42,6 +61,15 @@ final class LibraryController extends AbstractController{
         ]);
     }
 
+    /**
+     * Ajoute un nouvel auteur à la bibliothèque
+     *
+     * @param AuthorRepository $authorRepository
+     * @param Request $request
+     * @param EntityManagerInterface $em
+     * @param SluggerInterface $slugger
+     * @return Response
+     */
     #[Route('/library/author/add', name: 'app_author_add')]
     public function addAuthor(AuthorRepository $authorRepository, Request $request, EntityManagerInterface $em, SluggerInterface $slugger): Response
     {
@@ -63,11 +91,11 @@ final class LibraryController extends AbstractController{
                 $originalFilename = pathinfo($imageFile->getClientOriginalName(), PATHINFO_FILENAME);
                 $safeFilename = $slugger->slug($originalFilename);
                 $extension = $imageFile->guessExtension() ?: pathinfo($imageFile->getClientOriginalName(), PATHINFO_EXTENSION);
-                $newFilename = $safeFilename.'-'.uniqid().'.'.$extension;
+                $newFilename = $safeFilename . '-' . uniqid() . '.' . $extension;
 
                 try {
                     $imageFile->move(
-                        $this->getParameter('kernel.project_dir').'/public/author_images',
+                        $this->getParameter('kernel.project_dir') . '/public/author_images',
                         $newFilename
                     );
                 } catch (FileException $e) {
@@ -94,7 +122,7 @@ final class LibraryController extends AbstractController{
 
             return $this->redirectToRoute('app_library');
         }
-        
+
         // Si le formulaire n'est pas valide, on réaffiche la page avec les erreurs
         return $this->render('library/index.html.twig', [
             'controller_name' => 'LibraryController',
@@ -104,7 +132,7 @@ final class LibraryController extends AbstractController{
             'createFormHasErrors' => !$form->isValid() && $form->isSubmitted(),
         ]);
 
-        
+
         // return $this->render('library/index.html.twig', [
         //     'libraryController' => 'LibraryController',
         //     'form' => $form,
@@ -112,6 +140,13 @@ final class LibraryController extends AbstractController{
         // ]);
     }
 
+    /**
+     * Récupère les données d'un auteur au format JSON
+     *
+     * @param Author $author
+     * @param TaggableRepository $taggableRepository
+     * @return JsonResponse
+     */
     #[Route('/library/author/data/{id}', name: 'app_author_data', methods: ['GET'])]
     public function getAuthorData(Author $author, TaggableRepository $taggableRepository): JsonResponse
     {
@@ -139,23 +174,30 @@ final class LibraryController extends AbstractController{
         ]);
     }
 
-    #[Route('/library/author/edit/{id}', name: 'app_author_edit', methods:['POST'])]
+    /**
+     * Édite un auteur existant
+     *
+     * @param AuthorRepository $authorRepository
+     * @param Request $request
+     * @param Author $author
+     * @param EntityManagerInterface $em
+     * @param TaggableRepository $taggableRepository
+     * @param SluggerInterface $slugger
+     * @return Response
+     */
+    #[Route('/library/author/edit/{id}', name: 'app_author_edit', methods: ['POST'])]
     public function editAuthor(
-        AuthorRepository $authorRepository,
-        Request $request,
-        Author $author,
+        AuthorRepository       $authorRepository,
+        Request                $request,
+        Author                 $author,
         EntityManagerInterface $em,
-        TaggableRepository $taggableRepository,
-        SluggerInterface $slugger
+        TaggableRepository     $taggableRepository,
+        SluggerInterface       $slugger
     ): Response
     {
         $user = $this->getUser();
-        if ( !$user || ($user->getUserType() !== 1 && $user->getId() !== $author->getUser()->getId()) ) {
+        if (!$user || ($user->getUserType() !== 1 && $user->getId() !== $author->getUser()->getId())) {
             throw $this->createAccessDeniedException();
-        }
-
-        if (!$author) {
-            throw $this->createNotFoundException('Auteur non trouvé');
         }
 
         $form = $this->createForm(AuthorType::class, $author);
@@ -168,11 +210,11 @@ final class LibraryController extends AbstractController{
                 $originalFilename = pathinfo($imageFile->getClientOriginalName(), PATHINFO_FILENAME);
                 $safeFilename = $slugger->slug($originalFilename);
                 $extension = $imageFile->guessExtension() ?: pathinfo($imageFile->getClientOriginalName(), PATHINFO_EXTENSION);
-                $newFilename = $safeFilename.'-'.uniqid().'.'.$extension;
+                $newFilename = $safeFilename . '-' . uniqid() . '.' . $extension;
 
                 try {
                     $imageFile->move(
-                        $this->getParameter('kernel.project_dir').'/public/author_images',
+                        $this->getParameter('kernel.project_dir') . '/public/author_images',
                         $newFilename
                     );
                 } catch (FileException $e) {
@@ -193,9 +235,9 @@ final class LibraryController extends AbstractController{
             // 2. Ajouter les nouveaux liens Taggable
             $tagIds = $request->request->all('author')['tags'] ?? [];
             foreach ($tagIds as $tagId) {
-                $tag = $em->getRepository(\App\Entity\Tag::class)->find($tagId);
+                $tag = $em->getRepository(Tag::class)->find($tagId);
                 if ($tag) {
-                    $taggable = new \App\Entity\Taggable();
+                    $taggable = new Taggable();
                     $taggable->setTag($tag);
                     $taggable->setEntityId($author->getId());
                     $taggable->setEntityType('author');
@@ -212,16 +254,20 @@ final class LibraryController extends AbstractController{
         return $this->redirectToRoute('app_library');
     }
 
+    /**
+     * Supprime un auteur de la bibliothèque
+     *
+     * @param AuthorRepository $authorRepository
+     * @param Request $request
+     * @param Author $author
+     * @return RedirectResponse
+     */
     #[Route('/library/author/delete/{id}', name: 'app_author_delete')]
     public function deleteAuthor(AuthorRepository $authorRepository, Request $request, Author $author): RedirectResponse
     {
         $user = $this->getUser();
-        if (!$user || ($user->getUserType() !== 1 && $user->getId() !== $author->getUser()->getId()) ) {
+        if (!$user || ($user->getUserType() !== 1 && $user->getId() !== $author->getUser()->getId())) {
             return $this->redirectToRoute('app_login'); // Ou utilisez throw $this->createAccessDeniedException();
-        }
-
-        if (!$author) {
-            throw $this->createNotFoundException('Auteur non trouvé');
         }
 
         if ($this->isCsrfTokenValid('delete_author_' . $author->getId(), $request->request->get('_token'))) {
@@ -231,6 +277,12 @@ final class LibraryController extends AbstractController{
         return $this->redirectToRoute('app_library');
     }
 
+    /**
+     * Affiche la liste des articles dans la bibliothèque
+     *
+     * @param ArticleRepository $articleRepository
+     * @return Response
+     */
     #[Route('/library/articles', name: 'app_library_articles')]
     public function articles(ArticleRepository $articleRepository): Response
     {
@@ -245,6 +297,13 @@ final class LibraryController extends AbstractController{
         ]);
     }
 
+    /**
+     * Ajoute un nouvel article à la bibliothèque
+     *
+     * @param Request $request
+     * @param EntityManagerInterface $em
+     * @return Response
+     */
     #[Route('/library/article/add', name: 'app_article_add')]
     public function addArticle(Request $request, EntityManagerInterface $em): Response
     {
@@ -286,6 +345,13 @@ final class LibraryController extends AbstractController{
         ]);
     }
 
+    /**
+     * Récupère les données d'un article au format JSON
+     *
+     * @param Article $article
+     * @param TaggableRepository $taggableRepository
+     * @return JsonResponse
+     */
     #[Route('/library/article/data/{id}', name: 'app_article_data', methods: ['GET'])]
     public function getArticleData(Article $article, TaggableRepository $taggableRepository): JsonResponse
     {
@@ -309,17 +375,23 @@ final class LibraryController extends AbstractController{
         ]);
     }
 
-    #[Route('/library/article/edit/{id}', name: 'app_article_edit', methods:['POST'])]
+    /**
+     * Édite un article existant
+     *
+     * @param Request $request
+     * @param Article $article
+     * @param EntityManagerInterface $em
+     * @param TaggableRepository $taggableRepository
+     * @return Response
+     */
+    #[Route('/library/article/edit/{id}', name: 'app_article_edit', methods: ['POST'])]
     public function editArticle(
-        Request $request,
-        Article $article,
+        Request                $request,
+        Article                $article,
         EntityManagerInterface $em,
-        TaggableRepository $taggableRepository
+        TaggableRepository     $taggableRepository
     ): Response
     {
-        if (!$article) {
-            throw $this->createNotFoundException('Article non trouvé');
-        }
 
         $user = $this->getUser();
         if (!$user || ($user->getUserType() !== 1 && $user->getId() !== $article->getUser()->getId())) {
@@ -357,13 +429,18 @@ final class LibraryController extends AbstractController{
         return $this->redirectToRoute('app_library_articles');
     }
 
+    /**
+     * Supprime un article de la bibliothèque
+     *
+     * @param Request $request
+     * @param Article $article
+     * @param EntityManagerInterface $em
+     * @return RedirectResponse
+     */
     #[Route('/library/article/delete/{id}', name: 'app_article_delete')]
     public function deleteArticle(Request $request, Article $article, EntityManagerInterface $em): RedirectResponse
     {
-        if (!$article) {
-            throw $this->createNotFoundException('Article non trouvé');
-        }
-        
+
         $user = $this->getUser();
         if (!$user || ($user->getUserType() !== 1 && $user->getId() !== $article->getUser()->getId())) {
             return $this->redirectToRoute('app_login');
@@ -377,6 +454,12 @@ final class LibraryController extends AbstractController{
         return $this->redirectToRoute('app_library_articles');
     }
 
+    /**
+     * Affiche la liste des livres dans la bibliothèque
+     *
+     * @param BookRepository $bookRepository
+     * @return Response
+     */
     #[Route('/library/books', name: 'app_library_books')]
     public function books(BookRepository $bookRepository): Response
     {
@@ -391,6 +474,13 @@ final class LibraryController extends AbstractController{
         ]);
     }
 
+    /**
+     * Ajoute un nouveau livre à la bibliothèque
+     *
+     * @param Request $request
+     * @param EntityManagerInterface $em
+     * @return Response
+     */
     #[Route('/library/book/add', name: 'app_book_add')]
     public function addBook(Request $request, EntityManagerInterface $em): Response
     {
@@ -432,6 +522,13 @@ final class LibraryController extends AbstractController{
         ]);
     }
 
+    /**
+     * Récupère les données d'un livre au format JSON
+     *
+     * @param Book $book
+     * @param TaggableRepository $taggableRepository
+     * @return JsonResponse
+     */
     #[Route('/library/book/data/{id}', name: 'app_book_data', methods: ['GET'])]
     public function getBookData(Book $book, TaggableRepository $taggableRepository): JsonResponse
     {
@@ -456,18 +553,24 @@ final class LibraryController extends AbstractController{
         ]);
     }
 
-    #[Route('/library/book/edit/{id}', name: 'app_book_edit', methods:['POST'])]
+    /**
+     * Édite un livre existant
+     *
+     * @param Request $request
+     * @param Book $book
+     * @param EntityManagerInterface $em
+     * @param TaggableRepository $taggableRepository
+     * @return Response
+     */
+    #[Route('/library/book/edit/{id}', name: 'app_book_edit', methods: ['POST'])]
     public function editBook(
-        Request $request,
-        Book $book,
+        Request                $request,
+        Book                   $book,
         EntityManagerInterface $em,
-        TaggableRepository $taggableRepository
+        TaggableRepository     $taggableRepository
     ): Response
     {
-        if (!$book) {
-            throw $this->createNotFoundException('Livre non trouvé');
-        }
-        
+
         $user = $this->getUser();
         if (!$user || ($user->getUserType() !== 1 && $user->getId() !== $book->getUser()->getId())) {
             return $this->redirectToRoute('app_login');
@@ -504,13 +607,18 @@ final class LibraryController extends AbstractController{
         return $this->redirectToRoute('app_library_books');
     }
 
+    /**
+     * Supprime un livre de la bibliothèque
+     *
+     * @param Request $request
+     * @param Book $book
+     * @param EntityManagerInterface $em
+     * @return RedirectResponse
+     */
     #[Route('/library/book/delete/{id}', name: 'app_book_delete')]
     public function deleteBook(Request $request, Book $book, EntityManagerInterface $em): RedirectResponse
     {
-        if (!$book) {
-            throw $this->createNotFoundException('Livre non trouvé');
-        }
-        
+
         $user = $this->getUser();
         if (!$user || ($user->getUserType() !== 1 && $user->getId() !== $book->getUser()->getId())) {
             return $this->redirectToRoute('app_login');
@@ -524,6 +632,13 @@ final class LibraryController extends AbstractController{
         return $this->redirectToRoute('app_library_books');
     }
 
+    /**
+     * Recherche des tags par nom pour l'autocomplétion
+     *
+     * @param Request $request
+     * @param TagRepository $tagRepository
+     * @return JsonResponse
+     */
     #[Route('/library/tag/search', name: 'app_tag_search', methods: ['GET'])]
     public function tagSearch(Request $request, TagRepository $tagRepository): JsonResponse
     {
@@ -536,6 +651,14 @@ final class LibraryController extends AbstractController{
         return $this->json($result);
     }
 
+    /**
+     * Filtre les auteurs par tags
+     *
+     * @param Request $request
+     * @param AuthorRepository $authorRepository
+     * @param TaggableRepository $taggableRepository
+     * @return Response
+     */
     #[Route('/library/author/filter', name: 'app_author_filter', methods: ['GET'])]
     public function filterAuthors(Request $request, AuthorRepository $authorRepository, TaggableRepository $taggableRepository): Response
     {
@@ -551,6 +674,14 @@ final class LibraryController extends AbstractController{
         ]);
     }
 
+    /**
+     * Filtre les livres par tags
+     *
+     * @param Request $request
+     * @param BookRepository $bookRepository
+     * @param TaggableRepository $taggableRepository
+     * @return Response
+     */
     #[Route('/library/book/filter', name: 'app_book_filter', methods: ['GET'])]
     public function filterBooks(Request $request, BookRepository $bookRepository, TaggableRepository $taggableRepository): Response
     {
@@ -558,7 +689,7 @@ final class LibraryController extends AbstractController{
         if (empty($tagIds)) {
             $books = $bookRepository->findAllOrderedByTitle();
         } else {
-            $books = $bookRepository->findByTags($tagIds, $taggableRepository);
+            $books = $bookRepository->findByTags($tagIds);
         }
         return $this->render('library/_books_grid.html.twig', [
             'books' => $books,
@@ -566,6 +697,14 @@ final class LibraryController extends AbstractController{
         ]);
     }
 
+    /**
+     * Filtre les articles par tags
+     *
+     * @param Request $request
+     * @param ArticleRepository $articleRepository
+     * @param TaggableRepository $taggableRepository
+     * @return Response
+     */
     #[Route('/library/article/filter', name: 'app_article_filter', methods: ['GET'])]
     public function filterArticles(Request $request, ArticleRepository $articleRepository, TaggableRepository $taggableRepository): Response
     {
