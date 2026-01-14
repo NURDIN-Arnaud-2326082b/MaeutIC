@@ -1,17 +1,5 @@
 <?php
 
-/**
- * Repository des utilisateurs
- *
- * Ce repository gère les requêtes personnalisées pour les utilisateurs :
- * - Mise à jour des mots de passe (PasswordUpgraderInterface)
- * - Recherche par tags de questions taggables
- * - Recherche d'utilisateurs non-amis pour recommandations
- * - Recherche paginée
- * - Recherche par critères (tags, affiliation, spécialisation)
- * - Filtrage des utilisateurs bloqués
- */
-
 namespace App\Repository;
 
 use App\Entity\User;
@@ -28,13 +16,6 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         parent::__construct($registry, User::class);
     }
 
-    /**
-     * Mets à jour le mot de passe de l'utilisateur
-     *
-     * @param PasswordAuthenticatedUserInterface $user Utilisateur à mettre à jour
-     * @param string $newHashedPassword Nouveau mot de passe haché
-     * @return void
-     */
     public function upgradePassword(PasswordAuthenticatedUserInterface $user, string $newHashedPassword): void
     {
         if (!$user instanceof User) {
@@ -46,13 +27,6 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         $this->getEntityManager()->flush();
     }
 
-    /**
-     * Récupère les utilisateurs correspondant aux tags de la question taggable 1
-     *
-     * @param array $tagIds Liste des IDs des tags
-     * @param int $limit Limite du nombre de résultats
-     * @return array Liste des utilisateurs correspondants
-     */
     public function findByTaggableQuestion1Tags(array $tagIds, int $limit = 1000): array
     {
         if (empty($tagIds)) {
@@ -91,13 +65,6 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
             ->getResult();
     }
 
-    /**
-     * Recherche des utilisateurs par une requête de recherche
-     *
-     * @param string $query La requête de recherche
-     * @param int $limit Limite du nombre de résultats
-     * @return array Liste des utilisateurs correspondants
-     */
     public function findBySearchQuery(string $query, int $limit = 1000): array
     {
         if (empty(trim($query))) {
@@ -134,28 +101,7 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
     }
 
     /**
-     * Extrait les termes de recherche d'une requête
-     *
-     * @param string $searchQuery La requête de recherche
-     * @return array Liste des termes de recherche
-     */
-    private function extractSearchTerms(string $searchQuery): array
-    {
-        $searchQuery = trim(preg_replace('/[[:space:]]+/', ' ', $searchQuery));
-        $terms = array_unique(explode(' ', $searchQuery));
-
-        return array_filter($terms, function ($term) {
-            return 2 <= mb_strlen($term);
-        });
-    }
-
-    /**
      * Récupère les utilisateurs non-amis pour les recommandations
-     *
-     * @param User $currentUser L'utilisateur courant
-     * @param array $friendIds Liste des IDs des amis de l'utilisateur courant
-     * @param int $limit Limite du nombre de résultats
-     * @return array Liste des utilisateurs non-amis
      */
     public function findNonFriendUsers(User $currentUser, array $friendIds, int $limit = 500): array
     {
@@ -165,7 +111,7 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
 
         if (!empty($friendIds)) {
             $qb->andWhere('u.id NOT IN (:friendIds)')
-                ->setParameter('friendIds', $friendIds);
+               ->setParameter('friendIds', $friendIds);
         }
 
         return $qb
@@ -176,8 +122,6 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
 
     /**
      * Compte le nombre total d'utilisateurs (pour la pagination)
-     *
-     * @return int Nombre total d'utilisateurs
      */
     public function countAll(): int
     {
@@ -189,10 +133,6 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
 
     /**
      * Récupère les utilisateurs avec pagination
-     *
-     * @param int $page Numéro de la page
-     * @param int $limit Nombre d'utilisateurs par page
-     * @return array Liste des utilisateurs pour la page demandée
      */
     public function findPaginated(int $page = 1, int $limit = 20): array
     {
@@ -201,5 +141,15 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();
+    }
+
+    private function extractSearchTerms(string $searchQuery): array
+    {
+        $searchQuery = trim(preg_replace('/[[:space:]]+/', ' ', $searchQuery));
+        $terms = array_unique(explode(' ', $searchQuery));
+
+        return array_filter($terms, function ($term) {
+            return 2 <= mb_strlen($term);
+        });
     }
 }

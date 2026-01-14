@@ -1,47 +1,25 @@
 <?php
 
-/**
- * Formulaire d'inscription utilisateur
- *
- * Ce formulaire gère l'inscription des nouveaux utilisateurs avec :
- * - Informations de base (email, username, password, nom, prénom)
- * - Informations académiques (affiliation, spécialisation, thématique)
- * - Photo de profil
- * - Questions dynamiques personnalisées (minimum requis)
- * - Questions taggables avec sélection de tags
- * - Case d'acceptation des CGU
- * - Validation côté serveur
- */
-
 namespace App\Form;
 
 use App\Entity\User;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
-use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\CollectionType;
 use Symfony\Component\Form\Extension\Core\Type\EmailType;
 use Symfony\Component\Form\Extension\Core\Type\FileType;
 use Symfony\Component\Form\Extension\Core\Type\PasswordType;
-use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
+use Symfony\Component\Form\Extension\Core\Type\TextareaType;
+use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
-use Symfony\Component\Validator\Constraints\Callback;
-use Symfony\Component\Validator\Constraints\File;
 use Symfony\Component\Validator\Constraints\IsTrue;
 use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\NotBlank;
 
 class RegistrationFormType extends AbstractType
 {
-    /**
-     * Construction du formulaire d'inscription
-     *
-     * @param FormBuilderInterface $builder Constructeur de formulaire
-     * @param array $options Options du formulaire
-     * @return void
-     */
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $dynamicQuestions = $options['dynamic_questions'] ?? [];
@@ -130,7 +108,7 @@ class RegistrationFormType extends AbstractType
                 'mapped' => false,
                 'required' => false,
                 'constraints' => [
-                    new Callback([
+                    new \Symfony\Component\Validator\Constraints\Callback([
                         'callback' => function ($questions, $context) use ($minQuestionsRequired) {
                             $answeredQuestions = 0;
                             foreach ($questions as $questionText) {
@@ -138,7 +116,7 @@ class RegistrationFormType extends AbstractType
                                     $answeredQuestions++;
                                 }
                             }
-
+                            
                             if ($answeredQuestions < $minQuestionsRequired) {
                                 $context->buildViolation("Vous devez répondre à au moins {$minQuestionsRequired} questions.")
                                     ->atPath('userQuestions')
@@ -153,10 +131,10 @@ class RegistrationFormType extends AbstractType
                 'entry_type' => ChoiceType::class,
                 'entry_options' => [
                     'choices' => $tags,
-                    'choice_label' => function ($tag) {
+                    'choice_label' => function($tag) {
                         return $tag->getName();
                     },
-                    'choice_value' => function ($tag) {
+                    'choice_value' => function($tag) {
                         return $tag ? $tag->getId() : '';
                     },
                     'label' => false,
@@ -170,7 +148,7 @@ class RegistrationFormType extends AbstractType
                 'required' => false,
                 'data' => array_fill(0, count($taggableQuestions), []),
                 'constraints' => [
-                    new Callback([
+                    new \Symfony\Component\Validator\Constraints\Callback([
                         'callback' => function ($taggable, $context) use ($taggableMinChoices) {
                             foreach ($taggableMinChoices as $index => $min) {
                                 if (
@@ -192,7 +170,7 @@ class RegistrationFormType extends AbstractType
                 'mapped' => false,
                 'required' => false,
                 'constraints' => [
-                    new File([
+                    new \Symfony\Component\Validator\Constraints\File([
                         'maxSize' => '2M',
                         'mimeTypes' => [
                             'image/jpeg',
@@ -205,12 +183,6 @@ class RegistrationFormType extends AbstractType
             ]);
     }
 
-    /**
-     * Configuration des options du formulaire
-     *
-     * @param OptionsResolver $resolver Résolveur d'options
-     * @return void
-     */
     public function configureOptions(OptionsResolver $resolver): void
     {
         $resolver->setDefaults([

@@ -1,41 +1,23 @@
 <?php
 
-/**
- * Formulaire d'édition de profil utilisateur
- *
- * Ce formulaire permet aux utilisateurs de modifier leur profil :
- * - Informations de base
- * - Informations académiques
- * - Photo de profil
- * - Réponses aux questions dynamiques
- * - Réponses aux questions taggables
- */
-
 namespace App\Form;
 
-use App\Entity\Tag;
 use App\Entity\User;
-use Symfony\Bridge\Doctrine\Form\Type\EntityType;
+use App\Entity\Tag;
 use Symfony\Component\Form\AbstractType;
-use Symfony\Component\Form\Extension\Core\Type\CollectionType;
 use Symfony\Component\Form\Extension\Core\Type\EmailType;
-use Symfony\Component\Form\Extension\Core\Type\FileType;
-use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
+use Symfony\Component\Form\Extension\Core\Type\TextareaType;
+use Symfony\Component\Form\Extension\Core\Type\CollectionType;
+use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
-use Symfony\Component\Validator\Constraints\File;
 use Symfony\Component\Validator\Constraints\NotBlank;
+use Symfony\Bridge\Doctrine\Form\Type\EntityType;
+use Symfony\Component\Form\Extension\Core\Type\FileType;
 
 class ProfileEditFormType extends AbstractType
 {
-    /**
-     * Construction du formulaire
-     *
-     * @param FormBuilderInterface $builder Constructeur de formulaire
-     * @param array $options Options du formulaire
-     * @return void
-     */
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $dynamicQuestions = $options['dynamic_questions'] ?? [];
@@ -78,7 +60,7 @@ class ProfileEditFormType extends AbstractType
                 'allow_add' => true,
                 'mapped' => false,
                 'required' => false,
-
+                
             ])
             ->add('taggableQuestions', CollectionType::class, [
                 'entry_type' => EntityType::class,
@@ -99,7 +81,7 @@ class ProfileEditFormType extends AbstractType
                 'mapped' => false,
                 'required' => false,
                 'constraints' => [
-                    new File([
+                    new \Symfony\Component\Validator\Constraints\File([
                         'maxSize' => '2M',
                         'mimeTypes' => [
                             'image/jpeg',
@@ -109,15 +91,10 @@ class ProfileEditFormType extends AbstractType
                         'mimeTypesMessage' => 'Merci d\'uploader une image valide (JPEG, PNG, WEBP)',
                     ])
                 ],
-            ]);
+            ])
+        ;
     }
 
-    /**
-     * Configuration des options du formulaire
-     *
-     * @param OptionsResolver $resolver Résolveur d'options
-     * @return void
-     */
     public function configureOptions(OptionsResolver $resolver): void
     {
         $resolver->setDefaults([
@@ -127,7 +104,7 @@ class ProfileEditFormType extends AbstractType
             'tags' => [],
             'csrf_protection' => true,
             'csrf_field_name' => '_token',
-            'csrf_token_id' => 'profile_edit',
+            'csrf_token_id'   => 'profile_edit',
         ]);
     }
 }

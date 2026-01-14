@@ -5,6 +5,7 @@ namespace App\Repository;
 use App\Entity\Taggable;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Doctrine\ORM\QueryBuilder;
 
 class TaggableRepository extends ServiceEntityRepository
 {

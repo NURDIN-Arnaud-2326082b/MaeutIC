@@ -1,18 +1,7 @@
 <?php
 
-/**
- * Contrôleur de gestion des profils utilisateurs
- *
- * Gère toutes les opérations liées aux profils utilisateurs :
- * - Affichage du profil personnel et des autres utilisateurs
- * - Édition du profil
- * - Consultation des posts et commentaires d'un utilisateur
- * - Suppression de compte
- */
-
 namespace App\Controller;
 
-use App\Entity\User;
 use App\Entity\UserQuestions;
 use App\Form\ProfileEditFormType;
 use App\Repository\CommentRepository;
@@ -34,12 +23,6 @@ use Symfony\Component\String\Slugger\AsciiSlugger;
 
 final class ProfileController extends AbstractController
 {
-    /**
-     * Affiche le profil de l'utilisateur connecté
-     *
-     * @param Security $security Service de sécurité pour récupérer l'utilisateur
-     * @return Response Le profil de l'utilisateur ou redirection vers login
-     */
     #[Route('/profile', name: 'app_profile')]
     public function index(Security $security): Response
     {
@@ -60,8 +43,10 @@ final class ProfileController extends AbstractController
     {
         // Récupérer les réponses aux questions
         $userQuestions = [];
-        foreach ($user->getUserQuestions() as $question) {
-            $userQuestions[$question->getQuestion()][] = $question->getAnswer();
+        if ($user) {
+            foreach ($user->getUserQuestions() as $question) {
+                $userQuestions[$question->getQuestion()][] = $question->getAnswer();
+            }
         }
 
         // Libellés des questions classiques
@@ -95,13 +80,6 @@ final class ProfileController extends AbstractController
         ]);
     }
 
-    /**
-     * Affiche le profil public d'un utilisateur spécifique
-     *
-     * @param string $username Le nom d'utilisateur à afficher
-     * @param UserRepository $userRepository Repository des utilisateurs
-     * @return Response Le profil de l'utilisateur demandé
-     */
     #[Route('/profile/show/{username}', name: 'app_profile_show')]
     public function show(string $username, UserRepository $userRepository): Response
     {
@@ -112,14 +90,6 @@ final class ProfileController extends AbstractController
         return $this->renderProfile($user);
     }
 
-    /**
-     * Récupère et affiche tous les posts d'un utilisateur
-     *
-     * @param string $username Le nom d'utilisateur
-     * @param UserRepository $userRepository Repository des utilisateurs
-     * @param PostRepository $postRepository Repository des posts
-     * @return Response Fragment HTML avec la liste des posts
-     */
     #[Route('/profile/posts/{username}', name: 'app_profile_posts')]
     public function posts(string $username, UserRepository $userRepository, PostRepository $postRepository): Response
     {
@@ -134,14 +104,6 @@ final class ProfileController extends AbstractController
         ]);
     }
 
-    /**
-     * Récupère et affiche tous les commentaires d'un utilisateur
-     *
-     * @param string $username Le nom d'utilisateur
-     * @param UserRepository $userRepository Repository des utilisateurs
-     * @param CommentRepository $commentRepository Repository des commentaires
-     * @return Response Fragment HTML avec la liste des commentaires
-     */
     #[Route('/profile/comments/{username}', name: 'app_profile_comments')]
     public function comments(string $username, UserRepository $userRepository, CommentRepository $commentRepository): Response
     {
@@ -155,19 +117,6 @@ final class ProfileController extends AbstractController
         ]);
     }
 
-    /**
-     * Édite le profil d'un utilisateur
-     *
-     * Permet de modifier les informations du profil, la photo, et les réponses
-     * aux questions dynamiques et taggables. Seul l'utilisateur propriétaire
-     * peut éditer son propre profil.
-     *
-     * @param Request $request La requête HTTP avec les données du formulaire
-     * @param EntityManagerInterface $entityManager Gestionnaire d'entités
-     * @param TagRepository $tagRepository Repository des tags
-     * @param UserQuestionsRepository $userQuestionsRepository Repository des questions utilisateur
-     * @return Response Le formulaire d'édition ou redirection après succès
-     */
     #[Route('/profile/edit', name: 'app_profile_edit')]
     public function edit(
         Request                 $request,
@@ -321,19 +270,6 @@ final class ProfileController extends AbstractController
         ]);
     }
 
-    /**
-     * Supprime le compte de l'utilisateur connecté
-     *
-     * Supprime définitivement le compte utilisateur après vérification du token CSRF,
-     * invalide la session et déconnecte l'utilisateur
-     *
-     * @param Security $security Service de sécurité
-     * @param Request $request La requête contenant le token CSRF
-     * @param TokenStorageInterface $tokenStorage Stockage des tokens d'authentification
-     * @param SessionInterface $session La session utilisateur
-     * @param EntityManagerInterface $entityManager Gestionnaire d'entités
-     * @return Response Redirection vers l'accueil
-     */
     #[Route('/profile/delete', name: 'app_profile_delete', methods: ['POST'])]
     public function delete(
         Security               $security,

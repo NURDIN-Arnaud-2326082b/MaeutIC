@@ -1,16 +1,5 @@
 <?php
 
-/**
- * Entité Message - Représente un message dans une conversation
- *
- * Cette entité gère les messages de chat :
- * - Contenu chiffré pour la sécurité
- * - Contenu en clair temporaire en mémoire
- * - Expéditeur du message
- * - Date et heure d'envoi
- * - Association optionnelle avec une conversation
- */
-
 namespace App\Entity;
 
 use App\Repository\MessageRepository;

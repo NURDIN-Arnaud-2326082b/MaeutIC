@@ -34,9 +34,9 @@ class UserQuestionsRepository extends ServiceEntityRepository
      * @param $user
      * @param string $question
      * @param string $answer
-     * @return object
+     * @return UserQuestions|null
      */
-    public function findOneByUserQuestionAnswer($user, string $question, string $answer): object
+    public function findOneByUserQuestionAnswer($user, string $question, string $answer): ?UserQuestions
     {
         return $this->findOneBy([
             'user' => $user,

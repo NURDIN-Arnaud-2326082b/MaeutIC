@@ -13,7 +13,20 @@ class BookRepository extends ServiceEntityRepository
         parent::__construct($registry, Book::class);
     }
 
-    public function findByTags(array $tagIds): array
+    /**
+     * Find all books ordered by name.
+     *
+     * @return Book[]
+     */
+    public function findAllOrderedByTitle(): array
+    {
+        return $this->createQueryBuilder('a')
+            ->orderBy('a.title', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    public function findByTags(array $tagIds, $taggableRepository): array
     {
         if (empty($tagIds)) {
             return $this->findAllOrderedByTitle();
@@ -28,18 +41,5 @@ class BookRepository extends ServiceEntityRepository
             ->setParameter('count', count($tagIds))
             ->orderBy('b.title', 'ASC');
         return $qb->getQuery()->getResult();
-    }
-
-    /**
-     * Find all books ordered by name.
-     *
-     * @return Book[]
-     */
-    public function findAllOrderedByTitle(): array
-    {
-        return $this->createQueryBuilder('a')
-            ->orderBy('a.title', 'ASC')
-            ->getQuery()
-            ->getResult();
     }
 }

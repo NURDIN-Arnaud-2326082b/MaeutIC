@@ -1,34 +1,17 @@
 <?php
 
-/**
- * Formulaire d'article pour la bibliothèque
- *
- * Ce formulaire gère la création et modification d'articles académiques :
- * - Titre de l'article
- * - Auteur
- * - Lien vers l'article
- * - Sélection de tags pour catégorisation
- */
-
 namespace App\Form;
 
 use App\Entity\Article;
-use App\Entity\Tag;
-use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
+use Symfony\Bridge\Doctrine\Form\Type\EntityType;
+use App\Entity\Tag;
 
 class ArticleType extends AbstractType
 {
-    /**
-     * Construit le formulaire d'article
-     *
-     * @param FormBuilderInterface $builder Constructeur de formulaire
-     * @param array $options Options du formulaire
-     * @return void
-     */
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder
@@ -58,12 +41,6 @@ class ArticleType extends AbstractType
             ]);
     }
 
-    /**
-     * Configure les options du formulaire
-     *
-     * @param OptionsResolver $resolver Résolveur d'options
-     * @return void
-     */
     public function configureOptions(OptionsResolver $resolver): void
     {
         $resolver->setDefaults([

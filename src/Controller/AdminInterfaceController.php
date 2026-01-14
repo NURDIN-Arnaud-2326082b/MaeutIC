@@ -1,28 +1,17 @@
 <?php
 
-/**
- * Contrôleur de l'interface d'administration
- *
- * Ce contrôleur gère les fonctionnalités réservées aux administrateurs :
- * - Gestion des tags
- * - Recherche de tags
- * - Interface d'administration
- *
- * Accès restreint aux utilisateurs administrateurs
- */
-
 namespace App\Controller;
 
 use App\Entity\Tag;
-use App\Form\TagFormType;
 use App\Repository\TagRepository;
-use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Bundle\SecurityBundle\Security;
-use Symfony\Component\HttpFoundation\RedirectResponse;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\HttpFoundation\Request;
+use Doctrine\ORM\EntityManagerInterface;
+use App\Form\TagFormType;
 
 final class AdminInterfaceController extends AbstractController
 {
@@ -33,13 +22,6 @@ final class AdminInterfaceController extends AbstractController
         $this->security = $security;
     }
 
-    /**
-     * Affiche l'interface d'administration principale avec gestion des tags
-     *
-     * @param TagRepository $tagRepository Repository des tags
-     * @param Request $request La requête (peut contenir une recherche)
-     * @return Response Page d'administration ou redirection si non autorisé
-     */
     #[Route('/admin', name: 'app_admin_interface')]
     public function index(TagRepository $tagRepository, Request $request): Response
     {
@@ -72,7 +54,7 @@ final class AdminInterfaceController extends AbstractController
     public function edit(Tag $tag, Request $request, EntityManagerInterface $entityManager, TagRepository $tagRepository): RedirectResponse
     {
         $name = $request->request->get('name');
-
+    
         if (!empty(trim($name))) {
             $existingTag = $tagRepository->findOneBy(['name' => $name]);
             if ($existingTag && $existingTag->getId() !== $tag->getId()) {
@@ -85,7 +67,7 @@ final class AdminInterfaceController extends AbstractController
         } else {
             $this->addFlash('error', 'Le nom du tag ne peut pas être vide.');
         }
-
+    
         return $this->redirectToRoute('app_admin_interface');
     }
 
@@ -105,14 +87,6 @@ final class AdminInterfaceController extends AbstractController
         return $this->redirectToRoute('app_admin_interface');
     }
 
-    /**
-     * Ajoute un nouveau tag
-     *
-     * @param Request $request La requête contenant les données du formulaire
-     * @param EntityManagerInterface $entityManager Gestionnaire d'entités
-     * @param TagRepository $tagRepository Repository des tags
-     * @return RedirectResponse Redirection vers l'interface admin
-     */
     #[Route('/admin/tag/add', name: 'app_admin_tag_add', methods: ['POST'])]
     public function add(Request $request, EntityManagerInterface $entityManager, TagRepository $tagRepository): RedirectResponse
     {

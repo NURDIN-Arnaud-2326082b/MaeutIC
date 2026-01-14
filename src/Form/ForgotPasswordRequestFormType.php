@@ -1,32 +1,16 @@
 <?php
 
-/**
- * Formulaire de demande de réinitialisation de mot de passe
- *
- * Ce formulaire permet aux utilisateurs de demander un lien de réinitialisation :
- * - Saisie de l'adresse email
- * - Validation de format email
- * - Champ requis
- */
-
 namespace App\Form;
 
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\EmailType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
-use Symfony\Component\Validator\Constraints\Email;
 use Symfony\Component\Validator\Constraints\NotBlank;
+use Symfony\Component\Validator\Constraints\Email;
 
 class ForgotPasswordRequestFormType extends AbstractType
 {
-    /**
-     * Construire le formulaire de demande de réinitialisation de mot de passe
-     *
-     * @param FormBuilderInterface $builder Constructeur de formulaire
-     * @param array $options Options du formulaire
-     * @return void
-     */
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder
@@ -45,15 +29,10 @@ class ForgotPasswordRequestFormType extends AbstractType
                         'message' => 'L\'adresse email n\'est pas valide.',
                     ]),
                 ],
-            ]);
+            ])
+        ;
     }
 
-    /**
-     * Configurer les options du formulaire
-     *
-     * @param OptionsResolver $resolver Résolveur d'options
-     * @return void
-     */
     public function configureOptions(OptionsResolver $resolver): void
     {
         $resolver->setDefaults([]);

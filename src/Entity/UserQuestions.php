@@ -1,19 +1,10 @@
 <?php
 
-/**
- * Entité UserQuestions - Représente les réponses aux questions du profil
- *
- * Cette entité stocke les réponses des utilisateurs aux questions d'inscription :
- * - Questions dynamiques personnalisées sur leur parcours de chercheur
- * - Questions taggables
- * - Association avec l'utilisateur
- * - Suppression en cascade si l'utilisateur est supprimé
- */
-
 namespace App\Entity;
 
 use App\Repository\UserQuestionsRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 
 #[ORM\Entity(repositoryClass: UserQuestionsRepository::class)]
 class UserQuestions

@@ -6,6 +6,7 @@ use App\Entity\User;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 
 class UserFixtures extends Fixture
 {
@@ -20,15 +21,15 @@ class UserFixtures extends Fixture
     {
         $user = new User();
         $user->setEmail('user@example.com')
-            ->setUsername('user1')
-            ->setPassword($this->passwordHasher->hashPassword($user, 'password'))
-            ->setLastName('Doe')
-            ->setFirstName('John')
-            ->setAffiliationLocation('New York, USA')
-            ->setSpecialization('Web Development')
-            ->setResearchTopic('Symfony Framework')
-            ->setUserType(0)
-            ->setGenre('male');
+             ->setUsername('user1')
+             ->setPassword($this->passwordHasher->hashPassword($user, 'password'))
+             ->setLastName('Doe')
+             ->setFirstName('John')
+             ->setAffiliationLocation('New York, USA')
+             ->setSpecialization('Web Development')
+             ->setResearchTopic('Symfony Framework')
+             ->setUserType(0)
+             ->setGenre('male');
 
         $user2 = new User();
         $user2->setEmail('user2@example.com')

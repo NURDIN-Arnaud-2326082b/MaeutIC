@@ -1,20 +1,11 @@
 <?php
 
-/**
- * Entité Conversation - Représente une conversation privée entre deux utilisateurs
- *
- * Cette entité gère les conversations privées :
- * - Deux participants
- * - Collection de messages échangés
- * - Suppression en cascade des messages si conversation supprimée
- */
-
 namespace App\Entity;
 
 use App\Repository\ConversationRepository;
+use Doctrine\ORM\Mapping as ORM;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
-use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: ConversationRepository::class)]
 class Conversation
@@ -32,7 +23,7 @@ class Conversation
     #[ORM\JoinColumn(nullable: true, onDelete: "SET NULL")]
     private ?User $user2 = null;
 
-    #[ORM\OneToMany(targetEntity: Message::class, mappedBy: 'conversation', cascade: ['remove'])]
+    #[ORM\OneToMany(mappedBy: 'conversation', targetEntity: Message::class, cascade: ['remove'])]
     private Collection $messages;
 
     public function __construct()
@@ -40,35 +31,10 @@ class Conversation
         $this->messages = new ArrayCollection();
     }
 
-    public function getId(): ?int
-    {
-        return $this->id;
-    }
-
-    public function getUser1(): ?User
-    {
-        return $this->user1;
-    }
-
-    public function setUser1(User $user): static
-    {
-        $this->user1 = $user;
-        return $this;
-    }
-
-    public function getUser2(): ?User
-    {
-        return $this->user2;
-    }
-
-    public function setUser2(User $user): static
-    {
-        $this->user2 = $user;
-        return $this;
-    }
-
-    public function getMessages(): Collection
-    {
-        return $this->messages;
-    }
+    public function getId(): ?int { return $this->id; }
+    public function getUser1(): ?User { return $this->user1; }
+    public function setUser1(User $user): static { $this->user1 = $user; return $this; }
+    public function getUser2(): ?User { return $this->user2; }
+    public function setUser2(User $user): static { $this->user2 = $user; return $this; }
+    public function getMessages(): Collection { return $this->messages; }
 }
