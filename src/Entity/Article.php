@@ -1,18 +1,9 @@
 <?php
 
-/**
- * Entité Article - Représente un article académique dans la bibliothèque
- *
- * Cette entité gère les articles référencés dans la bibliothèque :
- * - Titre de l'article
- * - Auteur de l'article
- * - Lien vers la ressource externe
- * - Utilisateur ayant ajouté l'article
- */
-
 namespace App\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
+use App\Entity\User;
 
 #[ORM\Entity]
 class Article

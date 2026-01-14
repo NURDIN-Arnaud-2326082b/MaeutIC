@@ -13,6 +13,19 @@ class ArticleRepository extends ServiceEntityRepository
         parent::__construct($registry, Article::class);
     }
 
+    /**
+     * Find all articles ordered by name.
+     *
+     * @return Article[]
+     */
+    public function findAllOrderedByTitle(): array
+    {
+        return $this->createQueryBuilder('a')
+            ->orderBy('a.title', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     public function findByTags(array $tagIds, $taggableRepository): array
     {
         if (empty($tagIds)) {
@@ -28,18 +41,5 @@ class ArticleRepository extends ServiceEntityRepository
             ->setParameter('count', count($tagIds))
             ->orderBy('a.title', 'ASC');
         return $qb->getQuery()->getResult();
-    }
-
-    /**
-     * Find all articles ordered by name.
-     *
-     * @return Article[]
-     */
-    public function findAllOrderedByTitle(): array
-    {
-        return $this->createQueryBuilder('a')
-            ->orderBy('a.title', 'ASC')
-            ->getQuery()
-            ->getResult();
     }
 }

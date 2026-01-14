@@ -1,32 +1,16 @@
 <?php
 
-/**
- * Contrôleur de la barre de navigation
- *
- * Ce contrôleur gère l'affichage de la barre de navigation avec :
- * - Compteur de notifications non lues
- * - Génération des URLs de navigation
- * - Affichage contextuel selon l'état de connexion
- */
-
 namespace App\Controller;
 
-use App\Repository\NotificationRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Routing\Exception\RouteNotFoundException;
+use App\Repository\NotificationRepository;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Routing\Exception\RouteNotFoundException;
 
 final class NavbarController extends AbstractController
 {
-    /**
-     * Génère le rendu de la barre de navigation
-     *
-     * @param NotificationRepository $notificationRepo Repository des notifications
-     * @param UrlGeneratorInterface $urlGenerator Générateur d'URLs
-     * @return Response Fragment HTML de la navbar
-     */
     #[Route('/navbar', name: 'app_navbar')]
     public function navbar(NotificationRepository $notificationRepo, UrlGeneratorInterface $urlGenerator): Response
     {
@@ -34,7 +18,7 @@ final class NavbarController extends AbstractController
         $notificationsCount = 0;
         if ($user) {
             $pending = $notificationRepo->findPendingByRecipient($user);
-            $notificationsCount = count($pending);
+            $notificationsCount = is_array($pending) ? count($pending) : 0;
         }
 
         // Tenter de générer la route nommée 'notifications_list' si elle existe,

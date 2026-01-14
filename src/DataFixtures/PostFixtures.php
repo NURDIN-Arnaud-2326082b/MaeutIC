@@ -2,13 +2,12 @@
 
 namespace App\DataFixtures;
 
-use App\Entity\Forum;
 use App\Entity\Post;
 use App\Entity\User;
-use DateTime;
+use App\Entity\Forum;
 use Doctrine\Bundle\FixturesBundle\Fixture;
-use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 use Doctrine\Persistence\ObjectManager;
+use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 
 class PostFixtures extends Fixture implements DependentFixtureInterface
 {
@@ -23,11 +22,11 @@ class PostFixtures extends Fixture implements DependentFixtureInterface
             for ($j = 1; $j <= 5; $j++) {
                 $post = new Post();
                 $post->setName("Post Title $j for Forum $i")
-                    ->setDescription("This is the body of post $j in forum $i.")
-                    ->setUser($user)
-                    ->setCreationDate(new DateTime())
-                    ->setLastActivity(new DateTime())
-                    ->setForum($forum);
+                     ->setDescription("This is the body of post $j in forum $i.")
+                     ->setUser($user)
+                     ->setCreationDate(new \DateTime())
+                     ->setLastActivity(new \DateTime())
+                     ->setForum($forum);
 
                 $manager->persist($post);
 
