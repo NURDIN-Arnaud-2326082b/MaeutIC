@@ -1,9 +1,19 @@
 <?php
 
+/**
+ * Entité Resource - Représente une ressource sur une page thématique
+ *
+ * Cette entité gère les ressources affichées sur :
+ * - La page Chill
+ * - La page Methodology
+ * - La page Administrative
+ *
+ * Chaque ressource contient un titre, description, lien et page associée
+ */
+
 namespace App\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
-use App\Entity\User;
 
 #[ORM\Entity]
 class Resource
