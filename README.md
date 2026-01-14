@@ -2,6 +2,10 @@
 
 La plateforme facilitant l’échange entre doctorants !
 
+## Documentation du projet
+
+Tous les documents se trouvent dans le dossier "docs" a la racine du projet.
+
 ## Prérequis
 
 - `PHP >= 8.1`
