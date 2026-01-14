@@ -1,5 +1,14 @@
 <?php
 
+/**
+ * Entité UserLike - Représente un like sur un commentaire
+ *
+ * Cette entité gère les likes donnés par les utilisateurs sur des commentaires :
+ * - Association avec l'utilisateur qui like
+ * - Association avec le commentaire liké
+ * - Suppression en cascade si l'utilisateur ou le commentaire est supprimé
+ */
+
 namespace App\Entity;
 
 use App\Repository\LikeRepository;
