@@ -162,28 +162,28 @@ final class ProfileController extends AbstractController
      * aux questions dynamiques et taggables. Seul l'utilisateur propriétaire
      * peut éditer son propre profil.
      *
-     * @param string $username Le nom d'utilisateur à éditer
-     * @param UserRepository $userRepository Repository des utilisateurs
      * @param Request $request La requête HTTP avec les données du formulaire
      * @param EntityManagerInterface $entityManager Gestionnaire d'entités
      * @param TagRepository $tagRepository Repository des tags
      * @param UserQuestionsRepository $userQuestionsRepository Repository des questions utilisateur
      * @return Response Le formulaire d'édition ou redirection après succès
      */
-    #[Route('/profile/edit/{username}', name: 'app_profile_edit')]
+    #[Route('/profile/edit', name: 'app_profile_edit')]
     public function edit(
-        string                  $username,
-        UserRepository          $userRepository,
         Request                 $request,
         EntityManagerInterface  $entityManager,
         TagRepository           $tagRepository,
         UserQuestionsRepository $userQuestionsRepository
     ): Response
     {
-        $user = $userRepository->findOneBy(['username' => $username]);
+        $user = $this->getUser();
         if (!$user) {
-            throw $this->createNotFoundException('Utilisateur non trouvé');
+            return $this->redirectToRoute('app_home');
         }
+//        $user = $userRepository->findOneBy(['username' => $username]);
+//        if (!$user) {
+//            throw $this->createNotFoundException('Utilisateur non trouvé');
+//        }
         // Questions classiques
         $dynamicQuestions = [
             'Pourquoi cette thématique de recherche vous intéresse-t-elle ?',
