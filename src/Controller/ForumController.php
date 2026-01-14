@@ -43,19 +43,22 @@ class ForumController extends AbstractController
         // Formater les données pour JSON
         $formattedPosts = [];
         foreach ($posts as $post) {
-            $formattedPosts[] = [
-                'id' => $post->getId(),
-                'name' => $post->getName(),
-                'description' => $post->getDescription(),
-                'creation_date' => $post->getCreationDate()->format('d/m/Y'),
-                'forum_title' => $post->getForum()->getTitle(),
-                'author_name' => $post->getForum()->isAnonymous() 
-                    ? $this->generateAnonymousId()
-                    : ($post->getUser() 
-                        ? $post->getUser()->getFirstName() . ' ' . $post->getUser()->getLastName()
-                        : 'Ancien utilisateur'
-                    )
-            ];
+            // si le forum n'est pas anonyme on l'envoi
+            if (!$post->getForum()->isAnonymous()) {
+                $formattedPosts[] = [
+                    'id' => $post->getId(),
+                    'name' => $post->getName(),
+                    'description' => $post->getDescription(),
+                    'creation_date' => $post->getCreationDate()->format('d/m/Y'),
+                    'forum_title' => $post->getForum()->getTitle(),
+                    'author_name' => $post->getForum()->isAnonymous() 
+                        ? $this->generateAnonymousId()
+                        : ($post->getUser() 
+                            ? $post->getUser()->getFirstName() . ' ' . $post->getUser()->getLastName()
+                            : 'Ancien utilisateur'
+                        )
+                ];
+            }
         }
 
         return $this->json([
