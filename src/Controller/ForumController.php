@@ -634,8 +634,12 @@ class ForumController extends AbstractController
         if (!$post) {
             throw $this->createNotFoundException('Post not found');
         }
-        if ($post->getUser() !== $this->getUser()) {
-            throw new AccessDeniedException('Vous ne pouvez supprimer que vos propres posts.');
+
+        // si l'utilisateur est admin il peut supprimer tous les posts
+        if($this->getUser()->getUserType() !== 1) {
+            if ($post->getUser() !== $this->getUser()) {
+                throw new AccessDeniedException('Vous ne pouvez supprimer que vos propres posts.');
+            }
         }
 
         // Protection CSRF
