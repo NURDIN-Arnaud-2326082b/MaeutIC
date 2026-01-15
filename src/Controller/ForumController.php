@@ -29,6 +29,7 @@ use App\Repository\PostRepository;
 use App\Repository\UserLikeRepository;
 use DateTime;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -221,6 +222,7 @@ class ForumController extends AbstractController
      * @param UserLikeRepository $userLikeRepository
      * @param PostLikeRepository $postLikeRepository
      * @param Request $request
+     * @param ManagerRegistry $doctrine
      * @param int|null $postId
      * @return Response
      */
@@ -233,6 +235,7 @@ class ForumController extends AbstractController
         UserLikeRepository $userLikeRepository,
         PostLikeRepository $postLikeRepository,
         Request            $request,
+        ManagerRegistry    $doctrine,
         ?int               $postId = null
     ): Response
     {
@@ -342,7 +345,7 @@ class ForumController extends AbstractController
                                     !$actor->isBlocked($author->getId()) &&
                                     !$actor->isBlockedBy($author->getId())
                                 ) {
-                                    $em = $this->getDoctrine()->getManager();
+                                    $em = $doctrine->getManager();
                                     $notif = new Notification();
                                     $notif->setType('post_comment');
                                     $notif->setSender($actor);
@@ -507,6 +510,7 @@ class ForumController extends AbstractController
         UserLikeRepository $userLikeRepository,
         PostLikeRepository $postLikeRepository,
         Request            $request,
+        ManagerRegistry    $doctrine,
         ?string            $category = null,
         ?int               $postId = null
     ): Response
@@ -626,7 +630,7 @@ class ForumController extends AbstractController
                                 !$actor->isBlocked($author->getId()) &&
                                 !$actor->isBlockedBy($author->getId())
                             ) {
-                                $em = $this->getDoctrine()->getManager();
+                                $em = $doctrine->getManager();
                                 $notif = new Notification();
                                 $notif->setType('post_comment');
                                 $notif->setSender($actor);
@@ -1132,6 +1136,7 @@ class ForumController extends AbstractController
         UserLikeRepository $userLikeRepository,
         PostLikeRepository $postLikeRepository,
         Request            $request,
+        ManagerRegistry    $doctrine,
         ?string            $category = null,
         ?int               $postId = null
     ): Response
@@ -1248,7 +1253,7 @@ class ForumController extends AbstractController
                                 !$actor->isBlocked($author->getId()) &&
                                 !$actor->isBlockedBy($author->getId())
                             ) {
-                                $em = $this->getDoctrine()->getManager();
+                                $em = $doctrine->getManager();
                                 $notif = new Notification();
                                 $notif->setType('post_comment');
                                 $notif->setSender($actor);
@@ -1485,6 +1490,7 @@ class ForumController extends AbstractController
         UserLikeRepository $userLikeRepository,
         PostLikeRepository $postLikeRepository,
         Request            $request,
+        ManagerRegistry    $doctrine,
         ?string            $category = null,
         ?int               $postId = null
     ): Response
@@ -1604,7 +1610,7 @@ class ForumController extends AbstractController
                                 !$actor->isBlocked($author->getId()) &&
                                 !$actor->isBlockedBy($author->getId())
                             ) {
-                                $em = $this->getDoctrine()->getManager();
+                                $em = $doctrine->getManager();
                                 $notif = new Notification();
                                 $notif->setType('post_comment');
                                 $notif->setSender($actor);
@@ -1841,6 +1847,7 @@ class ForumController extends AbstractController
         UserLikeRepository $userLikeRepository,
         PostLikeRepository $postLikeRepository,
         Request            $request,
+        ManagerRegistry    $doctrine,
         ?string            $category = null,
         ?int               $postId = null
     ): Response
@@ -1960,7 +1967,7 @@ class ForumController extends AbstractController
                                 !$actor->isBlocked($author->getId()) &&
                                 !$actor->isBlockedBy($author->getId())
                             ) {
-                                $em = $this->getDoctrine()->getManager();
+                                $em = $doctrine->getManager();
                                 $notif = new Notification();
                                 $notif->setType('post_comment');
                                 $notif->setSender($actor);
