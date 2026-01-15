@@ -6,7 +6,7 @@
             <div class="text-gray-700 mb-2 break-words">{{ comment.body }}</div>
             <div class="text-xs text-gray-400">
                 Sur le post : <span class="font-semibold">{{ comment.post.name }}</span>
-                — {{ comment.creationDate|date('d/m/Y H:i') }}
+                — {{ comment.creationDate|date('d/m/Y') }}
             </div>
         </div>
     {% endfor %}
