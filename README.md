@@ -1,48 +1,99 @@
 # M@ieutIC
 
-## Introduction
-La plateforme facilitant la discussion entre doctorants !
+La plateforme facilitant l’échange entre doctorants !
 
-## Requirements
-Ensure you have the following dependencies installed:
-- PHP 8.1 or higher
-- Composer
-- Symfony CLI (optional but recommended)
-- MySQL
+## Documentation du projet
 
-## Installation
-1. **Clone the repository**:
-   ```sh
-   git clone https://github.com/victorSejournes22005043/MaieutIC.git
-   cd your-symfony-project
-   ```
+Tous les documents se trouvent dans le dossier "docs" a la racine du projet.
 
-2. **Install PHP dependencies**:
-   ```sh
-   composer install
-   ```
+## Prérequis
 
-4. **Set up environment variables**:
-   ```sh
-   cp .env.exemple .env
-   ```
-   Update the `.env` file with your database credentials.
+- `PHP >= 8.1`
+- [`Composer`](https://getcomposer.org/)
+- `MySQL`
+- [`Node.js` & `npm`](https://nodejs.org/)
 
-5. **Database setup**:
-   Create the database and run migrations:
-   ```sh
-   php bin/console doctrine:database:create
-   php bin/console doctrine:migrations:migrate
-   ```
-6. **Load fixtures**:
+---
 
-   ```sh
-   php bin/console doctrine:fixtures:load
-   ```
+> [!CAUTION]
+> Ne stockez <ins>***JAMAIS***</ins> le fichier `.env` sur le dépôt !  
+> Configurez les variables d’environnement directement sur le serveur ou avec `.env.local`.
 
-7. **Compile CSS**:
-   ```sh
-   php bin/console tailwind:build --watch
-   ```
+---
 
+## Déploiement initial en développement
 
+1. **Cloner le dépôt**
+```sh
+git clone https://github.com/NURDIN-Arnaud-2326082b/MaeutIC.git
+cd MaeutIC
+```
+
+2. **Préparer l’environnement**
+> [!IMPORTANT]
+> Copiez le fichier `.env.exemple` en `.env` **avant** d’installer les dépendances.
+```sh
+cp .env.exemple .env
+```
+Modifiez les variables de `.env` (notamment `DATABASE_URL`) selon votre configuration.
+
+3. **Optimiser les variables d'environnement**
+```sh
+composer dump-env dev
+```
+
+4. **Installer les dépendances PHP**
+```sh
+composer install
+```
+
+5. **Mettre à jour la base de données**
+```sh
+php bin/console doctrine:migrations:migrate
+```
+
+6. **Charger les fixtures**
+> [!CAUTION]
+> Les fixtures ne doivent jamais être chargées en production !
+```sh
+php bin/console doctrine:fixtures:load
+```
+
+7. **Compiler les ressources front-end**
+```sh
+php bin/console tailwind:build
+php bin/console asset-map:compile
+```
+
+8. **Lancer le serveur de développement**
+```sh
+cd public/
+php -S localhost:8080
+```
+
+---
+
+## Déploiement en production
+
+1. **Configurer correctement le fichier `.env`**
+
+2. **Optimiser les variables d'environnement pour prod**
+```sh
+composer dump-env prod
+```
+
+3. **Installer les dépendances PHP**
+```sh
+composer install --no-dev --optimize-autoloader
+```
+
+4. **Mettre à jour la base de données**
+```sh
+php bin/console doctrine:migrations:migrate --no-interaction --env=prod
+```
+
+5. **Compiler les assets front-end**
+```sh
+php bin/console tailwind:build
+php bin/console asset-map:compile
+```
