@@ -1,4 +1,5 @@
-const CACHE_NAME = 'maeutic-v1';
+const BUILD_VERSION = (typeof self !== 'undefined' && self.BUILD_VERSION) ? self.BUILD_VERSION : 'v1';
+const CACHE_NAME = `maeutic-${BUILD_VERSION}`;
 const OFFLINE_URL = '/';
 
 // Fichiers à mettre en cache lors de l'installation
