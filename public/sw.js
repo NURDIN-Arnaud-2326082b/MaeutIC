@@ -38,6 +38,38 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// URLs à exclure du cache (endpoints sensibles)
+const EXCLUDED_PATHS = [
+  '/api/',
+  '/admin',
+  '/profile',
+  '/chat',
+  '/private_message',
+  '/login',
+  '/logout',
+  '/register'
+];
+
+// URLs autorisées pour le cache (ressources statiques uniquement)
+const CACHEABLE_PATTERNS = [
+  /\.(js|css|png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot)$/,
+  /^\/manifest\.json$/,
+  /^\/$/
+];
+
+// Vérifie si une URL doit être mise en cache
+function shouldCache(url) {
+  const urlPath = new URL(url).pathname;
+  
+  // Exclure les chemins sensibles
+  if (EXCLUDED_PATHS.some(path => urlPath.startsWith(path))) {
+    return false;
+  }
+  
+  // Autoriser uniquement les patterns cacheable
+  return CACHEABLE_PATTERNS.some(pattern => pattern.test(urlPath));
+}
+
 // Stratégie de fetch: Network First, falling back to Cache
 self.addEventListener('fetch', (event) => {
   // Ne pas intercepter les requêtes non-GET
@@ -53,8 +85,17 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // Si la requête réussit, mettre en cache
-        if (response && response.status === 200) {
+        // Mettre en cache uniquement si:
+        // - La requête a réussi (status 200)
+        // - L'URL est dans les patterns autorisés
+        // - Pas de header Cache-Control: no-store
+        const cacheControl = response.headers.get('Cache-Control');
+        if (
+          response && 
+          response.status === 200 && 
+          shouldCache(event.request.url) &&
+          (!cacheControl || !cacheControl.includes('no-store'))
+        ) {
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseToCache);
