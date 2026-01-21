@@ -12,10 +12,22 @@ const STATIC_CACHE_URLS = [
 self.addEventListener('install', (event) => {
   console.log('[Service Worker] Installation');
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log('[Service Worker] Mise en cache des ressources');
-      return cache.addAll(STATIC_CACHE_URLS);
-    })
+    caches.open(CACHE_NAME)
+      .then((cache) => {
+        console.log('[Service Worker] Mise en cache des ressources');
+        return Promise.all(
+          STATIC_CACHE_URLS.map((url) =>
+            cache.add(url).catch((error) => {
+              console.error('[Service Worker] Échec de la mise en cache de la ressource:', url, error);
+              throw error;
+            })
+          )
+        );
+      })
+      .catch((error) => {
+        console.error('[Service Worker] Échec lors de la mise en cache des ressources:', error);
+        throw error;
+      })
   );
   self.skipWaiting();
 });
