@@ -123,7 +123,8 @@ self.addEventListener('fetch', (event) => {
             return cachedResponse;
           }
           // Si pas en cache et page HTML, retourner la page offline
-          if (event.request.headers.get('accept').includes('text/html')) {
+          const acceptHeader = event.request.headers.get('accept');
+          if (acceptHeader && acceptHeader.includes('text/html')) {
             return caches.match(OFFLINE_URL);
           }
         });
