@@ -33,14 +33,15 @@ self.addEventListener('install', (event) => {
           STATIC_CACHE_URLS.map((url) =>
             cache.add(url).catch((error) => {
               console.error('[Service Worker] Échec de la mise en cache de la ressource:', url, error);
-              throw error;
+              // Ne pas relancer l'erreur afin de permettre l'installation
+              return null;
             })
           )
         );
       })
       .catch((error) => {
         console.error('[Service Worker] Échec lors de la mise en cache des ressources:', error);
-        throw error;
+        // Ne pas relancer l'erreur pour éviter l'échec de l'installation du service worker
       })
   );
   self.skipWaiting();
