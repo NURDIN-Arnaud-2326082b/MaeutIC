@@ -7,6 +7,10 @@ function showUpdateNotification(newWorker) {
 
   const toast = document.createElement('div');
   toast.id = 'pwa-update-toast';
+  toast.setAttribute('role', 'alert');
+  toast.setAttribute('aria-live', 'assertive');
+  toast.setAttribute('aria-atomic', 'true');
+  
   toast.innerHTML = `
     <div style="
       position: fixed;
@@ -25,26 +29,30 @@ function showUpdateNotification(newWorker) {
       max-width: 90%;
       animation: slideUp 0.3s ease-out;
     ">
-      <span>Une nouvelle version est disponible 🎉</span>
-      <button id="pwa-update-btn" style="
-        background-color: #4CAF50;
-        color: white;
-        border: none;
-        padding: 8px 16px;
-        border-radius: 4px;
-        cursor: pointer;
-        font-weight: 500;
-      ">
+      <span id="pwa-update-message">Une nouvelle version est disponible 🎉</span>
+      <button id="pwa-update-btn" 
+        aria-label="Mettre à jour l'application maintenant"
+        style="
+          background-color: #4CAF50;
+          color: white;
+          border: none;
+          padding: 8px 16px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-weight: 500;
+        ">
         Mettre à jour
       </button>
-      <button id="pwa-dismiss-btn" style="
-        background-color: transparent;
-        color: #ccc;
-        border: 1px solid #666;
-        padding: 8px 16px;
-        border-radius: 4px;
-        cursor: pointer;
-      ">
+      <button id="pwa-dismiss-btn"
+        aria-label="Fermer la notification et mettre à jour plus tard"
+        style="
+          background-color: transparent;
+          color: #ccc;
+          border: 1px solid #666;
+          padding: 8px 16px;
+          border-radius: 4px;
+          cursor: pointer;
+        ">
         Plus tard
       </button>
     </div>
@@ -68,16 +76,58 @@ function showUpdateNotification(newWorker) {
 
   document.body.appendChild(toast);
 
-  // Gérer le clic sur "Mettre à jour"
-  document.getElementById('pwa-update-btn').addEventListener('click', () => {
-    newWorker.postMessage({ type: 'SKIP_WAITING' });
+  // Sauvegarder l'élément actif avant de déplacer le focus
+  const previouslyFocusedElement = document.activeElement;
+
+  // Déplacer le focus sur le bouton "Mettre à jour" pour les utilisateurs de lecteurs d'écran
+  const updateBtn = document.getElementById('pwa-update-btn');
+  const dismissBtn = document.getElementById('pwa-dismiss-btn');
+  
+  // Fonction pour fermer la notification
+  const closeToast = () => {
     toast.remove();
+    // Restaurer le focus sur l'élément précédent
+    if (previouslyFocusedElement && previouslyFocusedElement !== document.body) {
+      previouslyFocusedElement.focus();
+    }
+  };
+
+  // Gérer le clic sur "Mettre à jour"
+  updateBtn.addEventListener('click', () => {
+    newWorker.postMessage({ type: 'SKIP_WAITING' });
+    closeToast();
   });
 
   // Gérer le clic sur "Plus tard"
-  document.getElementById('pwa-dismiss-btn').addEventListener('click', () => {
-    toast.remove();
+  dismissBtn.addEventListener('click', closeToast);
+
+  // Gérer la navigation au clavier (Escape pour fermer, Tab pour naviguer entre les boutons)
+  toast.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeToast();
+    } else if (e.key === 'Tab') {
+      // Gérer la navigation circulaire entre les deux boutons
+      const focusableElements = [updateBtn, dismissBtn];
+      const currentIndex = focusableElements.indexOf(document.activeElement);
+      
+      if (e.shiftKey) {
+        // Shift+Tab : aller vers l'arrière
+        e.preventDefault();
+        const previousIndex = currentIndex <= 0 ? focusableElements.length - 1 : currentIndex - 1;
+        focusableElements[previousIndex].focus();
+      } else {
+        // Tab : aller vers l'avant
+        e.preventDefault();
+        const nextIndex = currentIndex >= focusableElements.length - 1 ? 0 : currentIndex + 1;
+        focusableElements[nextIndex].focus();
+      }
+    }
   });
+
+  // Donner le focus au premier bouton après un court délai pour que l'annonce soit faite
+  setTimeout(() => {
+    updateBtn.focus();
+  }, 100);
 }
 
 // Enregistrement du Service Worker pour la PWA

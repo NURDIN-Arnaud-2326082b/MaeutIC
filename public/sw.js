@@ -210,11 +210,39 @@ self.addEventListener('fetch', (event) => {
           await cache.delete(event.request);
         }
         
-        // Si pas en cache et page HTML, retourner la page offline
+        // Gérer les différents types de fallback selon le type de requête
         const acceptHeader = event.request.headers.get('accept');
-        if (acceptHeader && acceptHeader.includes('text/html')) {
+        const destination = event.request.destination;
+        
+        // Pour les requêtes de navigation HTML, retourner la page offline
+        if (
+          (destination === 'document' || destination === '') &&
+          acceptHeader && 
+          acceptHeader.includes('text/html')
+        ) {
           return caches.match(OFFLINE_URL);
         }
+        
+        // Pour les requêtes API/JSON, retourner une réponse d'erreur JSON
+        if (acceptHeader && acceptHeader.includes('application/json')) {
+          return new Response(
+            JSON.stringify({ 
+              error: 'offline', 
+              message: 'Vous êtes hors ligne. Veuillez réessayer lorsque vous serez connecté.' 
+            }),
+            {
+              status: 503,
+              statusText: 'Service Unavailable',
+              headers: { 'Content-Type': 'application/json' }
+            }
+          );
+        }
+        
+        // Pour les autres types de requêtes (images, scripts, etc.), retourner une erreur générique
+        return new Response('Service Unavailable', { 
+          status: 503, 
+          statusText: 'Service Unavailable' 
+        });
       })
   );
 });
