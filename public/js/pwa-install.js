@@ -1,3 +1,85 @@
+// Créer une notification toast non-bloquante pour les mises à jour
+function showUpdateNotification(newWorker) {
+  // Vérifier si une notification existe déjà
+  if (document.getElementById('pwa-update-toast')) {
+    return;
+  }
+
+  const toast = document.createElement('div');
+  toast.id = 'pwa-update-toast';
+  toast.innerHTML = `
+    <div style="
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #1a1a1a;
+      color: white;
+      padding: 16px 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      max-width: 90%;
+      animation: slideUp 0.3s ease-out;
+    ">
+      <span>Une nouvelle version est disponible 🎉</span>
+      <button id="pwa-update-btn" style="
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 500;
+      ">
+        Mettre à jour
+      </button>
+      <button id="pwa-dismiss-btn" style="
+        background-color: transparent;
+        color: #ccc;
+        border: 1px solid #666;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+      ">
+        Plus tard
+      </button>
+    </div>
+  `;
+
+  // Ajouter l'animation CSS
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes slideUp {
+      from {
+        transform: translateX(-50%) translateY(100px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+
+  document.body.appendChild(toast);
+
+  // Gérer le clic sur "Mettre à jour"
+  document.getElementById('pwa-update-btn').addEventListener('click', () => {
+    newWorker.postMessage({ type: 'SKIP_WAITING' });
+    toast.remove();
+  });
+
+  // Gérer le clic sur "Plus tard"
+  document.getElementById('pwa-dismiss-btn').addEventListener('click', () => {
+    toast.remove();
+  });
+}
+
 // Enregistrement du Service Worker pour la PWA
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -13,11 +95,8 @@ if ('serviceWorker' in navigator) {
           
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              // Nouvelle version disponible
-              if (confirm('Une nouvelle version est disponible. Voulez-vous mettre à jour ?')) {
-                newWorker.postMessage({ type: 'SKIP_WAITING' });
-                window.location.reload();
-              }
+              // Nouvelle version disponible - afficher notification non-bloquante
+              showUpdateNotification(newWorker);
             }
           });
         });
