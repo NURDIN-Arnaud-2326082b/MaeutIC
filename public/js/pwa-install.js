@@ -150,6 +150,26 @@ if ('serviceWorker' in navigator) {
             }
           });
         });
+        
+        // Nettoyage périodique déterministe du cache (toutes les heures)
+        setInterval(() => {
+          if (navigator.serviceWorker.controller) {
+            const messageChannel = new MessageChannel();
+            
+            messageChannel.port1.onmessage = (event) => {
+              if (event.data.success) {
+                console.log('[PWA] Nettoyage du cache effectué avec succès');
+              } else {
+                console.error('[PWA] Échec du nettoyage du cache:', event.data.error);
+              }
+            };
+            
+            navigator.serviceWorker.controller.postMessage(
+              { type: 'CLEANUP_CACHE' },
+              [messageChannel.port2]
+            );
+          }
+        }, 60 * 60 * 1000); // Toutes les heures
       })
       .catch((error) => {
         console.error('Erreur lors de l\'enregistrement du Service Worker:', error);

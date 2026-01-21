@@ -63,8 +63,10 @@ self.addEventListener('activate', (event) => {
           })
         );
       }),
-      // Nettoyer le cache actuel
-      cleanupCache()
+      // Nettoyer le cache actuel (stratégie déterministe)
+      cleanupCache().catch(err => 
+        console.error('[Service Worker] Erreur nettoyage cache lors activation:', err)
+      )
     ])
   );
   self.clients.claim();
@@ -185,11 +187,6 @@ self.addEventListener('fetch', (event) => {
           const cache = await caches.open(CACHE_NAME);
           const responseWithTimestamp = await addCacheTimestamp(response.clone());
           await cache.put(event.request, responseWithTimestamp);
-          
-          // Nettoyer le cache périodiquement (1% de chance à chaque requête)
-          if (Math.random() < 0.01) {
-            cleanupCache().catch(err => console.error('[Service Worker] Erreur nettoyage cache:', err));
-          }
         }
         return response;
       })
@@ -251,5 +248,23 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+  } else if (event.data && event.data.type === 'CLEANUP_CACHE') {
+    // Nettoyage manuel du cache (appelé périodiquement depuis le client)
+    event.waitUntil(
+      cleanupCache()
+        .then(() => {
+          console.log('[Service Worker] Nettoyage du cache effectué');
+          // Notifier le client que le nettoyage est terminé
+          if (event.ports && event.ports[0]) {
+            event.ports[0].postMessage({ success: true });
+          }
+        })
+        .catch((err) => {
+          console.error('[Service Worker] Erreur nettoyage cache:', err);
+          if (event.ports && event.ports[0]) {
+            event.ports[0].postMessage({ success: false, error: err.message });
+          }
+        })
+    );
   }
 });
