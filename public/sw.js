@@ -1,4 +1,8 @@
-const BUILD_VERSION = (typeof self !== 'undefined' && self.BUILD_VERSION) ? self.BUILD_VERSION : 'v1';
+// Version de build - À remplacer lors du déploiement par un hash git ou timestamp
+// Exemple avec hash git: git rev-parse --short HEAD
+// Exemple avec timestamp: date +%s
+// Script de déploiement: sed -i "s/BUILD_VERSION_PLACEHOLDER/$(git rev-parse --short HEAD)/" sw.js
+const BUILD_VERSION = 'BUILD_VERSION_PLACEHOLDER';
 const CACHE_NAME = `maeutic-${BUILD_VERSION}`;
 const OFFLINE_URL = '/';
 

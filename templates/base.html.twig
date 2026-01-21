@@ -7,15 +7,14 @@
         <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22><text y=%221.2em%22 font-size=%2296%22>⚫️</text><text y=%221.3em%22 x=%220.2em%22 font-size=%2276%22 fill=%22%23fff%22>sf</text></svg>">
         
         {# PWA Configuration #}
-        <link rel="manifest" href="/manifest.json">
+        <link rel="manifest" href="{{ asset('manifest.json') }}">
         <meta name="theme-color" content="#4F46E5">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
         <meta name="apple-mobile-web-app-title" content="MaeutIC">
-        <link rel="apple-touch-icon" href="/images/icons/icon-192x192.png">
-        <link rel="apple-touch-icon" sizes="152x152" href="/images/icons/icon-152x152.png">
-        <link rel="apple-touch-icon" sizes="192x192" href="/images/icons/icon-192x192.png">
-        <link rel="apple-touch-icon" sizes="512x512" href="/images/icons/icon-512x512.png">
+        <link rel="apple-touch-icon" href="{{ asset('images/icons/ios/180.png') }}">
+        <link rel="apple-touch-icon" sizes="152x152" href="{{ asset('images/icons/ios/152.png') }}">
+        <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/icons/ios/180.png') }}">
         
         {% block stylesheets %}
         {% endblock %}
