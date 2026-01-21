@@ -101,26 +101,10 @@ function showUpdateNotification(newWorker) {
   // Gérer le clic sur "Plus tard"
   dismissBtn.addEventListener('click', closeToast);
 
-  // Gérer la navigation au clavier (Escape pour fermer, Tab pour naviguer entre les boutons)
+  // Gérer la navigation au clavier (Escape pour fermer)
   toast.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       closeToast();
-    } else if (e.key === 'Tab') {
-      // Gérer la navigation circulaire entre les deux boutons
-      const focusableElements = [updateBtn, dismissBtn];
-      const currentIndex = focusableElements.indexOf(document.activeElement);
-      
-      if (e.shiftKey) {
-        // Shift+Tab : aller vers l'arrière
-        e.preventDefault();
-        const previousIndex = currentIndex <= 0 ? focusableElements.length - 1 : currentIndex - 1;
-        focusableElements[previousIndex].focus();
-      } else {
-        // Tab : aller vers l'avant
-        e.preventDefault();
-        const nextIndex = currentIndex >= focusableElements.length - 1 ? 0 : currentIndex + 1;
-        focusableElements[nextIndex].focus();
-      }
     }
   });
 
