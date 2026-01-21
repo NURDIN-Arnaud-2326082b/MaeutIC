@@ -3,7 +3,9 @@
 // Exemple avec timestamp: date +%s
 // Script de déploiement: sed -i "s/BUILD_VERSION_PLACEHOLDER/$(git rev-parse --short HEAD)/" sw.js
 const BUILD_VERSION = 'BUILD_VERSION_PLACEHOLDER';
-const CACHE_NAME = `maeutic-${BUILD_VERSION}`;
+const EFFECTIVE_BUILD_VERSION =
+  BUILD_VERSION === 'BUILD_VERSION_PLACEHOLDER' ? String(Date.now()) : BUILD_VERSION;
+const CACHE_NAME = `maeutic-${EFFECTIVE_BUILD_VERSION}`;
 const OFFLINE_URL = '/';
 
 // Configuration du cache
