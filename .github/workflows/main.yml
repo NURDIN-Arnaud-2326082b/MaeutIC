@@ -41,6 +41,7 @@ jobs:
             php bin/console doctrine:migrations:migrate --no-interaction --env=prod
             php bin/console tailwind:build
             php bin/console asset-map:compile
+            bash bin/build-sw.sh
             rm -f /*.tar.gz
       - name: Afficher les fichiers après déploiement
         uses: appleboy/ssh-action@master
