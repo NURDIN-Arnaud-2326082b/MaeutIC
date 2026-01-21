@@ -65,7 +65,22 @@ php bin/console tailwind:build
 php bin/console asset-map:compile
 ```
 
-8. **Lancer le serveur de développement**
+8. **Générer la version du Service Worker (pour PWA)**
+> [!NOTE]
+> En développement, cette étape est optionnelle. Le Service Worker utilisera le placeholder par défaut.
+> Elle devient obligatoire en production pour gérer correctement les mises à jour.
+
+**Linux/macOS :**
+```sh
+bash bin/build-sw.sh
+```
+
+**Windows :**
+```powershell
+.\bin\build-sw.ps1
+```
+
+9. **Lancer le serveur de développement**
 ```sh
 cd public/
 php -S localhost:8080
@@ -97,3 +112,19 @@ php bin/console doctrine:migrations:migrate --no-interaction --env=prod
 php bin/console tailwind:build
 php bin/console asset-map:compile
 ```
+
+6. **Générer la version du Service Worker**
+> [!IMPORTANT]
+> Cette étape doit être exécutée à chaque déploiement pour versionner correctement le cache PWA.
+
+**Linux/macOS :**
+```sh
+bash bin/build-sw.sh
+```
+
+**Windows :**
+```powershell
+.\bin\build-sw.ps1
+```
+
+Cette commande remplace le placeholder de version dans [sw.js](public/sw.js) par un hash git (ou timestamp), garantissant que les clients récupèrent la dernière version des assets après chaque déploiement.
