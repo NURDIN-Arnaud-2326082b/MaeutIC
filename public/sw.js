@@ -109,6 +109,21 @@ function isStaticResource(url) {
   return /\.(js|css|png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot)$/.test(url);
 }
 
+// Parse les directives Cache-Control et vérifie si une directive spécifique est présente
+function hasCacheControlDirective(cacheControlHeader, directive) {
+  if (!cacheControlHeader) {
+    return false;
+  }
+  
+  // Parser les directives (séparées par des virgules)
+  const directives = cacheControlHeader
+    .toLowerCase()
+    .split(',')
+    .map(d => d.trim().split('=')[0]); // Prendre seulement le nom de la directive (avant =)
+  
+  return directives.includes(directive.toLowerCase());
+}
+
 // Nettoie le cache en fonction de la taille et de l'âge
 async function cleanupCache() {
   const cache = await caches.open(CACHE_NAME);
@@ -176,13 +191,14 @@ self.addEventListener('fetch', (event) => {
         // Mettre en cache uniquement si:
         // - La requête a réussi (status 200)
         // - L'URL est dans les patterns autorisés
-        // - Pas de header Cache-Control: no-store
+        // - Pas de header Cache-Control: no-store ou no-cache
         const cacheControl = response.headers.get('Cache-Control');
         if (
           response && 
           response.status === 200 && 
           shouldCache(event.request.url) &&
-          (!cacheControl || !cacheControl.includes('no-store'))
+          !hasCacheControlDirective(cacheControl, 'no-store') &&
+          !hasCacheControlDirective(cacheControl, 'no-cache')
         ) {
           const cache = await caches.open(CACHE_NAME);
           const responseWithTimestamp = await addCacheTimestamp(response.clone());
