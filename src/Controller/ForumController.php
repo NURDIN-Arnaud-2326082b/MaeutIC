@@ -63,6 +63,10 @@ class ForumController extends AbstractController
 
         $posts = $postRepository->searchPosts($query, $type, $dateFilter, $sortBy, $category);
 
+        // Vérifier si l'utilisateur est admin
+        $currentUser = $this->getUser();
+        $isAdmin = $currentUser && $currentUser->getUserType() === 1;
+
         // Formater les données pour JSON
         $formattedPosts = [];
         foreach ($posts as $post) {
@@ -74,7 +78,7 @@ class ForumController extends AbstractController
                     'description' => $post->getDescription(),
                     'creation_date' => $post->getCreationDate()->format('d/m/Y'),
                     'forum_title' => $post->getForum()->getTitle(),
-                    'author_name' => $post->getForum()->isAnonymous() 
+                    'author_name' => ($post->getForum()->isAnonymous() && !$isAdmin)
                         ? $this->generateAnonymousId()
                         : ($post->getUser() 
                             ? $post->getUser()->getFirstName() . ' ' . $post->getUser()->getLastName()
@@ -139,6 +143,10 @@ class ForumController extends AbstractController
         // Utiliser la fonction de recherche spéciale
         $posts = $postRepository->searchSpecialPosts($query, $type, $dateFilter, $sortBy, $specialType);
 
+        // Vérifier si l'utilisateur est admin
+        $currentUser = $this->getUser();
+        $isAdmin = $currentUser && $currentUser->getUserType() === 1;
+
         // Formater les données pour JSON
         $formattedPosts = [];
         foreach ($posts as $post) {
@@ -148,7 +156,7 @@ class ForumController extends AbstractController
                 'description' => $post->getDescription(),
                 'creation_date' => $post->getCreationDate()->format('d/m/Y'),
                 'forum_title' => $post->getForum()->getTitle(),
-                'author_name' => $post->getForum()->isAnonymous()
+                'author_name' => ($post->getForum()->isAnonymous() && !$isAdmin)
                     ? $this->generateAnonymousId()
                     : ($post->getUser()
                         ? $post->getUser()->getFirstName() . ' ' . $post->getUser()->getLastName()

@@ -111,8 +111,8 @@ audio::-webkit-media-controls-play-button {
 
                 <p class="text-gray-500">
                     Par 
-                    {# Si le forum est anonyme, on affiche le nom d'un écrivain ou philosophe célèbre #}
-                    {% if selectedPost.forum.anonymous %}
+                    {# Si le forum est anonyme ET que l'utilisateur n'est pas admin, on affiche le nom d'un écrivain ou philosophe célèbre #}
+                    {% if selectedPost.forum.anonymous and not (app.user and app.user.userType == 1) %}
                         {{ random(['Victor Hugo', 'Platon', 'René Descartes', 'Jean-Paul Sartre', 'Voltaire', 'Friedrich Nietzsche',
                         'Albert Camus', 'Michel de Montaigne', 'Jean-Jacques Rousseau', 'Honoré de Balzac', 'Socrates', 'Aristote',
                         'Emmanuel Kant', 'Sigmund Freud', 'John Locke', 'Thomas Hobbes', 'Karl Marx', 'Georg Wilhelm Friedrich Hegel', 'Sören Kierkegaard']) }}
@@ -163,8 +163,8 @@ audio::-webkit-media-controls-play-button {
                         
                         {# Citation du post original #}
                         <div class="bg-white p-3 border-l-4 border-gray-300 mb-3 text-sm text-gray-600">
-                        {# Si le forum est anonyme, on n'affiche pas l'auteur #}
-                            {% if selectedPost.forum.anonymous %}
+                        {# Si le forum est anonyme ET que l'utilisateur n'est pas admin, on n'affiche pas l'auteur réel #}
+                            {% if selectedPost.forum.anonymous and not (app.user and app.user.userType == 1) %}
                                 <div class="font-medium"> {{ random(['Victor Hugo', 'Platon', 'René Descartes', 'Jean-Paul Sartre', 'Voltaire', 'Friedrich Nietzsche',
                         'Albert Camus', 'Michel de Montaigne', 'Jean-Jacques Rousseau', 'Honoré de Balzac', 'Socrates', 'Aristote',
                         'Emmanuel Kant', 'Sigmund Freud', 'John Locke', 'Thomas Hobbes', 'Karl Marx', 'Georg Wilhelm Friedrich Hegel', 'Sören Kierkegaard']) }} a écrit :</div>
@@ -220,8 +220,8 @@ audio::-webkit-media-controls-play-button {
                                 <div class="flex-1">
                                     <div class="flex items-center space-x-2 mb-2">
                                         <span class="font-semibold text-gray-700">
-                                        {# Si le forum est anonyme, on affiche le nom d'un écrivain ou philosophe célèbre #}
-                                            {% if reply.forum.anonymous %}
+                                        {# Si le forum est anonyme ET que l'utilisateur n'est pas admin, on affiche le nom d'un écrivain ou philosophe célèbre #}
+                                            {% if reply.forum.anonymous and not (app.user and app.user.userType == 1) %}
                                                 {{ random(['Victor Hugo', 'Platon', 'René Descartes', 'Jean-Paul Sartre', 'Voltaire', 'Friedrich Nietzsche',
                                                 'Albert Camus', 'Michel de Montaigne', 'Jean-Jacques Rousseau', 'Honoré de Balzac', 'Socrates', 'Aristote',
                                                 'Emmanuel Kant', 'Sigmund Freud', 'John Locke', 'Thomas Hobbes', 'Karl Marx', 'Georg Wilhelm Friedrich Hegel', 'Sören Kierkegaard']) }}
@@ -233,8 +233,8 @@ audio::-webkit-media-controls-play-button {
                                                 {% endif %}
                                             {% endif %}
                                         </span>
-                                        {# si le forum est anonyme, on n'affiche pas l'auteur du post original #}
-                                        {% if not reply.forum.anonymous %}
+                                        {# si le forum est anonyme ET que l'utilisateur n'est pas admin, on n'affiche pas l'auteur du post original #}
+                                        {% if not reply.forum.anonymous or (app.user and app.user.userType == 1) %}
                                             <span class="text-sm text-gray-500">• En réponse à {{ selectedPost.user ? selectedPost.user.firstName : 'Ancien utilisateur' }}</span>
                                         {% endif %}
                                     </div>
@@ -316,8 +316,8 @@ audio::-webkit-media-controls-play-button {
 
                             <p>
                                 <strong>
-                                {# Si le forum est anonyme, on affiche le nom d'un écrivain ou philosophe célèbre #}
-                                    {% if comment.post.forum.anonymous %}
+                                {# Si le forum est anonyme ET que l'utilisateur n'est pas admin, on affiche le nom d'un écrivain ou philosophe célèbre #}
+                                    {% if comment.post.forum.anonymous and not (app.user and app.user.userType == 1) %}
                                         {{ random(['Victor Hugo', 'Platon', 'René Descartes', 'Jean-Paul Sartre', 'Voltaire', 'Friedrich Nietzsche',
                                         'Albert Camus', 'Michel de Montaigne', 'Jean-Jacques Rousseau', 'Honoré de Balzac', 'Socrates', 'Aristote',
                                         'Emmanuel Kant', 'Sigmund Freud', 'John Locke', 'Thomas Hobbes', 'Karl Marx', 'Georg Wilhelm Friedrich Hegel', 'Sören Kierkegaard']) }}
@@ -429,8 +429,8 @@ audio::-webkit-media-controls-play-button {
                                         <a href="{{ path('app_forums', { category: post.forum.title, postId: post.id }) }}">
                                             <h3 class="text-lg text-gray-700">{{ post.name }}</h3>
                                             <p class="text-gray-500">
-                                            {# Si le forum est anonyme, on affiche le nom d'un écrivain ou philosophe célèbre #}
-                                                {% if post.forum.anonymous %}
+                                            {# Si le forum est anonyme ET que l'utilisateur n'est pas admin, on affiche un pseudo anonyme #}
+                                                {% if post.forum.anonymous and not (app.user and app.user.userType == 1) %}
                                                     {{ random(['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z']) }}{{ random(['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z']) }}{{ random(['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z']) }}.{{ random(0,9) }}{{ random(0,9) }}{{ random(0,9) }}
                                                 {% else %}
                                                     {% if post.user is not null %}
