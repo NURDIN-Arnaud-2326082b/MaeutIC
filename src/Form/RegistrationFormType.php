@@ -113,42 +113,600 @@ class RegistrationFormType extends AbstractType
             ->add('researchTopic', TextType::class, [
                 'required' => false,
             ])
-            ->add('agreeTerms', CheckboxType::class, [
-                'mapped' => false,
-                'constraints' => [
-                    new IsTrue([
-                        'message' => 'You should agree to our terms.',
-                    ]),
-                ],
-            ])
-            ->add('userQuestions', CollectionType::class, [
-                'entry_type' => TextareaType::class,
+            ->add("taggableQuestions", CollectionType::class, [
+                'entry_type' => ChoiceType::class,
                 'entry_options' => [
+                    'choices' => $tags,
+                    'choice_label' => function ($tag) {
+                        return $tag->getName();
+                    },
+                    'choice_value' => function ($tag) {
+                        return $tag ? $tag->getId() : '';
+                    },
                     'label' => false,
+                    'multiple' => true,
+                    'attr' => [
+                        'multiple' => 'multiple',
+                    ],
                 ],
-                'allow_add' => true,
                 'mapped' => false,
+                'allow_add' => true,
                 'required' => false,
+                'data' => array_fill(0, count($taggableQuestions), []),
                 'constraints' => [
                     new Callback([
-                        'callback' => function ($questions, $context) use ($minQuestionsRequired) {
-                            $answeredQuestions = 0;
-                            foreach ($questions as $questionText) {
-                                if (!empty(trim($questionText))) {
-                                    $answeredQuestions++;
+                        'callback' => function ($taggable, $context) use ($taggableMinChoices) {
+                            foreach ($taggableMinChoices as $index => $min) {
+                                if (
+                                    isset($taggable[$index]) &&
+                                    is_array($taggable[$index]) &&
+                                    count(array_filter($taggable[$index])) < $min
+                                ) {
+                                    $context->buildViolation("Veuillez sélectionner au moins $min tag(s) pour cette question.")
+                                        ->atPath("[$index]")
+                                        ->addViolation();
                                 }
                             }
-
-                            if ($answeredQuestions < $minQuestionsRequired) {
-                                $context->buildViolation("Vous devez répondre à au moins {$minQuestionsRequired} questions.")
-                                    ->atPath('userQuestions')
-                                    ->addViolation();
-                            }
-                        },
-                    ]),
+                        }
+                    ])
                 ],
-                'data' => array_fill(0, count($dynamicQuestions), ''),
+            ])->add("taggableQuestions", CollectionType::class, [
+                'entry_type' => ChoiceType::class,
+                'entry_options' => [
+                    'choices' => $tags,
+                    'choice_label' => function ($tag) {
+                        return $tag->getName();
+                    },
+                    'choice_value' => function ($tag) {
+                        return $tag ? $tag->getId() : '';
+                    },
+                    'label' => false,
+                    'multiple' => true,
+                    'attr' => [
+                        'multiple' => 'multiple',
+                    ],
+                ],
+                'mapped' => false,
+                'allow_add' => true,
+                'required' => false,
+                'data' => array_fill(0, count($taggableQuestions), []),
+                'constraints' => [
+                    new Callback([
+                        'callback' => function ($taggable, $context) use ($taggableMinChoices) {
+                            foreach ($taggableMinChoices as $index => $min) {
+                                if (
+                                    isset($taggable[$index]) &&
+                                    is_array($taggable[$index]) &&
+                                    count(array_filter($taggable[$index])) < $min
+                                ) {
+                                    $context->buildViolation("Veuillez sélectionner au moins $min tag(s) pour cette question.")
+                                        ->atPath("[$index]")
+                                        ->addViolation();
+                                }
+                            }
+                        }
+                    ])
+                ],
+            ])->add("taggableQuestions", CollectionType::class, [
+                'entry_type' => ChoiceType::class,
+                'entry_options' => [
+                    'choices' => $tags,
+                    'choice_label' => function ($tag) {
+                        return $tag->getName();
+                    },
+                    'choice_value' => function ($tag) {
+                        return $tag ? $tag->getId() : '';
+                    },
+                    'label' => false,
+                    'multiple' => true,
+                    'attr' => [
+                        'multiple' => 'multiple',
+                    ],
+                ],
+                'mapped' => false,
+                'allow_add' => true,
+                'required' => false,
+                'data' => array_fill(0, count($taggableQuestions), []),
+                'constraints' => [
+                    new Callback([
+                        'callback' => function ($taggable, $context) use ($taggableMinChoices) {
+                            foreach ($taggableMinChoices as $index => $min) {
+                                if (
+                                    isset($taggable[$index]) &&
+                                    is_array($taggable[$index]) &&
+                                    count(array_filter($taggable[$index])) < $min
+                                ) {
+                                    $context->buildViolation("Veuillez sélectionner au moins $min tag(s) pour cette question.")
+                                        ->atPath("[$index]")
+                                        ->addViolation();
+                                }
+                            }
+                        }
+                    ])
+                ],
+            ])->add("taggableQuestions", CollectionType::class, [
+                'entry_type' => ChoiceType::class,
+                'entry_options' => [
+                    'choices' => $tags,
+                    'choice_label' => function ($tag) {
+                        return $tag->getName();
+                    },
+                    'choice_value' => function ($tag) {
+                        return $tag ? $tag->getId() : '';
+                    },
+                    'label' => false,
+                    'multiple' => true,
+                    'attr' => [
+                        'multiple' => 'multiple',
+                    ],
+                ],
+                'mapped' => false,
+                'allow_add' => true,
+                'required' => false,
+                'data' => array_fill(0, count($taggableQuestions), []),
+                'constraints' => [
+                    new Callback([
+                        'callback' => function ($taggable, $context) use ($taggableMinChoices) {
+                            foreach ($taggableMinChoices as $index => $min) {
+                                if (
+                                    isset($taggable[$index]) &&
+                                    is_array($taggable[$index]) &&
+                                    count(array_filter($taggable[$index])) < $min
+                                ) {
+                                    $context->buildViolation("Veuillez sélectionner au moins $min tag(s) pour cette question.")
+                                        ->atPath("[$index]")
+                                        ->addViolation();
+                                }
+                            }
+                        }
+                    ])
+                ],
+            ])->add("taggableQuestions", CollectionType::class, [
+                'entry_type' => ChoiceType::class,
+                'entry_options' => [
+                    'choices' => $tags,
+                    'choice_label' => function ($tag) {
+                        return $tag->getName();
+                    },
+                    'choice_value' => function ($tag) {
+                        return $tag ? $tag->getId() : '';
+                    },
+                    'label' => false,
+                    'multiple' => true,
+                    'attr' => [
+                        'multiple' => 'multiple',
+                    ],
+                ],
+                'mapped' => false,
+                'allow_add' => true,
+                'required' => false,
+                'data' => array_fill(0, count($taggableQuestions), []),
+                'constraints' => [
+                    new Callback([
+                        'callback' => function ($taggable, $context) use ($taggableMinChoices) {
+                            foreach ($taggableMinChoices as $index => $min) {
+                                if (
+                                    isset($taggable[$index]) &&
+                                    is_array($taggable[$index]) &&
+                                    count(array_filter($taggable[$index])) < $min
+                                ) {
+                                    $context->buildViolation("Veuillez sélectionner au moins $min tag(s) pour cette question.")
+                                        ->atPath("[$index]")
+                                        ->addViolation();
+                                }
+                            }
+                        }
+                    ])
+                ],
+            ])->add("taggableQuestions", CollectionType::class, [
+                'entry_type' => ChoiceType::class,
+                'entry_options' => [
+                    'choices' => $tags,
+                    'choice_label' => function ($tag) {
+                        return $tag->getName();
+                    },
+                    'choice_value' => function ($tag) {
+                        return $tag ? $tag->getId() : '';
+                    },
+                    'label' => false,
+                    'multiple' => true,
+                    'attr' => [
+                        'multiple' => 'multiple',
+                    ],
+                ],
+                'mapped' => false,
+                'allow_add' => true,
+                'required' => false,
+                'data' => array_fill(0, count($taggableQuestions), []),
+                'constraints' => [
+                    new Callback([
+                        'callback' => function ($taggable, $context) use ($taggableMinChoices) {
+                            foreach ($taggableMinChoices as $index => $min) {
+                                if (
+                                    isset($taggable[$index]) &&
+                                    is_array($taggable[$index]) &&
+                                    count(array_filter($taggable[$index])) < $min
+                                ) {
+                                    $context->buildViolation("Veuillez sélectionner au moins $min tag(s) pour cette question.")
+                                        ->atPath("[$index]")
+                                        ->addViolation();
+                                }
+                            }
+                        }
+                    ])
+                ],
+            ])->add("taggableQuestions", CollectionType::class, [
+                'entry_type' => ChoiceType::class,
+                'entry_options' => [
+                    'choices' => $tags,
+                    'choice_label' => function ($tag) {
+                        return $tag->getName();
+                    },
+                    'choice_value' => function ($tag) {
+                        return $tag ? $tag->getId() : '';
+                    },
+                    'label' => false,
+                    'multiple' => true,
+                    'attr' => [
+                        'multiple' => 'multiple',
+                    ],
+                ],
+                'mapped' => false,
+                'allow_add' => true,
+                'required' => false,
+                'data' => array_fill(0, count($taggableQuestions), []),
+                'constraints' => [
+                    new Callback([
+                        'callback' => function ($taggable, $context) use ($taggableMinChoices) {
+                            foreach ($taggableMinChoices as $index => $min) {
+                                if (
+                                    isset($taggable[$index]) &&
+                                    is_array($taggable[$index]) &&
+                                    count(array_filter($taggable[$index])) < $min
+                                ) {
+                                    $context->buildViolation("Veuillez sélectionner au moins $min tag(s) pour cette question.")
+                                        ->atPath("[$index]")
+                                        ->addViolation();
+                                }
+                            }
+                        }
+                    ])
+                ],
+            ])->add("taggableQuestions", CollectionType::class, [
+                'entry_type' => ChoiceType::class,
+                'entry_options' => [
+                    'choices' => $tags,
+                    'choice_label' => function ($tag) {
+                        return $tag->getName();
+                    },
+                    'choice_value' => function ($tag) {
+                        return $tag ? $tag->getId() : '';
+                    },
+                    'label' => false,
+                    'multiple' => true,
+                    'attr' => [
+                        'multiple' => 'multiple',
+                    ],
+                ],
+                'mapped' => false,
+                'allow_add' => true,
+                'required' => false,
+                'data' => array_fill(0, count($taggableQuestions), []),
+                'constraints' => [
+                    new Callback([
+                        'callback' => function ($taggable, $context) use ($taggableMinChoices) {
+                            foreach ($taggableMinChoices as $index => $min) {
+                                if (
+                                    isset($taggable[$index]) &&
+                                    is_array($taggable[$index]) &&
+                                    count(array_filter($taggable[$index])) < $min
+                                ) {
+                                    $context->buildViolation("Veuillez sélectionner au moins $min tag(s) pour cette question.")
+                                        ->atPath("[$index]")
+                                        ->addViolation();
+                                }
+                            }
+                        }
+                    ])
+                ],
+            ])->add("taggableQuestions", CollectionType::class, [
+                'entry_type' => ChoiceType::class,
+                'entry_options' => [
+                    'choices' => $tags,
+                    'choice_label' => function ($tag) {
+                        return $tag->getName();
+                    },
+                    'choice_value' => function ($tag) {
+                        return $tag ? $tag->getId() : '';
+                    },
+                    'label' => false,
+                    'multiple' => true,
+                    'attr' => [
+                        'multiple' => 'multiple',
+                    ],
+                ],
+                'mapped' => false,
+                'allow_add' => true,
+                'required' => false,
+                'data' => array_fill(0, count($taggableQuestions), []),
+                'constraints' => [
+                    new Callback([
+                        'callback' => function ($taggable, $context) use ($taggableMinChoices) {
+                            foreach ($taggableMinChoices as $index => $min) {
+                                if (
+                                    isset($taggable[$index]) &&
+                                    is_array($taggable[$index]) &&
+                                    count(array_filter($taggable[$index])) < $min
+                                ) {
+                                    $context->buildViolation("Veuillez sélectionner au moins $min tag(s) pour cette question.")
+                                        ->atPath("[$index]")
+                                        ->addViolation();
+                                }
+                            }
+                        }
+                    ])
+                ],
+            ])->add("taggableQuestions", CollectionType::class, [
+                'entry_type' => ChoiceType::class,
+                'entry_options' => [
+                    'choices' => $tags,
+                    'choice_label' => function ($tag) {
+                        return $tag->getName();
+                    },
+                    'choice_value' => function ($tag) {
+                        return $tag ? $tag->getId() : '';
+                    },
+                    'label' => false,
+                    'multiple' => true,
+                    'attr' => [
+                        'multiple' => 'multiple',
+                    ],
+                ],
+                'mapped' => false,
+                'allow_add' => true,
+                'required' => false,
+                'data' => array_fill(0, count($taggableQuestions), []),
+                'constraints' => [
+                    new Callback([
+                        'callback' => function ($taggable, $context) use ($taggableMinChoices) {
+                            foreach ($taggableMinChoices as $index => $min) {
+                                if (
+                                    isset($taggable[$index]) &&
+                                    is_array($taggable[$index]) &&
+                                    count(array_filter($taggable[$index])) < $min
+                                ) {
+                                    $context->buildViolation("Veuillez sélectionner au moins $min tag(s) pour cette question.")
+                                        ->atPath("[$index]")
+                                        ->addViolation();
+                                }
+                            }
+                        }
+                    ])
+                ],
+            ])->add("taggableQuestions", CollectionType::class, [
+                'entry_type' => ChoiceType::class,
+                'entry_options' => [
+                    'choices' => $tags,
+                    'choice_label' => function ($tag) {
+                        return $tag->getName();
+                    },
+                    'choice_value' => function ($tag) {
+                        return $tag ? $tag->getId() : '';
+                    },
+                    'label' => false,
+                    'multiple' => true,
+                    'attr' => [
+                        'multiple' => 'multiple',
+                    ],
+                ],
+                'mapped' => false,
+                'allow_add' => true,
+                'required' => false,
+                'data' => array_fill(0, count($taggableQuestions), []),
+                'constraints' => [
+                    new Callback([
+                        'callback' => function ($taggable, $context) use ($taggableMinChoices) {
+                            foreach ($taggableMinChoices as $index => $min) {
+                                if (
+                                    isset($taggable[$index]) &&
+                                    is_array($taggable[$index]) &&
+                                    count(array_filter($taggable[$index])) < $min
+                                ) {
+                                    $context->buildViolation("Veuillez sélectionner au moins $min tag(s) pour cette question.")
+                                        ->atPath("[$index]")
+                                        ->addViolation();
+                                }
+                            }
+                        }
+                    ])
+                ],
+            ])->add("taggableQuestions", CollectionType::class, [
+                'entry_type' => ChoiceType::class,
+                'entry_options' => [
+                    'choices' => $tags,
+                    'choice_label' => function ($tag) {
+                        return $tag->getName();
+                    },
+                    'choice_value' => function ($tag) {
+                        return $tag ? $tag->getId() : '';
+                    },
+                    'label' => false,
+                    'multiple' => true,
+                    'attr' => [
+                        'multiple' => 'multiple',
+                    ],
+                ],
+                'mapped' => false,
+                'allow_add' => true,
+                'required' => false,
+                'data' => array_fill(0, count($taggableQuestions), []),
+                'constraints' => [
+                    new Callback([
+                        'callback' => function ($taggable, $context) use ($taggableMinChoices) {
+                            foreach ($taggableMinChoices as $index => $min) {
+                                if (
+                                    isset($taggable[$index]) &&
+                                    is_array($taggable[$index]) &&
+                                    count(array_filter($taggable[$index])) < $min
+                                ) {
+                                    $context->buildViolation("Veuillez sélectionner au moins $min tag(s) pour cette question.")
+                                        ->atPath("[$index]")
+                                        ->addViolation();
+                                }
+                            }
+                        }
+                    ])
+                ],
+            ])->add("taggableQuestions", CollectionType::class, [
+                'entry_type' => ChoiceType::class,
+                'entry_options' => [
+                    'choices' => $tags,
+                    'choice_label' => function ($tag) {
+                        return $tag->getName();
+                    },
+                    'choice_value' => function ($tag) {
+                        return $tag ? $tag->getId() : '';
+                    },
+                    'label' => false,
+                    'multiple' => true,
+                    'attr' => [
+                        'multiple' => 'multiple',
+                    ],
+                ],
+                'mapped' => false,
+                'allow_add' => true,
+                'required' => false,
+                'data' => array_fill(0, count($taggableQuestions), []),
+                'constraints' => [
+                    new Callback([
+                        'callback' => function ($taggable, $context) use ($taggableMinChoices) {
+                            foreach ($taggableMinChoices as $index => $min) {
+                                if (
+                                    isset($taggable[$index]) &&
+                                    is_array($taggable[$index]) &&
+                                    count(array_filter($taggable[$index])) < $min
+                                ) {
+                                    $context->buildViolation("Veuillez sélectionner au moins $min tag(s) pour cette question.")
+                                        ->atPath("[$index]")
+                                        ->addViolation();
+                                }
+                            }
+                        }
+                    ])
+                ],
+            ])->add("taggableQuestions", CollectionType::class, [
+                'entry_type' => ChoiceType::class,
+                'entry_options' => [
+                    'choices' => $tags,
+                    'choice_label' => function ($tag) {
+                        return $tag->getName();
+                    },
+                    'choice_value' => function ($tag) {
+                        return $tag ? $tag->getId() : '';
+                    },
+                    'label' => false,
+                    'multiple' => true,
+                    'attr' => [
+                        'multiple' => 'multiple',
+                    ],
+                ],
+                'mapped' => false,
+                'allow_add' => true,
+                'required' => false,
+                'data' => array_fill(0, count($taggableQuestions), []),
+                'constraints' => [
+                    new Callback([
+                        'callback' => function ($taggable, $context) use ($taggableMinChoices) {
+                            foreach ($taggableMinChoices as $index => $min) {
+                                if (
+                                    isset($taggable[$index]) &&
+                                    is_array($taggable[$index]) &&
+                                    count(array_filter($taggable[$index])) < $min
+                                ) {
+                                    $context->buildViolation("Veuillez sélectionner au moins $min tag(s) pour cette question.")
+                                        ->atPath("[$index]")
+                                        ->addViolation();
+                                }
+                            }
+                        }
+                    ])
+                ],
+            ])->add("taggableQuestions", CollectionType::class, [
+                'entry_type' => ChoiceType::class,
+                'entry_options' => [
+                    'choices' => $tags,
+                    'choice_label' => function ($tag) {
+                        return $tag->getName();
+                    },
+                    'choice_value' => function ($tag) {
+                        return $tag ? $tag->getId() : '';
+                    },
+                    'label' => false,
+                    'multiple' => true,
+                    'attr' => [
+                        'multiple' => 'multiple',
+                    ],
+                ],
+                'mapped' => false,
+                'allow_add' => true,
+                'required' => false,
+                'data' => array_fill(0, count($taggableQuestions), []),
+                'constraints' => [
+                    new Callback([
+                        'callback' => function ($taggable, $context) use ($taggableMinChoices) {
+                            foreach ($taggableMinChoices as $index => $min) {
+                                if (
+                                    isset($taggable[$index]) &&
+                                    is_array($taggable[$index]) &&
+                                    count(array_filter($taggable[$index])) < $min
+                                ) {
+                                    $context->buildViolation("Veuillez sélectionner au moins $min tag(s) pour cette question.")
+                                        ->atPath("[$index]")
+                                        ->addViolation();
+                                }
+                            }
+                        }
+                    ])
+                ],
+            ])->add("taggableQuestions", CollectionType::class, [
+                'entry_type' => ChoiceType::class,
+                'entry_options' => [
+                    'choices' => $tags,
+                    'choice_label' => function ($tag) {
+                        return $tag->getName();
+                    },
+                    'choice_value' => function ($tag) {
+                        return $tag ? $tag->getId() : '';
+                    },
+                    'label' => false,
+                    'multiple' => true,
+                    'attr' => [
+                        'multiple' => 'multiple',
+                    ],
+                ],
+                'mapped' => false,
+                'allow_add' => true,
+                'required' => false,
+                'data' => array_fill(0, count($taggableQuestions), []),
+                'constraints' => [
+                    new Callback([
+                        'callback' => function ($taggable, $context) use ($taggableMinChoices) {
+                            foreach ($taggableMinChoices as $index => $min) {
+                                if (
+                                    isset($taggable[$index]) &&
+                                    is_array($taggable[$index]) &&
+                                    count(array_filter($taggable[$index])) < $min
+                                ) {
+                                    $context->buildViolation("Veuillez sélectionner au moins $min tag(s) pour cette question.")
+                                        ->atPath("[$index]")
+                                        ->addViolation();
+                                }
+                            }
+                        }
+                    ])
+                ],
             ])
+
             ->add("taggableQuestions", CollectionType::class, [
                 'entry_type' => ChoiceType::class,
                 'entry_options' => [
@@ -187,6 +745,36 @@ class RegistrationFormType extends AbstractType
                     ])
                 ],
             ])
+
+            ->add('userQuestions', CollectionType::class, [
+                'entry_type' => TextareaType::class,
+                'entry_options' => [
+                    'label' => false,
+                ],
+                'allow_add' => true,
+                'mapped' => false,
+                'required' => false,
+                'constraints' => [
+                    new Callback([
+                        'callback' => function ($questions, $context) use ($minQuestionsRequired) {
+                            $answeredQuestions = 0;
+                            foreach ($questions as $questionText) {
+                                if (!empty(trim($questionText))) {
+                                    $answeredQuestions++;
+                                }
+                            }
+
+                            if ($answeredQuestions < $minQuestionsRequired) {
+                                $context->buildViolation("Vous devez répondre à au moins {$minQuestionsRequired} questions.")
+                                    ->atPath('userQuestions')
+                                    ->addViolation();
+                            }
+                        },
+                    ]),
+                ],
+                'data' => array_fill(0, count($dynamicQuestions), ''),
+            ])
+
             ->add('profileImageFile', FileType::class, [
                 'label' => 'Photo de profil',
                 'mapped' => false,
