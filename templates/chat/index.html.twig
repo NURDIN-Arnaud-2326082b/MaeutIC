@@ -219,7 +219,7 @@
                                         <div class="flex flex-row items-center">
                                             ${msg.sender 
                                                 ? `<a href="/profile/${encodeURIComponent(msg.sender.username)}" class="flex flex-row items-center mr-3">
-                                                    <img src="${msg.sender.profileImage ? '/profile_images/' + msg.sender.profileImage : 'assets/images/default-profile.png'}" alt="Profil" class="w-10 h-10 mr-3 rounded-full">
+                                                    <img src="${msg.sender.profileImage ? '/profile_images/' + msg.sender.profileImage : '/images/default-profile.png'}" alt="Profil" class="w-10 h-10 mr-3 rounded-full">
                                                     <div class="text-sm font-semibold">${msg.sender.username}</div>
                                                 </a>`
                                                 : `<div class="flex flex-row items-center mr-3">
