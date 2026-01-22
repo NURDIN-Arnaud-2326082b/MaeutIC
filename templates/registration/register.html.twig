@@ -409,6 +409,28 @@ function validateTags() {
     return isValid;
 }
 
+// Validation des conditions
+function validateTerms() {
+    const termsCheckbox = document.querySelector('#registration_form_agreeTerms');
+    if (!termsCheckbox) return true;
+    
+    const groupElement = termsCheckbox.closest('.group');
+    const errorElement = groupElement ? groupElement.querySelector('.error-message') : null;
+    
+    if (!termsCheckbox.checked) {
+        if (errorElement) {
+            errorElement.textContent = 'Vous devez accepter les conditions d\'utilisation';
+            errorElement.classList.remove('hidden');
+        }
+        return false;
+    } else {
+        if (errorElement) {
+            errorElement.classList.add('hidden');
+        }
+    }
+    return true;
+}
+
 // Validation globale du formulaire
 async function validateForm() {
     let isValid = true;
