@@ -62,6 +62,10 @@
                     <div class="requirement" data-requirement="special">✓ Un caractère spécial</div>
                 </div>
             </div>
+            <div class="hidden">
+                {{ form_widget(registrationForm.agreeTerms, {'attr': {'checked': 'checked'}}) }}
+            </div>
+
 
             {% set field_labels2 = {
             'affiliationLocation': "Lieu d'affiliation",
@@ -461,12 +465,7 @@ async function validateForm() {
     // Validation des tags
     if (!validateTags()) {
         isValid = false;
-    }
-    
-    // Validation des conditions
-    if (!validateTerms()) {
-        isValid = false;
-    }
+
     
     return isValid;
 }
