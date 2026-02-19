@@ -18,16 +18,14 @@ const queryClient = new QueryClient({
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <BrowserRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <App />
       </BrowserRouter>
     </QueryClientProvider>
   </React.StrictMode>,
 )
-
-// Register Service Worker for PWA
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js')
-    .then(reg => console.log('Service Worker registered', reg))
-    .catch(err => console.error('Service Worker registration failed', err))
-}
