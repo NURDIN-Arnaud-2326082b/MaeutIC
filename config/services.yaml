@@ -24,3 +24,8 @@ services:
     App\Service\EncryptionService:
         arguments:
             $encryptionKey: '%env(resolve:ENCRYPTION_KEY)%'
+    
+    # CORS Listener
+    App\EventListener\CorsListener:
+        tags:
+            - { name: kernel.event_subscriber }
