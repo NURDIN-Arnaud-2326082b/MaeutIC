@@ -31,18 +31,30 @@ class UserApiController extends AbstractController
             return $this->json(['error' => 'User not found'], Response::HTTP_NOT_FOUND);
         }
 
+        /** @var User|null $currentUser */
+        $currentUser = $this->getUser();
+        $isInNetwork = false;
+        $isBlocked = false;
+
+        if ($currentUser) {
+            $isInNetwork = $currentUser->isInNetwork($user->getId());
+            $isBlocked = $currentUser->isBlocked($user->getId());
+        }
+
         return $this->json([
             'id' => $user->getId(),
             'username' => $user->getUsername(),
             'firstName' => $user->getFirstName(),
             'lastName' => $user->getLastName(),
             'email' => $user->getEmail(),
-            'profileImage' => $user->getProfileImage() ? '/images/profile_images/' . $user->getProfileImage() : null,
+            'profileImage' => $user->getProfileImage() ? '/profile_images/' . $user->getProfileImage() : null,
             'affiliationLocation' => $user->getAffiliationLocation(),
             'specialization' => $user->getSpecialization(),
             'researchTopic' => $user->getResearchTopic(),
             'researcherTitle' => $user->getResearcherTitle(),
             'genre' => $user->getGenre(),
+            'isInNetwork' => $isInNetwork,
+            'isBlocked' => $isBlocked,
         ]);
     }
 
@@ -225,6 +237,7 @@ class UserApiController extends AbstractController
         Request $request,
         EntityManagerInterface $entityManager
     ): JsonResponse {
+        /** @var User|null $user */
         $user = $this->getUser();
 
         if (!$user) {
@@ -252,5 +265,165 @@ class UserApiController extends AbstractController
         $entityManager->flush();
 
         return $this->json(['message' => 'Profil mis à jour avec succès']);
+    }
+
+    /**
+     * Get user profile overview (questions and tags)
+     */
+    #[Route('/profile/{username}/overview', name: 'api_user_profile_overview', methods: ['GET'])]
+    public function getProfileOverview(string $username, UserRepository $userRepository, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $user = $userRepository->findOneBy(['username' => $username]);
+
+        if (!$user) {
+            return $this->json(['error' => 'User not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        // Libellés des questions classiques
+        $questionLabels = [
+            'Question 0' => 'Pourquoi cette thématique de recherche vous intéresse-t-elle ?',
+            'Question 1' => 'Pourquoi avez-vous souhaité être chercheur ?',
+            'Question 2' => 'Qu\'aimez-vous dans la recherche ?',
+            'Question 3' => 'Quels sont les problèmes de recherche auxquels vous vous intéressez ?',
+            'Question 4' => 'Quelles sont les méthodologies de recherche que vous utilisez dans votre domaine d\'étude ?',
+            'Question 5' => 'Qu\'est-ce qui, d\'après vous, vous a amené(e) à faire de la recherche ?',
+            'Question 6' => 'Comment vous définiriez-vous en tant que chercheur ?',
+            'Question 7' => 'Pensez-vous que ce choix ait un lien avec un évènement de votre biographie ?',
+            'Question 8' => 'Pouvez-vous nous raconter ce qui a motivé le choix de vos thématiques de recherche ?',
+            'Question 9' => 'Comment vos expériences personnelles ont-elles influencé votre choix de carrière et vos recherches en sciences humaines et sociales ?',
+            'Question 10' => 'En quelques mots, en tant que chercheur(se) qu\'est-ce qui vous anime ?',
+            'Question 11' => 'Si vous deviez choisir 4 auteurs qui vous ont marquée, quels seraient-ils ?',
+            'Question 12' => 'Quelle est la phrase ou la citation qui vous représente le mieux ?',
+        ];
+
+        // Libellés des questions taggables
+        $taggableLabels = [
+            'Taggable Question 0' => 'Quels mot-clés peuvent être reliés à votre projet en cours ?',
+            'Taggable Question 1' => 'Si vous deviez choisir 5 mots pour vous définir en tant que chercheur(se), quels seraient-ils ?',
+        ];
+
+        // Récupérer les questions de l'utilisateur
+        $userQuestions = $entityManager->getRepository(UserQuestions::class)->findBy(['user' => $user]);
+
+        $questions = [];
+        $tags = [];
+
+        foreach ($userQuestions as $uq) {
+            $questionKey = $uq->getQuestion();
+            $answer = $uq->getAnswer();
+
+            if (strpos($questionKey, 'Taggable Question') !== false) {
+                // C'est une question taggable
+                if (!isset($tags[$questionKey])) {
+                    $tags[$questionKey] = [
+                        'label' => $taggableLabels[$questionKey] ?? $questionKey,
+                        'tags' => []
+                    ];
+                }
+                $tags[$questionKey]['tags'][] = $answer;
+            } else {
+                // C'est une question normale
+                if (!isset($questions[$questionKey])) {
+                    $questions[$questionKey] = [
+                        'label' => $questionLabels[$questionKey] ?? $questionKey,
+                        'answer' => $answer
+                    ];
+                }
+            }
+        }
+
+        return $this->json([
+            'questions' => array_values($questions),
+            'tags' => array_values($tags)
+        ]);
+    }
+
+    /**
+     * Get user posts
+     */
+    #[Route('/profile/{username}/posts', name: 'api_user_posts', methods: ['GET'])]
+    public function getUserPosts(string $username, UserRepository $userRepository, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $user = $userRepository->findOneBy(['username' => $username]);
+
+        if (!$user) {
+            return $this->json(['error' => 'User not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $posts = $entityManager->getRepository(\App\Entity\Post::class)->findBy(
+            ['user' => $user],
+            ['creationDate' => 'DESC']
+        );
+
+        $result = [];
+        foreach ($posts as $post) {
+            $forum = $post->getForum();
+            $result[] = [
+                'id' => $post->getId(),
+                'title' => $post->getName(),
+                'category' => $forum->getTitle(),
+                'forumId' => $forum->getId(),
+                'creationDate' => $post->getCreationDate()->format('Y-m-d H:i:s'),
+            ];
+        }
+
+        return $this->json($result);
+    }
+
+    /**
+     * Get user comments
+     */
+    #[Route('/profile/{username}/comments', name: 'api_user_comments', methods: ['GET'])]
+    public function getUserComments(string $username, UserRepository $userRepository, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $user = $userRepository->findOneBy(['username' => $username]);
+
+        if (!$user) {
+            return $this->json(['error' => 'User not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $comments = $entityManager->getRepository(\App\Entity\Comment::class)->findBy(
+            ['user' => $user],
+            ['creationDate' => 'DESC']
+        );
+
+        $result = [];
+        foreach ($comments as $comment) {
+            $post = $comment->getPost();
+            $forum = $post->getForum();
+            $result[] = [
+                'id' => $comment->getId(),
+                'body' => $comment->getBody(),
+                'creationDate' => $comment->getCreationDate()->format('Y-m-d H:i:s'),
+                'postId' => $post->getId(),
+                'postTitle' => $post->getName(),
+                'forum' => $forum->getTitle(),
+                'forumId' => $forum->getId(),
+            ];
+        }
+
+        return $this->json($result);
+    }
+
+    /**
+     * Delete user account
+     */
+    #[Route('/profile', name: 'api_user_delete_account', methods: ['DELETE'])]
+    public function deleteAccount(EntityManagerInterface $entityManager): JsonResponse
+    {
+        /** @var User|null $user */
+        $user = $this->getUser();
+
+        if (!$user) {
+            return $this->json(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $entityManager->remove($user);
+        $entityManager->flush();
+
+        // Invalider la session
+        $this->container->get('session')->invalidate();
+
+        return $this->json(['message' => 'Compte supprimé avec succès']);
     }
 }

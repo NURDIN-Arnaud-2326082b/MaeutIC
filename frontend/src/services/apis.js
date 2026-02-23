@@ -62,9 +62,14 @@ export const libraryApi = {
 // User APIs
 export const userApi = {
   getProfile: (username) => apiClient.get(`/profile/${username}`),
+  getProfileOverview: (username) => apiClient.get(`/profile/${username}/overview`),
   updateProfile: (data) => apiClient.put('/profile', data),
+  deleteAccount: () => apiClient.delete('/profile'),
   getUserPosts: (username) => apiClient.get(`/profile/${username}/posts`),
   getUserComments: (username) => apiClient.get(`/profile/${username}/comments`),
+  getNetwork: (userId) => apiClient.get(`/network/${userId}`),
+  toggleNetwork: (userId) => apiClient.post(`/network/toggle/${userId}`),
+  toggleBlock: (userId) => apiClient.post(`/block/toggle/${userId}`),
   uploadProfileImage: (formData) => apiClient.post('/profile/image', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
