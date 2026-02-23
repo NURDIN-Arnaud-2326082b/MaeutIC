@@ -12,7 +12,6 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
 import AdminInterface from './pages/AdminInterface'
-import PrivateMessages from './pages/PrivateMessages'
 import Conversation from './pages/Conversation'
 import Methodology from './pages/Methodology'
 import Chill from './pages/Chill'
@@ -52,7 +51,6 @@ function App() {
         <Route path="profile/:username" element={<Profile />} />
         
         {/* Messages */}
-        <Route path="messages" element={<PrivateMessages />} />
         <Route path="messages/:conversationId" element={<Conversation />} />
         
         {/* Admin */}

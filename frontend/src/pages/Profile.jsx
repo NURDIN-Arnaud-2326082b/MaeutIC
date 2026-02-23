@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { userApi } from '../services/apis'
+import { conversationApi } from '../services/conversationApi'
 import { useAuthStore } from '../store'
 
 export default function Profile() {
@@ -59,6 +60,13 @@ export default function Profile() {
     mutationFn: () => userApi.deleteAccount(),
     onSuccess: () => {
       navigate('/')
+    },
+  })
+
+  const startConversationMutation = useMutation({
+    mutationFn: (userId) => conversationApi.findOrCreateConversation(userId),
+    onSuccess: (data) => {
+      navigate(`/messages/${data.conversationId}`)
     },
   })
 
@@ -175,12 +183,13 @@ export default function Profile() {
               ) : (
                 isAuthenticated && (
                   <>
-                    <Link
-                      to={`/messages/new/${user.id}`}
-                      className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                    <button
+                      onClick={() => startConversationMutation.mutate(user.id)}
+                      disabled={startConversationMutation.isPending}
+                      className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition disabled:bg-blue-400 disabled:cursor-not-allowed"
                     >
-                      Envoyer un message
-                    </Link>
+                      {startConversationMutation.isPending ? 'Chargement...' : 'Envoyer un message'}
+                    </button>
                     <button
                       onClick={() => toggleNetworkMutation.mutate(user.id)}
                       disabled={toggleNetworkMutation.isPending}

@@ -10,6 +10,20 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CorsListener implements EventSubscriberInterface
 {
+    private function getAllowedOrigin($requestOrigin): string
+    {
+        $allowedOrigins = [
+            'http://localhost:3000',
+            'http://localhost:3001',
+        ];
+        
+        if (in_array($requestOrigin, $allowedOrigins)) {
+            return $requestOrigin;
+        }
+        
+        return 'http://localhost:3000'; // Default fallback
+    }
+
     public function onKernelRequest(RequestEvent $event): void
     {
         // Don't do anything if it's not the master request
@@ -18,11 +32,13 @@ class CorsListener implements EventSubscriberInterface
         }
 
         $request = $event->getRequest();
+        $origin = $request->headers->get('Origin');
+        $allowedOrigin = $this->getAllowedOrigin($origin);
         
         // Handle preflight OPTIONS request
         if ($request->getMethod() === 'OPTIONS') {
             $response = new Response();
-            $response->headers->set('Access-Control-Allow-Origin', 'http://localhost:3000');
+            $response->headers->set('Access-Control-Allow-Origin', $allowedOrigin);
             $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
             $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
             $response->headers->set('Access-Control-Allow-Credentials', 'true');
@@ -40,8 +56,12 @@ class CorsListener implements EventSubscriberInterface
             return;
         }
 
+        $request = $event->getRequest();
+        $origin = $request->headers->get('Origin');
+        $allowedOrigin = $this->getAllowedOrigin($origin);
+
         $response = $event->getResponse();
-        $response->headers->set('Access-Control-Allow-Origin', 'http://localhost:3000');
+        $response->headers->set('Access-Control-Allow-Origin', $allowedOrigin);
         $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
         $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
         $response->headers->set('Access-Control-Allow-Credentials', 'true');
