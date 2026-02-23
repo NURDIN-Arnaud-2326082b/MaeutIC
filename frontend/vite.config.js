@@ -10,14 +10,6 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
       },
-      '/images': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-      },
-      '/audio': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-      },
     },
   },
   build: {

@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { useAuthStore } from './store'
 import Layout from './components/Layout'
 import Home from './pages/Home'
 import Forums from './pages/Forums'
@@ -17,6 +19,20 @@ import Chill from './pages/Chill'
 import Administrative from './pages/Administrative'
 
 function App() {
+  const { checkAuth, isLoading } = useAuthStore()
+
+  useEffect(() => {
+    checkAuth()
+  }, [checkAuth])
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-xl">Chargement...</div>
+      </div>
+    )
+  }
+
   return (
     <Routes>
       <Route path="/" element={<Layout />}>

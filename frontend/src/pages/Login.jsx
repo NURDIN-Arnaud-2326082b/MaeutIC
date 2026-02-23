@@ -1,7 +1,5 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
-import { authApi } from '../services/apis'
 import { useAuthStore } from '../store'
 
 export default function Login() {
@@ -12,22 +10,22 @@ export default function Login() {
     password: '',
   })
   const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
-  const loginMutation = useMutation({
-    mutationFn: (credentials) => authApi.login(credentials),
-    onSuccess: (response) => {
-      login(response.data.user)
-      navigate('/')
-    },
-    onError: (error) => {
-      setError(error.response?.data?.message || 'Erreur de connexion')
-    },
-  })
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    loginMutation.mutate(formData)
+    setIsLoading(true)
+
+    const result = await login(formData)
+    
+    setIsLoading(false)
+    
+    if (result.success) {
+      navigate('/')
+    } else {
+      setError(result.error)
+    }
   }
 
   return (
@@ -78,9 +76,9 @@ export default function Login() {
           <button
             className="w-full bg-blue-700 text-white py-2 rounded hover:bg-blue-800"
             type="submit"
-            disabled={loginMutation.isPending}
+            disabled={isLoading}
           >
-            {loginMutation.isPending ? 'Connexion...' : 'Se connecter'}
+            {isLoading ? 'Connexion...' : 'Se connecter'}
           </button>
 
           <div className="mt-4 text-center">

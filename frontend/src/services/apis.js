@@ -3,8 +3,11 @@ import apiClient from './api'
 // Auth APIs
 export const authApi = {
   login: (credentials) => apiClient.post('/login', credentials),
-  register: (userData) => apiClient.post('/register', userData),
+  register: (userData) => apiClient.post('/register', userData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
   logout: () => apiClient.post('/logout'),
+  checkAuth: () => apiClient.get('/me'),
   checkEmail: (email) => apiClient.get('/check-email', { params: { email } }),
   checkUsername: (username) => apiClient.get('/check-username', { params: { username } }),
   resetPassword: (email) => apiClient.post('/forgot-password', { email }),

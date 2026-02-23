@@ -1,20 +1,58 @@
 import { create } from 'zustand'
+import { authApi } from '../services/apis'
 
 export const useAuthStore = create((set) => ({
   user: null,
   isAuthenticated: false,
+  isLoading: true,
   
-  login: (userData) => {
-    localStorage.setItem('auth-storage', JSON.stringify({ state: { user: userData } }))
-    set({ user: userData, isAuthenticated: true })
+  login: async (credentials) => {
+    try {
+      const response = await authApi.login(credentials)
+      const userData = response.data.user
+      localStorage.setItem('auth-storage', JSON.stringify({ state: { user: userData } }))
+      set({ user: userData, isAuthenticated: true })
+      return { success: true }
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error.response?.data?.error || 'Erreur de connexion' 
+      }
+    }
   },
-  logout: () => {
+  
+  logout: async () => {
+    try {
+      await authApi.logout()
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
     localStorage.removeItem('auth-storage')
     set({ user: null, isAuthenticated: false })
   },
+  
   updateUser: (userData) => set({ user: userData }),
   
-  // Initialize from localStorage
+  // Vérifier l'authentification avec le backend
+  checkAuth: async () => {
+    set({ isLoading: true })
+    try {
+      const response = await authApi.checkAuth()
+      if (response.data.user) {
+        localStorage.setItem('auth-storage', JSON.stringify({ state: { user: response.data.user } }))
+        set({ user: response.data.user, isAuthenticated: true, isLoading: false })
+      } else {
+        localStorage.removeItem('auth-storage')
+        set({ user: null, isAuthenticated: false, isLoading: false })
+      }
+    } catch (error) {
+      console.error('Check auth error:', error)
+      localStorage.removeItem('auth-storage')
+      set({ user: null, isAuthenticated: false, isLoading: false })
+    }
+  },
+  
+  // Initialize from localStorage (deprecated - use checkAuth instead)
   initAuth: () => {
     const stored = localStorage.getItem('auth-storage')
     if (stored) {

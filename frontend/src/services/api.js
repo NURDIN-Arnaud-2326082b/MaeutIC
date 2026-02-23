@@ -4,15 +4,17 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
   withCredentials: true,
 })
 
 // Request interceptor for auth token
 apiClient.interceptors.request.use(
   (config) => {
+    // Only set Content-Type to JSON if it's not already set (FormData will set it automatically)
+    if (!config.headers['Content-Type'] && !(config.data instanceof FormData)) {
+      config.headers['Content-Type'] = 'application/json'
+    }
+    
     const authData = localStorage.getItem('auth-storage')
     if (authData) {
       const { state } = JSON.parse(authData)
