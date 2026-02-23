@@ -361,6 +361,7 @@ class UserApiController extends AbstractController
             $result[] = [
                 'id' => $post->getId(),
                 'title' => $post->getName(),
+                'description' => $post->getDescription(),
                 'category' => $forum->getTitle(),
                 'forumId' => $forum->getId(),
                 'creationDate' => $post->getCreationDate()->format('Y-m-d H:i:s'),

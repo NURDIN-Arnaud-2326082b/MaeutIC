@@ -25,6 +25,10 @@ export default function Forums() {
   const [showReplyForm, setShowReplyForm] = useState(false)
   const [replyContent, setReplyContent] = useState('')
   const [commentContent, setCommentContent] = useState('')
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [newPostTitle, setNewPostTitle] = useState('')
+  const [newPostDescription, setNewPostDescription] = useState('')
+  const [selectedForumId, setSelectedForumId] = useState(null)
 
   // Fetch forums for sidebar
   const { data: forumsData = [] } = useQuery({
@@ -106,6 +110,32 @@ export default function Forums() {
     },
   })
 
+  const likePostMutation = useMutation({
+    mutationFn: (postId) => forumApi.likePost(postId),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['post'])
+      queryClient.invalidateQueries(['posts'])
+    },
+  })
+
+  const likeCommentMutation = useMutation({
+    mutationFn: (commentId) => commentApi.likeComment(commentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['comments'])
+    },
+  })
+
+  const createPostMutation = useMutation({
+    mutationFn: (data) => forumApi.createPost(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['posts'])
+      setShowCreateModal(false)
+      setNewPostTitle('')
+      setNewPostDescription('')
+      setSelectedForumId(null)
+    },
+  })
+
   const handleCreateComment = (e) => {
     e.preventDefault()
     createCommentMutation.mutate({ postId, body: commentContent })
@@ -119,6 +149,16 @@ export default function Forums() {
       description: replyContent,
       forumId,
       parentId: selectedPost.id
+    })
+  }
+
+  const handleCreatePost = (e) => {
+    e.preventDefault()
+    const forumId = selectedForumId || currentForum?.id || forums[0]?.id
+    createPostMutation.mutate({
+      name: newPostTitle,
+      description: newPostDescription,
+      forumId
     })
   }
 
@@ -200,7 +240,13 @@ export default function Forums() {
               {/* Actions */}
               <div className="flex items-center mt-3 space-x-4">
                 <div className="flex items-center">
-                  <button className="text-gray-500 text-lg mr-2">♡</button>
+                  <button 
+                    onClick={() => isAuthenticated && likePostMutation.mutate(selectedPost.id)}
+                    className="text-gray-500 hover:text-red-500 text-lg mr-2 transition"
+                    disabled={!isAuthenticated}
+                  >
+                    ♡
+                  </button>
                   <span className="text-gray-600">{selectedPost.likesCount || 0}</span>
                 </div>
                 {isAuthenticated && (
@@ -286,7 +332,13 @@ export default function Forums() {
               {comments.map((comment) => (
                 <div key={comment.id} className="flex flex-row items-center w-full my-2">
                   <div className="flex flex-col items-center text-gray-500 w-8 mx-2">
-                    <button className="text-gray-500 text-lg">♡</button>
+                    <button 
+                      onClick={() => isAuthenticated && likeCommentMutation.mutate(comment.id)}
+                      className="text-gray-500 hover:text-red-500 text-lg transition"
+                      disabled={!isAuthenticated}
+                    >
+                      ♡
+                    </button>
                     <p>{comment.likesCount || 0}</p>
                   </div>
                   <div className="bg-white text-gray-700 p-3 rounded-lg w-full">
@@ -305,7 +357,14 @@ export default function Forums() {
             <div className="flex flex-row items-center justify-between mb-5">
               <h1 className="text-2xl pb-2 text-gray-700">Forums</h1>
               <button
-                onClick={() => navigate(isAuthenticated ? `/forums/${category}/new` : '/login')}
+                onClick={() => {
+                  if (!isAuthenticated) {
+                    navigate('/login')
+                  } else {
+                    setSelectedForumId(currentForum?.id || null)
+                    setShowCreateModal(true)
+                  }
+                }}
                 className="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
               >
                 + Créer une publication
@@ -403,6 +462,79 @@ export default function Forums() {
           </>
         )}
       </div>
+
+      {/* Create Post Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center z-[1000]">
+          <div className="bg-white/95 text-gray-700 p-5 rounded-lg w-[90%] max-w-[500px] shadow-lg relative">
+            <span
+              className="absolute top-2 right-2 text-2xl cursor-pointer hover:text-gray-600"
+              onClick={() => setShowCreateModal(false)}
+            >
+              &times;
+            </span>
+            <h2 className="text-xl font-bold mb-4">Créer une publication</h2>
+
+            <form onSubmit={handleCreatePost} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Titre</label>
+                <input
+                  type="text"
+                  value={newPostTitle}
+                  onChange={(e) => setNewPostTitle(e.target.value)}
+                  className="bg-white w-full border border-gray-300 rounded-md p-2"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Description</label>
+                <textarea
+                  value={newPostDescription}
+                  onChange={(e) => setNewPostDescription(e.target.value)}
+                  className="bg-white w-full border border-gray-300 rounded-md p-2"
+                  rows="4"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Forum</label>
+                <select
+                  value={selectedForumId || ''}
+                  onChange={(e) => setSelectedForumId(Number(e.target.value))}
+                  className="bg-white w-full border border-gray-300 rounded-md p-2"
+                  required
+                >
+                  <option value="">Sélectionnez un forum</option>
+                  {forums.filter(f => !f.anonymous).map((forum) => (
+                    <option key={forum.id} value={forum.id}>
+                      {forum.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={createPostMutation.isPending}
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {createPostMutation.isPending ? 'Publication...' : 'Publier'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+                >
+                  Annuler
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <style>{`
         .custom-scrollbar::-webkit-scrollbar {

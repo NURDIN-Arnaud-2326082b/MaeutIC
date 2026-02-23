@@ -4,9 +4,11 @@ namespace App\Controller\Api;
 
 use App\Entity\Forum;
 use App\Entity\Post;
+use App\Entity\PostLike;
 use App\Entity\User;
 use App\Repository\ForumRepository;
 use App\Repository\PostRepository;
+use App\Repository\PostLikeRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -19,7 +21,8 @@ class ForumApiController extends AbstractController
     public function __construct(
         private EntityManagerInterface $entityManager,
         private ForumRepository $forumRepository,
-        private PostRepository $postRepository
+        private PostRepository $postRepository,
+        private PostLikeRepository $postLikeRepository
     ) {}
 
     #[Route('', name: 'api_forums_list', methods: ['GET'])]
@@ -139,6 +142,16 @@ class ForumApiController extends AbstractController
         $post->setForum($forum);
         $post->setUser($this->getUser());
         $post->setCreationDate(new \DateTime());
+        $post->setLastActivity(new \DateTime());
+
+        // Handle parent post (for replies)
+        if (isset($data['parentId'])) {
+            $parentPost = $this->postRepository->find($data['parentId']);
+            if ($parentPost) {
+                $post->setParentPost($parentPost);
+                $post->setIsReply(true);
+            }
+        }
 
         $this->entityManager->persist($post);
         $this->entityManager->flush();
@@ -200,6 +213,65 @@ class ForumApiController extends AbstractController
         $this->entityManager->flush();
 
         return $this->json(['success' => true]);
+    }
+
+    #[Route('/post/{id}/like', name: 'api_forum_post_like', methods: ['POST'])]
+    public function likePost(int $id): JsonResponse
+    {
+        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+        
+        $post = $this->postRepository->find($id);
+        
+        if (!$post) {
+            return $this->json(['error' => 'Post not found'], 404);
+        }
+
+        /** @var User $user */
+        $user = $this->getUser();
+        
+        // Check if already liked
+        $existingLike = $this->postLikeRepository->findOneBy(['user' => $user, 'post' => $post]);
+        
+        if ($existingLike) {
+            // Unlike
+            $this->entityManager->remove($existingLike);
+            $this->entityManager->flush();
+            return $this->json(['success' => true, 'liked' => false, 'likesCount' => $post->getLikes()->count()]);
+        }
+        
+        // Like
+        $like = new PostLike();
+        $like->setUser($user);
+        $like->setPost($post);
+        
+        $this->entityManager->persist($like);
+        $this->entityManager->flush();
+
+        return $this->json(['success' => true, 'liked' => true, 'likesCount' => $post->getLikes()->count()]);
+    }
+
+    #[Route('/post/{id}/like', name: 'api_forum_post_unlike', methods: ['DELETE'])]
+    public function unlikePost(int $id): JsonResponse
+    {
+        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+        
+        $post = $this->postRepository->find($id);
+        
+        if (!$post) {
+            return $this->json(['error' => 'Post not found'], 404);
+        }
+
+        /** @var User $user */
+        $user = $this->getUser();
+        
+        $like = $this->postLikeRepository->findOneBy(['user' => $user, 'post' => $post]);
+        
+        if ($like) {
+            $this->entityManager->remove($like);
+            $this->entityManager->flush();
+        }
+
+        return $this->json(['success' => true, 'likesCount' => $post->getLikes()->count()]);
     }
 
     private function generateAnonymousId(): string

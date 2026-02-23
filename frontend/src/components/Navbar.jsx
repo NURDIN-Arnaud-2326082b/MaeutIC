@@ -103,7 +103,7 @@ export default function Navbar() {
                   aria-expanded={isProfileOpen}
                 >
                   <img
-                    src={user?.profileImage ? `/profile_images/${user.profileImage}` : '/images/default-profile.png'}
+                    src={user?.profileImage || '/images/default-profile.png'}
                     alt="Profil"
                     className="w-10 h-10 rounded-full"
                   />

@@ -292,16 +292,19 @@ export default function Profile() {
         {activeTab === 'posts' && (
           <div>
             {postsData?.data?.map((post) => (
-              <Link
-                key={post.id}
-                to={`/forums/${post.category}/${post.id}`}
-                className="block bg-white rounded-lg p-4 shadow mb-4 hover:shadow-lg transition"
-              >
-                <h3 className="font-bold text-lg mb-2">{post.title}</h3>
-                <p className="text-gray-600 text-sm">
-                  {new Date(post.creationDate).toLocaleDateString('fr-FR')}
-                </p>
-              </Link>
+              <div key={post.id} className="bg-white rounded-lg p-4 shadow mb-4">
+                <div className="font-bold text-lg mb-2">{post.title}</div>
+                <div className="text-gray-700 mb-2 break-words">{post.description}</div>
+                <div className="text-xs text-gray-400">
+                  Publié le {new Date(post.creationDate).toLocaleDateString('fr-FR', { 
+                    day: '2-digit', 
+                    month: '2-digit', 
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </div>
+              </div>
             ))}
             {(!postsData?.data || postsData.data.length === 0) && (
               <div className="text-center text-gray-500 py-8">
@@ -320,7 +323,13 @@ export default function Profile() {
                 </div>
                 <div className="break-words whitespace-pre-line">{comment.body}</div>
                 <div className="text-xs text-gray-400 mt-2">
-                  {new Date(comment.creationDate).toLocaleDateString('fr-FR')}
+                  Publié le {new Date(comment.creationDate).toLocaleDateString('fr-FR', { 
+                    day: '2-digit', 
+                    month: '2-digit', 
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
                 </div>
               </div>
             ))}

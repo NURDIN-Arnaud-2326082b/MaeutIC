@@ -4,8 +4,10 @@ namespace App\Controller\Api;
 
 use App\Entity\Comment;
 use App\Entity\User;
+use App\Entity\UserLike;
 use App\Repository\CommentRepository;
 use App\Repository\PostRepository;
+use App\Repository\LikeRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -18,7 +20,8 @@ class CommentApiController extends AbstractController
     public function __construct(
         private EntityManagerInterface $entityManager,
         private CommentRepository $commentRepository,
-        private PostRepository $postRepository
+        private PostRepository $postRepository,
+        private LikeRepository $likeRepository
     ) {}
 
     #[Route('/post/{postId}/comments', name: 'api_post_comments', methods: ['GET'])]
@@ -51,6 +54,7 @@ class CommentApiController extends AbstractController
                     'id' => $comment->getPost()->getForum()->getId(),
                     'anonymous' => $comment->getPost()->getForum()->isAnonymous(),
                 ],
+                'likesCount' => $comment->getUserLikes()->count(),
             ];
         }, $comments);
 
@@ -131,5 +135,40 @@ class CommentApiController extends AbstractController
         $this->entityManager->flush();
 
         return $this->json(['success' => true]);
+    }
+
+    #[Route('/comment/{id}/like', name: 'api_comment_like', methods: ['POST'])]
+    public function likeComment(int $id): JsonResponse
+    {
+        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+        
+        $comment = $this->commentRepository->find($id);
+        
+        if (!$comment) {
+            return $this->json(['error' => 'Comment not found'], 404);
+        }
+
+        /** @var User $user */
+        $user = $this->getUser();
+        
+        // Check if already liked
+        $existingLike = $this->likeRepository->findOneBy(['user' => $user, 'comment' => $comment]);
+        
+        if ($existingLike) {
+            // Unlike
+            $this->entityManager->remove($existingLike);
+            $this->entityManager->flush();
+            return $this->json(['success' => true, 'liked' => false, 'likesCount' => $comment->getUserLikes()->count()]);
+        }
+        
+        // Like
+        $like = new UserLike();
+        $like->setUser($user);
+        $like->setComment($comment);
+        
+        $this->entityManager->persist($like);
+        $this->entityManager->flush();
+
+        return $this->json(['success' => true, 'liked' => true, 'likesCount' => $comment->getUserLikes()->count()]);
     }
 }
