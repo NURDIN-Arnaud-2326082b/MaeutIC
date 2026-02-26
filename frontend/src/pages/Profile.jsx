@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { userApi } from '../services/apis'
 import { conversationApi } from '../services/conversationApi'
 import { useAuthStore } from '../store'
+import { getNetworkStatus } from '../services/networkApi'
 
 export default function Profile() {
   const { username } = useParams()
@@ -12,11 +13,22 @@ export default function Profile() {
   const [activeTab, setActiveTab] = useState('overview')
   const [showActionsMenu, setShowActionsMenu] = useState(false)
   const actionsMenuRef = useRef(null)
+  const queryClient = useQueryClient()
 
   const { data: profileData, isLoading } = useQuery({
     queryKey: ['profile', username],
     queryFn: () => userApi.getProfile(username),
   })
+
+  const isOwnProfile = currentUser?.username === username
+
+  const { data: networkStatusData } = useQuery({
+    queryKey: ['networkStatus', profileData?.data?.id],
+    queryFn: () => getNetworkStatus(profileData?.data?.id),
+    enabled: !!profileData?.data?.id && !isOwnProfile && isAuthenticated,
+  })
+
+  const networkStatus = networkStatusData?.status || 'none'
 
   const { data: networkData } = useQuery({
     queryKey: ['network', profileData?.data?.id],
@@ -45,6 +57,11 @@ export default function Profile() {
   const toggleNetworkMutation = useMutation({
     mutationFn: (userId) => userApi.toggleNetwork(userId),
     onSuccess: () => {
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries(['networkStatus', profileData?.data?.id])
+      queryClient.invalidateQueries(['profile', username])
+      queryClient.invalidateQueries(['network', profileData?.data?.id])
+      // Reload to ensure full sync
       window.location.reload()
     },
   })
@@ -97,7 +114,6 @@ export default function Profile() {
   }
 
   const user = profileData.data
-  const isOwnProfile = currentUser?.username === username
   const network = networkData?.data || []
 
   return (
@@ -194,12 +210,22 @@ export default function Profile() {
                       onClick={() => toggleNetworkMutation.mutate(user.id)}
                       disabled={toggleNetworkMutation.isPending}
                       className={`inline-block px-4 py-2 rounded text-white transition ${
-                        user.isInNetwork
+                        networkStatus === 'connected'
+                          ? 'bg-red-600 hover:bg-red-700'
+                          : networkStatus === 'outgoing_request'
                           ? 'bg-red-600 hover:bg-red-700'
                           : 'bg-green-600 hover:bg-green-700'
-                      }`}
+                      } disabled:opacity-50`}
                     >
-                      {user.isInNetwork ? 'Supprimer du réseau' : 'Ajouter au réseau'}
+                      {toggleNetworkMutation.isPending
+                        ? 'Chargement...'
+                        : networkStatus === 'connected'
+                        ? 'Supprimer du réseau'
+                        : networkStatus === 'outgoing_request'
+                        ? 'Annuler la demande'
+                        : networkStatus === 'incoming_request'
+                        ? 'Accepter la demande'
+                        : 'Ajouter au réseau'}
                     </button>
 
                     {/* Burger Menu */}

@@ -1,21 +1,49 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store'
+import { getNotifications, acceptNetworkRequest, declineNetworkRequest } from '../services/networkApi'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuthStore()
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isNotifOpen, setIsNotifOpen] = useState(false)
-  const [notifications, setNotifications] = useState([])
-  const [notifCount, setNotifCount] = useState(0)
   const navigate = useNavigate()
   const dropdownRef = useRef(null)
   const notifRef = useRef(null)
+  const queryClient = useQueryClient()
 
   const handleLogout = () => {
     logout()
     navigate('/login')
   }
+
+  // Fetch notifications
+  const { data: notificationsData } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: getNotifications,
+    enabled: isAuthenticated,
+    refetchInterval: 30000, // Poll every 30 seconds
+  })
+
+  const notifications = notificationsData?.notifications || []
+  const notifCount = notificationsData?.unread || 0
+
+  // Accept network request
+  const acceptMutation = useMutation({
+    mutationFn: acceptNetworkRequest,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['notifications'])
+    },
+  })
+
+  // Decline network request
+  const declineMutation = useMutation({
+    mutationFn: declineNetworkRequest,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['notifications'])
+    },
+  })
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -30,17 +58,6 @@ export default function Navbar() {
     document.addEventListener('click', handleClickOutside)
     return () => document.removeEventListener('click', handleClickOutside)
   }, [])
-
-  const fetchNotifications = async () => {
-    // TODO: Implement notification fetch
-    setNotifications([])
-  }
-
-  useEffect(() => {
-    if (isNotifOpen) {
-      fetchNotifications()
-    }
-  }, [isNotifOpen])
 
   return (
     <nav className="sticky top-0 bg-white shadow-lg shadow-black/5" style={{ isolation: 'isolate', zIndex: 2147483647, pointerEvents: 'auto' }}>
@@ -77,16 +94,60 @@ export default function Navbar() {
                 )}
 
                 {isNotifOpen && (
-                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl z-[10000] border border-gray-200">
-                    <div className="max-h-64 overflow-auto p-2">
+                  <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl z-[10000] border border-gray-200">
+                    <div className="p-3 border-b border-gray-200">
+                      <h3 className="font-semibold text-gray-800">Notifications</h3>
+                    </div>
+                    <div className="max-h-96 overflow-y-auto">
                       {notifications.length > 0 ? (
                         notifications.map((notif) => (
-                          <div key={notif.id} className="p-2 hover:bg-gray-50 rounded">
-                            {notif.message}
+                          <div key={notif.id} className={`p-3 border-b border-gray-100 ${!notif.isRead ? 'bg-blue-50' : ''}`}>
+                            <div className="flex items-start gap-3">
+                              {notif.sender && (
+                                <img
+                                  src={notif.sender.profileImage || '/images/default-profile.png'}
+                                  alt={notif.sender.username}
+                                  className="w-10 h-10 rounded-full flex-shrink-0"
+                                />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm text-gray-800">
+                                  {notif.type === 'network_request' ? (
+                                    <>
+                                      <strong>{notif.sender?.username}</strong> souhaite rejoindre votre réseau
+                                    </>
+                                  ) : (
+                                    notif.data?.message || 'Nouvelle notification'
+                                  )}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {new Date(notif.createdAt).toLocaleString('fr-FR')}
+                                </p>
+                                
+                                {notif.type === 'network_request' && notif.status === 'pending' && (
+                                  <div className="flex gap-2 mt-2">
+                                    <button
+                                      onClick={() => acceptMutation.mutate(notif.id)}
+                                      disabled={acceptMutation.isLoading}
+                                      className="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                                    >
+                                      Accepter
+                                    </button>
+                                    <button
+                                      onClick={() => declineMutation.mutate(notif.id)}
+                                      disabled={declineMutation.isLoading}
+                                      className="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300 disabled:opacity-50"
+                                    >
+                                      Refuser
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         ))
                       ) : (
-                        <div className="text-sm text-gray-500 p-2">Aucune notification</div>
+                        <div className="text-sm text-gray-500 p-4 text-center">Aucune notification</div>
                       )}
                     </div>
                   </div>

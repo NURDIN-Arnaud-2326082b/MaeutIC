@@ -161,7 +161,9 @@ const Maps = () => {
         `;
       })
       .on('click', (event, d) => {
-        navigate(`/profile/${d.username}`);
+        if (!d.isCurrentUser) {
+          navigate(`/profile/${d.username}`);
+        }
       })
       .on('mouseenter', (event, d) => {
         setHoveredUser(d);
