@@ -35,10 +35,12 @@ class UserApiController extends AbstractController
         $currentUser = $this->getUser();
         $isInNetwork = false;
         $isBlocked = false;
+        $blockedByThem = false;
 
         if ($currentUser) {
             $isInNetwork = $currentUser->isInNetwork($user->getId());
             $isBlocked = $currentUser->isBlocked($user->getId());
+            $blockedByThem = $user->isBlocked($currentUser->getId());
         }
 
         return $this->json([
@@ -55,6 +57,7 @@ class UserApiController extends AbstractController
             'genre' => $user->getGenre(),
             'isInNetwork' => $isInNetwork,
             'isBlocked' => $isBlocked,
+            'blockedByThem' => $blockedByThem,
         ]);
     }
 
@@ -426,5 +429,50 @@ class UserApiController extends AbstractController
         $this->container->get('session')->invalidate();
 
         return $this->json(['message' => 'Compte supprimé avec succès']);
+    }
+
+    /**
+     * Get list of blocked users for the authenticated user
+     */
+    #[Route('/blocked-users', name: 'api_blocked_users', methods: ['GET'])]
+    public function getBlockedUsers(EntityManagerInterface $entityManager): JsonResponse
+    {
+        /** @var User|null $user */
+        $user = $this->getUser();
+
+        if (!$user) {
+            return $this->json(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $blockedIds = $user->getBlocked() ?? [];
+        $blockedIds = array_values(array_filter(array_map('intval', (array)$blockedIds), fn($v) => $v > 0));
+
+        $blockedUsers = [];
+        if (!empty($blockedIds)) {
+            $userRepo = $entityManager->getRepository(User::class);
+            $users = $userRepo->findBy(['id' => $blockedIds]);
+            
+            // Maintain order from blocked array
+            $map = [];
+            foreach ($users as $u) {
+                $map[$u->getId()] = $u;
+            }
+            
+            foreach ($blockedIds as $id) {
+                if (isset($map[$id])) {
+                    $blockedUser = $map[$id];
+                    $blockedUsers[] = [
+                        'id' => $blockedUser->getId(),
+                        'username' => $blockedUser->getUsername(),
+                        'firstName' => $blockedUser->getFirstName(),
+                        'lastName' => $blockedUser->getLastName(),
+                        'affiliationLocation' => $blockedUser->getAffiliationLocation(),
+                        'profileImage' => $blockedUser->getProfileImage() ? '/profile_images/' . $blockedUser->getProfileImage() : null,
+                    ];
+                }
+            }
+        }
+
+        return $this->json(['blockedUsers' => $blockedUsers]);
     }
 }

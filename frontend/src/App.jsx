@@ -8,6 +8,7 @@ import Chat from './pages/Chat'
 import Library from './pages/Library'
 import Maps from './pages/Maps'
 import Profile from './pages/Profile'
+import Settings from './pages/Settings'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
@@ -49,6 +50,7 @@ function App() {
         <Route path="chill" element={<Chill />} />
         <Route path="administrative" element={<Administrative />} />
         <Route path="profile/:username" element={<Profile />} />
+        <Route path="settings" element={<Settings />} />
         
         {/* Messages */}
         <Route path="messages/:conversationId" element={<Conversation />} />

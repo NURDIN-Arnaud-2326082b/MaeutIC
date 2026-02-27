@@ -115,6 +115,10 @@ export default function Profile() {
 
   const user = profileData.data
   const network = networkData?.data || []
+  
+  // Blocage mutuel ou unilatéral
+  const isMutuallyBlocked = !isOwnProfile && (user.isBlocked || user.blockedByThem)
+  const showNetwork = !isMutuallyBlocked || isOwnProfile
 
   return (
     <div className="flex-1">
@@ -143,37 +147,46 @@ export default function Profile() {
             {user.specialization && ` · ${user.specialization}`}
           </div>
 
-          <div className="mt-4">
-            {/* Réseau */}
-            <div className="mb-3">
-              <div className="flex items-center justify-start gap-3">
-                <div className="text-sm text-gray-600 mr-2">Réseau</div>
-                {network.length > 0 ? (
-                  <div className="flex items-center gap-1">
-                    <div className="flex items-center -space-x-2">
-                      {network.slice(0, 3).map((member, idx) => (
-                        <Link
-                          key={idx}
-                          to={`/profile/${member.username}`}
-                          className="w-8 h-8 rounded-full border-2 border-white overflow-hidden"
-                        >
-                          <img
-                            src={member.profileImage || '/images/default-profile.png'}
-                            alt={member.username}
-                            className="w-full h-full object-cover"
-                          />
-                        </Link>
-                      ))}
-                    </div>
-                    <div className="text-sm text-gray-600 ml-1 whitespace-nowrap">
-                      ({network.length})
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-sm text-gray-400">Aucun membre connecté.</div>
-                )}
-              </div>
+          {/* Message de blocage */}
+          {isMutuallyBlocked && (
+            <div className="mt-4 p-4 bg-red-50 border-l-4 border-red-400 text-red-700 rounded">
+              Ce profil n'est pas accessible.
             </div>
+          )}
+
+          <div className="mt-4">
+            {/* Réseau - caché si bloqué mutuellement */}
+            {showNetwork && (
+              <div className="mb-3">
+                <div className="flex items-center justify-start gap-3">
+                  <div className="text-sm text-gray-600 mr-2">Réseau</div>
+                  {network.length > 0 ? (
+                    <div className="flex items-center gap-1">
+                      <div className="flex items-center -space-x-2">
+                        {network.slice(0, 3).map((member, idx) => (
+                          <Link
+                            key={idx}
+                            to={`/profile/${member.username}`}
+                            className="w-8 h-8 rounded-full border-2 border-white overflow-hidden"
+                          >
+                            <img
+                              src={member.profileImage || '/images/default-profile.png'}
+                              alt={member.username}
+                              className="w-full h-full object-cover"
+                            />
+                          </Link>
+                        ))}
+                      </div>
+                      <div className="text-sm text-gray-600 ml-1 whitespace-nowrap">
+                        ({network.length})
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-400">Aucun membre connecté.</div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Boutons d'action */}
             <div className="flex gap-2 items-center">
@@ -196,8 +209,20 @@ export default function Profile() {
                     Supprimer mon compte
                   </button>
                 </>
-              ) : (
-                isAuthenticated && (
+              ) : isAuthenticated ? (
+                isMutuallyBlocked ? (
+                  /* Si bloqué mutuellement, afficher seulement Débloquer si c'est moi qui ai bloqué */
+                  user.isBlocked ? (
+                    <button
+                      onClick={() => toggleBlockMutation.mutate(user.id)}
+                      disabled={toggleBlockMutation.isPending}
+                      className="inline-block px-4 py-2 rounded text-white bg-red-600 hover:bg-red-700 transition disabled:opacity-50"
+                    >
+                      {toggleBlockMutation.isPending ? 'Chargement...' : 'Débloquer'}
+                    </button>
+                  ) : null
+                ) : (
+                  /* Pas bloqué : afficher tous les boutons normaux */
                   <>
                     <button
                       onClick={() => startConversationMutation.mutate(user.id)}
@@ -245,56 +270,59 @@ export default function Profile() {
                             }}
                             className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                           >
-                            {user.isBlocked ? 'Débloquer' : 'Bloquer'}
+                            Bloquer
                           </button>
                         </div>
                       )}
                     </div>
                   </>
                 )
-              )}
+              ) : null}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="max-w-3xl mx-auto mt-6 flex justify-center gap-6">
-        <button
-          onClick={() => setActiveTab('overview')}
-          className={`px-6 py-2 rounded font-semibold focus:outline-none ${
-            activeTab === 'overview'
-              ? 'bg-indigo-700 text-white'
-              : 'bg-indigo-900 text-white'
-          }`}
-        >
-          Vue d'ensemble
-        </button>
-        <button
-          onClick={() => setActiveTab('posts')}
-          className={`px-6 py-2 rounded font-semibold focus:outline-none ${
-            activeTab === 'posts'
-              ? 'bg-indigo-700 text-white'
-              : 'bg-indigo-900 text-white'
-          }`}
-        >
-          Posts/Réponses
-        </button>
-        <button
-          onClick={() => setActiveTab('comments')}
-          className={`px-6 py-2 rounded font-semibold focus:outline-none ${
-            activeTab === 'comments'
-              ? 'bg-indigo-700 text-white'
-              : 'bg-indigo-900 text-white'
-          }`}
-        >
-          Commentaires
-        </button>
-      </div>
+      {/* Tabs - cachés si bloqué mutuellement */}
+      {!isMutuallyBlocked && (
+        <div className="max-w-3xl mx-auto mt-6 flex justify-center gap-6">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`px-6 py-2 rounded font-semibold focus:outline-none ${
+              activeTab === 'overview'
+                ? 'bg-indigo-700 text-white'
+                : 'bg-indigo-900 text-white'
+            }`}
+          >
+            Vue d'ensemble
+          </button>
+          <button
+            onClick={() => setActiveTab('posts')}
+            className={`px-6 py-2 rounded font-semibold focus:outline-none ${
+              activeTab === 'posts'
+                ? 'bg-indigo-700 text-white'
+                : 'bg-indigo-900 text-white'
+            }`}
+          >
+            Posts/Réponses
+          </button>
+          <button
+            onClick={() => setActiveTab('comments')}
+            className={`px-6 py-2 rounded font-semibold focus:outline-none ${
+              activeTab === 'comments'
+                ? 'bg-indigo-700 text-white'
+                : 'bg-indigo-900 text-white'
+            }`}
+          >
+            Commentaires
+          </button>
+        </div>
+      )}
 
-      {/* Tab Content */}
-      <div className="max-w-3xl mx-auto my-6 space-y-4">
-        {activeTab === 'overview' && (
+      {/* Tab Content - caché si bloqué mutuellement */}
+      {!isMutuallyBlocked && (
+        <div className="max-w-3xl mx-auto my-6 space-y-4">
+          {activeTab === 'overview' && (
           <div>
             {overviewData?.data?.questions?.map((question, idx) => (
               <div key={idx} className="bg-white rounded-lg p-4 shadow mb-4">
@@ -376,6 +404,7 @@ export default function Profile() {
           </div>
         )}
       </div>
+      )}
     </div>
   )
 }
