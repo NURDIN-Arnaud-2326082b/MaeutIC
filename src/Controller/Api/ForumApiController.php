@@ -37,6 +37,7 @@ class ForumApiController extends AbstractController
                 'description' => $forum->getBody(),
                 'anonymous' => $forum->isAnonymous(),
                 'debussyClairDeLune' => $forum->isDebussyClairDeLune(),
+                'special' => $forum->getSpecial(),
             ];
         }, $forums);
 
@@ -73,6 +74,7 @@ class ForumApiController extends AbstractController
                     'id' => $forum->getId(),
                     'title' => $forum->getTitle(),
                     'anonymous' => $forum->isAnonymous(),
+                    'special' => $forum->getSpecial(),
                 ],
                 'user' => $user ? [
                     'id' => $user->getId(),
@@ -116,6 +118,7 @@ class ForumApiController extends AbstractController
                 'title' => $forum->getTitle(),
                 'anonymous' => $forum->isAnonymous(),
                 'debussyClairDeLune' => $forum->isDebussyClairDeLune(),
+                'special' => $forum->getSpecial(),
             ],
             'likesCount' => $post->getLikes()->count(),
             'commentsCount' => $post->getComments()->count(),

@@ -1,23 +1,27 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { forumApi, commentApi } from '../services/apis'
 import { useAuthStore } from '../store'
 
-const philosopherNames = [
-  'Victor Hugo', 'Platon', 'René Descartes', 'Jean-Paul Sartre', 'Voltaire', 
-  'Friedrich Nietzsche', 'Albert Camus', 'Michel de Montaigne', 'Jean-Jacques Rousseau',
-  'Honoré de Balzac', 'Socrates', 'Aristote', 'Emmanuel Kant', 'Sigmund Freud',
-  'John Locke', 'Thomas Hobbes', 'Karl Marx', 'Georg Wilhelm Friedrich Hegel', 'Sören Kierkegaard'
-]
+const getRandomAnonymousId = () => {
+  const letters = 'abcdefghijklmnopqrstuvwxyz'
+  const randomLetter = () => letters[Math.floor(Math.random() * letters.length)]
+  const randomDigit = () => Math.floor(Math.random() * 10)
+  
+  return `${randomLetter()}${randomLetter()}${randomLetter()}.${randomDigit()}${randomDigit()}${randomDigit()}`
+}
 
-const getRandomPhilosopher = () => philosopherNames[Math.floor(Math.random() * philosopherNames.length)]
-
-export default function Forums() {
-  const { category = 'General', postId } = useParams()
+export default function Forums({ specialCategory = null }) {
+  const params = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { user, isAuthenticated } = useAuthStore()
+  
+  // Si pas de category dans URL, utiliser specialCategory (methodology, detente, etc.) ou 'General'
+  const category = params.category || (specialCategory || 'General')
+  const postId = params.postId
+  
   const [searchQuery, setSearchQuery] = useState('')
   const [searchType, setSearchType] = useState('all')
   const [dateFilter, setDateFilter] = useState('all')
@@ -32,23 +36,107 @@ export default function Forums() {
 
   // Fetch forums for sidebar
   const { data: forumsData = [] } = useQuery({
-    queryKey: ['forums'],
+    queryKey: ['forums', specialCategory],
     queryFn: () => forumApi.getAll(),
   })
 
-  const forums = Array.isArray(forumsData) ? forumsData : forumsData.data || []
+  const allForums = Array.isArray(forumsData) ? forumsData : forumsData.data || []
+  
+  // Filter forums by special category for sidebar only
+  const forums = specialCategory 
+    ? allForums.filter(f => f.special === specialCategory)
+    : allForums.filter(f => f.special !== 'cafe_des_lumieres')
+  
+  // Determine base path for links based on special category
+  const getForumBasePath = () => {
+    if (!specialCategory) return '/forums'
+    const paths = {
+      'methodology': '/methodology-forums',
+      'detente': '/detente-forums',
+      'cafe_des_lumieres': '/cafe_des_lumieres-forums',
+      'administratif': '/administratif-forums'
+    }
+    return paths[specialCategory] || '/forums'
+  }
+  
+  const basePath = getForumBasePath()
+  
+  // Get sidebar title based on special category
+  const getSidebarTitle = () => {
+    if (!specialCategory) return 'Categories'
+    const titles = {
+      'methodology': 'Catégories',
+      'detente': 'Catégories',
+      'cafe_des_lumieres': 'Catégories',
+      'administratif': 'Catégories'
+    }
+    return titles[specialCategory] || 'Categories'
+  }
+  
+  const getAllCategoriesLabel = () => {
+    switch(specialCategory) {
+      case 'methodology': return 'Toutes les méthodologies'
+      case 'detente': return 'Tous les forums détente'
+      case 'administratif': return 'Tous les forums administratifs'
+      default: return 'Toutes categories'
+    }
+  }
+  
+  const getBackLabel = () => {
+    switch(specialCategory) {
+      case 'methodology': return 'toutes les méthodologies'
+      case 'detente': return 'tous les forums détente'
+      case 'cafe_des_lumieres': return 'tous les forums cafe_des_lumieress'
+      case 'administratif': return 'tous les forums administratifs'
+      default: return 'toutes categories'
+    }
+  }
+  
+  const showAllCategoriesLink = () => {
+    // Café des lumières n'affiche pas le lien "Toutes"
+    return specialCategory !== 'cafe_des_lumieres'
+  }
+  
+  // Convertir les noms de catégories techniques en noms d'affichage
+  const getCategoryDisplayName = (categoryName) => {
+    const displayNames = {
+      'cafe_des_lumieres': 'café des lumières',
+      'detente': 'détente',
+      'methodology': 'méthodologie',
+      'administratif': 'administratif',
+      'General': 'General'
+    }
+    return displayNames[categoryName] || categoryName
+  }
 
   // Fetch posts for selected category
   const { data: postsData = [], isLoading } = useQuery({
-    queryKey: ['posts', category],
-    queryFn: () => 
-      category === 'General' 
-        ? forumApi.getAllPosts()
-        : forumApi.getPostsByCategory(category),
+    queryKey: ['posts', category, specialCategory],
+    queryFn: () => {
+      // Si category === specialCategory (detente, cafe_des_lumieres, methodology, administratif),
+      // récupérer tous les posts pour les filtrer ensuite
+      if (category === specialCategory) {
+        return forumApi.getAllPosts()
+      }
+      
+      // Si c'est 'General' (forums généraux), récupérer tous les posts
+      if (category === 'General') {
+        return forumApi.getAllPosts()
+      }
+      
+      // Sinon, récupérer les posts de la catégorie spécifique
+      return forumApi.getPostsByCategory(category)
+    },
     enabled: !postId,
   })
 
-  const posts = Array.isArray(postsData) ? postsData : postsData.data || []
+  const allPosts = Array.isArray(postsData) ? postsData : postsData.data || []
+  
+  // Filter posts by special category if provided
+  const forumIds = forums.map(f => f.id)
+  const posts = specialCategory 
+    ? allPosts.filter(post => post.forum && forumIds.includes(post.forum.id))
+    : allPosts.filter(post => post.forum && post.forum.special !== 'cafe_des_lumieres')
 
   // Fetch selected post details
   const { data: selectedPostData } = useQuery({
@@ -68,8 +156,8 @@ export default function Forums() {
 
   const comments = Array.isArray(commentsData) ? commentsData : commentsData.data || []
 
-  // Get current forum
-  const currentForum = forums.find(f => f.title === category)
+  // Get current forum (null si on affiche tous les forums d'une catégorie spéciale)
+  const currentForum = category === specialCategory ? null : forums.find(f => f.title === category)
 
   // Filter and sort posts
   const filteredPosts = posts.filter(post => {
@@ -129,12 +217,16 @@ export default function Forums() {
     mutationFn: (data) => forumApi.createPost(data),
     onSuccess: () => {
       queryClient.invalidateQueries(['posts'])
-      setShowCreateModal(false)
-      setNewPostTitle('')
-      setNewPostDescription('')
-      setSelectedForumId(null)
+      closeCreateModal()
     },
   })
+  
+  const closeCreateModal = () => {
+    setShowCreateModal(false)
+    setNewPostTitle('')
+    setNewPostDescription('')
+    setSelectedForumId(null)
+  }
 
   const handleCreateComment = (e) => {
     e.preventDefault()
@@ -162,11 +254,16 @@ export default function Forums() {
     })
   }
 
-  const getAuthorName = (post) => {
-    if (post.forum?.anonymous && (!user || user.userType !== 1)) {
-      return getRandomPhilosopher()
+  const getAuthorName = (item, forumOverride = null) => {
+    // Obtenir le forum depuis l'item (post/reply) ou depuis le paramètre (pour les commentaires)
+    const forum = forumOverride || item.forum
+    
+    // Si le forum est anonyme ET que l'utilisateur n'est pas admin, afficher un ID anonyme
+    if (forum?.anonymous && (!user || user.userType !== 1)) {
+      return getRandomAnonymousId()
     }
-    return post.user ? `${post.user.firstName} ${post.user.lastName}` : 'Ancien utilisateur'
+    // Sinon afficher le vrai nom (ou "Ancien utilisateur" si pas d'auteur)
+    return item.user ? `${item.user.firstName} ${item.user.lastName}` : 'Ancien utilisateur'
   }
 
   return (
@@ -175,24 +272,26 @@ export default function Forums() {
       <div className="bg-white/45 backdrop-blur-sm shadow-xl m-5 p-2 rounded-lg">
         <div className="bg-white rounded-lg p-2">
           <div className="inline-block">
-            <h2 className="text-2xl text-gray-700">Categories</h2>
+            <h2 className="text-2xl text-gray-700">{getSidebarTitle()}</h2>
             <div className="bg-blue-600 h-1 rounded-full my-1 w-full"></div>
           </div>
           <div className="flex flex-col">
-            <Link
-              to="/forums/General"
-              className={`p-1 w-full ${
-                category === 'General'
-                  ? 'font-semibold bg-blue-50 text-blue-900'
-                  : 'hover:bg-blue-50 text-gray-700 hover:text-blue-900'
-              }`}
-            >
-              Toutes categories
-            </Link>
-            {forums.filter(f => !f.anonymous).map((forum) => (
+            {showAllCategoriesLink() && (
+              <Link
+                to={basePath}
+                className={`p-1 w-full ${
+                  category === specialCategory || (!specialCategory && category === 'General')
+                    ? 'font-semibold bg-blue-50 text-blue-900'
+                    : 'hover:bg-blue-50 text-gray-700 hover:text-blue-900'
+                }`}
+              >
+                {getAllCategoriesLabel()}
+              </Link>
+            )}
+            {forums.filter(f => specialCategory === 'cafe_des_lumieres' || !f.anonymous).map((forum) => (
               <Link
                 key={forum.id}
-                to={`/forums/${forum.title}`}
+                to={`${basePath}/${forum.title}`}
                 className={`p-1 w-full ${
                   category === forum.title
                     ? 'font-semibold bg-blue-50 text-blue-900'
@@ -222,8 +321,15 @@ export default function Forums() {
         {selectedPost ? (
           /* Post Detail View */
           <>
-            <Link to={`/forums/${category}`} className="text-blue-600 m-2 block">
-              ← Retour a la catégorie "{category}"
+            <Link 
+              to={category === specialCategory ? basePath : `${basePath}/${category}`} 
+              className="text-blue-600 m-2 block"
+            >
+              {category === specialCategory ? (
+                `← Retour à ${getBackLabel()}`
+              ) : (
+                `← Retour a la catégorie "${getCategoryDisplayName(category)}"`
+              )}
             </Link>
 
             {/* Main Post */}
@@ -343,7 +449,7 @@ export default function Forums() {
                   </div>
                   <div className="bg-white text-gray-700 p-3 rounded-lg w-full">
                     <p>
-                      <strong>{getAuthorName(comment)}</strong>
+                      <strong>{getAuthorName(comment, selectedPost?.forum)}</strong>
                     </p>
                     <p>{comment.body}</p>
                   </div>
@@ -361,6 +467,7 @@ export default function Forums() {
                   if (!isAuthenticated) {
                     navigate('/login')
                   } else {
+                    // Pré-sélectionner le forum actuel si on est sur une catégorie spécifique
                     setSelectedForumId(currentForum?.id || null)
                     setShowCreateModal(true)
                   }
@@ -443,7 +550,7 @@ export default function Forums() {
                 sortedPosts.map((post) => (
                   <Link
                     key={post.id}
-                    to={`/forums/${category}/${post.id}`}
+                    to={`${basePath}/${category}/${post.id}`}
                     className="block bg-white p-4 rounded-lg mb-3 border border-gray-200 hover:border-blue-500 hover:shadow-md transition-all duration-200"
                   >
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">{post.name}</h3>
@@ -469,7 +576,7 @@ export default function Forums() {
           <div className="bg-white/95 text-gray-700 p-5 rounded-lg w-[90%] max-w-[500px] shadow-lg relative">
             <span
               className="absolute top-2 right-2 text-2xl cursor-pointer hover:text-gray-600"
-              onClick={() => setShowCreateModal(false)}
+              onClick={closeCreateModal}
             >
               &times;
             </span>
@@ -499,15 +606,15 @@ export default function Forums() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Forum</label>
+                <label className="block text-sm font-medium mb-1">Salon</label>
                 <select
                   value={selectedForumId || ''}
                   onChange={(e) => setSelectedForumId(Number(e.target.value))}
                   className="bg-white w-full border border-gray-300 rounded-md p-2"
                   required
                 >
-                  <option value="">Sélectionnez un forum</option>
-                  {forums.filter(f => !f.anonymous).map((forum) => (
+                  <option value="">-- Choisir un salon --</option>
+                  {allForums.map((forum) => (
                     <option key={forum.id} value={forum.id}>
                       {forum.title}
                     </option>
@@ -525,7 +632,7 @@ export default function Forums() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={closeCreateModal}
                   className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
                 >
                   Annuler

@@ -17,6 +17,10 @@ import Conversation from './pages/Conversation'
 import Methodology from './pages/Methodology'
 import Chill from './pages/Chill'
 import Administrative from './pages/Administrative'
+import MethodologyForums from './pages/MethodologyForums'
+import DetenteForums from './pages/DetenteForums'
+import CafeDesLumieresForums from './pages/CafeDesLumieresForums'
+import AdministratifForums from './pages/AdministratifForums'
 
 function App() {
   const { checkAuth, isLoading } = useAuthStore()
@@ -37,6 +41,20 @@ function App() {
     <Routes>
       <Route path="/" element={<Layout />}>
         <Route index element={<Home />} />
+        
+        {/* Special Forum Routes */}
+        <Route path="methodology-forums" element={<MethodologyForums />} />
+        <Route path="methodology-forums/:category" element={<MethodologyForums />} />
+        <Route path="methodology-forums/:category/:postId" element={<MethodologyForums />} />
+        <Route path="detente-forums" element={<DetenteForums />} />
+        <Route path="detente-forums/:category" element={<DetenteForums />} />
+        <Route path="detente-forums/:category/:postId" element={<DetenteForums />} />
+        <Route path="cafe_des_lumieres-forums" element={<CafeDesLumieresForums />} />
+        <Route path="cafe_des_lumieres-forums/:category" element={<CafeDesLumieresForums />} />
+        <Route path="cafe_des_lumieres-forums/:category/:postId" element={<CafeDesLumieresForums />} />
+        <Route path="administratif-forums" element={<AdministratifForums />} />
+        <Route path="administratif-forums/:category" element={<AdministratifForums />} />
+        <Route path="administratif-forums/:category/:postId" element={<AdministratifForums />} />
         
         {/* Forum Routes */}
         <Route path="forums/:category" element={<Forums />} />
