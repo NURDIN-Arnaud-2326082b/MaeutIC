@@ -61,9 +61,16 @@ class ForumApiController extends AbstractController
             $posts = $forum->getPosts()->toArray();
         }
 
-        $data = array_map(function(Post $post) use ($isAdmin) {
+        $data = array_map(function(Post $post) use ($isAdmin, $currentUser) {
             $forum = $post->getForum();
             $user = $post->getUser();
+            
+            // Check if current user has liked this post
+            $isLiked = false;
+            if ($currentUser) {
+                $existingLike = $this->postLikeRepository->findOneBy(['user' => $currentUser, 'post' => $post]);
+                $isLiked = $existingLike !== null;
+            }
             
             return [
                 'id' => $post->getId(),
@@ -84,6 +91,7 @@ class ForumApiController extends AbstractController
                 ] : null,
                 'likesCount' => $post->getLikes()->count(),
                 'commentsCount' => $post->getComments()->count(),
+                'isLiked' => $isLiked,
             ];
         }, $posts);
 
@@ -99,8 +107,17 @@ class ForumApiController extends AbstractController
             return $this->json(['error' => 'Post not found'], 404);
         }
 
+        /** @var User|null $currentUser */
+        $currentUser = $this->getUser();
         $user = $post->getUser();
         $forum = $post->getForum();
+        
+        // Check if current user has liked this post
+        $isLiked = false;
+        if ($currentUser) {
+            $existingLike = $this->postLikeRepository->findOneBy(['user' => $currentUser, 'post' => $post]);
+            $isLiked = $existingLike !== null;
+        }
         
         $data = [
             'id' => $post->getId(),
@@ -122,6 +139,7 @@ class ForumApiController extends AbstractController
             ],
             'likesCount' => $post->getLikes()->count(),
             'commentsCount' => $post->getComments()->count(),
+            'isLiked' => $isLiked,
         ];
 
         return $this->json($data);

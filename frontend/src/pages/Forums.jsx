@@ -35,6 +35,13 @@ export default function Forums({ specialCategory = null }) {
   const [newPostDescription, setNewPostDescription] = useState('')
   const [selectedForumId, setSelectedForumId] = useState(null)
   const [preventionAlerts, setPreventionAlerts] = useState([])
+  
+  // Edit post states
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingPost, setEditingPost] = useState(null)
+  const [editPostTitle, setEditPostTitle] = useState('')
+  const [editPostDescription, setEditPostDescription] = useState('')
+  const [editPostForumId, setEditPostForumId] = useState(null)
 
   // Fetch forums for sidebar
   const { data: forumsData = [] } = useQuery({
@@ -200,14 +207,6 @@ export default function Forums({ specialCategory = null }) {
     },
   })
 
-  const likePostMutation = useMutation({
-    mutationFn: (postId) => forumApi.likePost(postId),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['post'])
-      queryClient.invalidateQueries(['posts'])
-    },
-  })
-
   const likeCommentMutation = useMutation({
     mutationFn: (commentId) => commentApi.likeComment(commentId),
     onSuccess: () => {
@@ -223,12 +222,87 @@ export default function Forums({ specialCategory = null }) {
     },
   })
   
+  const updatePostMutation = useMutation({
+    mutationFn: ({ id, data }) => 
+      fetch(`http://localhost:8000/api/posts/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(data)
+      }).then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['posts'])
+      queryClient.invalidateQueries(['post'])
+      closeEditModal()
+    },
+  })
+
+  const deletePostMutation = useMutation({
+    mutationFn: (postId) =>
+      fetch(`http://localhost:8000/api/posts/${postId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      }).then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['posts'])
+      navigate(basePath)
+    },
+  })
+  
+  const toggleLikeMutation = useMutation({
+    mutationFn: (postId) =>
+      fetch(`http://localhost:8000/api/posts/${postId}/like`, {
+        method: 'POST',
+        credentials: 'include'
+      }).then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['post'])
+      queryClient.invalidateQueries(['posts'])
+    },
+  })
+  
   const closeCreateModal = () => {
     setShowCreateModal(false)
     setNewPostTitle('')
     setNewPostDescription('')
     setSelectedForumId(null)
     setPreventionAlerts([])
+  }
+  
+  const openEditModal = async (post) => {
+    setEditingPost(post)
+    setEditPostTitle(post.name)
+    setEditPostDescription(post.description)
+    setEditPostForumId(post.forum?.id)
+    setShowEditModal(true)
+  }
+  
+  const closeEditModal = () => {
+    setShowEditModal(false)
+    setEditingPost(null)
+    setEditPostTitle('')
+    setEditPostDescription('')
+    setEditPostForumId(null)
+  }
+  
+  const handleEditPost = (e) => {
+    e.preventDefault()
+    if (!editingPost) return
+    
+    updatePostMutation.mutate({
+      id: editingPost.id,
+      data: {
+        name: editPostTitle,
+        description: editPostDescription,
+        forumId: editPostForumId
+      }
+    })
+  }
+  
+  const handleDeletePost = (postId) => {
+    if (confirm('Êtes-vous sûr de vouloir supprimer ce post ?')) {
+      deletePostMutation.mutate(postId)
+    }
   }
 
   // Détecter le contenu sensible lors de la saisie
@@ -360,24 +434,47 @@ export default function Forums({ specialCategory = null }) {
               </div>
 
               {/* Actions */}
-              <div className="flex items-center mt-3 space-x-4">
-                <div className="flex items-center">
-                  <button 
-                    onClick={() => isAuthenticated && likePostMutation.mutate(selectedPost.id)}
-                    className="text-gray-500 hover:text-red-500 text-lg mr-2 transition"
-                    disabled={!isAuthenticated}
-                  >
-                    ♡
-                  </button>
-                  <span className="text-gray-600">{selectedPost.likesCount || 0}</span>
+              <div className="flex items-center justify-between mt-3">
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center">
+                    <button 
+                      onClick={() => isAuthenticated && toggleLikeMutation.mutate(selectedPost.id)}
+                      className={`text-lg mr-2 transition ${
+                        selectedPost.isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
+                      }`}
+                      disabled={!isAuthenticated}
+                    >
+                      {selectedPost.isLiked ? '♥' : '♡'}
+                    </button>
+                    <span className="text-gray-600">{selectedPost.likesCount || 0}</span>
+                  </div>
+                  {isAuthenticated && (
+                    <button
+                      onClick={() => setShowReplyForm(!showReplyForm)}
+                      className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                    >
+                      📝 Répondre
+                    </button>
+                  )}
                 </div>
-                {isAuthenticated && (
-                  <button
-                    onClick={() => setShowReplyForm(!showReplyForm)}
-                    className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
-                  >
-                    📝 Répondre
-                  </button>
+                
+                {/* Edit/Delete buttons for post owner or admin */}
+                {isAuthenticated && (user?.id === selectedPost.user?.id || user?.userType === 1) && (
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => openEditModal(selectedPost)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                    >
+                      ✏️ Modifier
+                    </button>
+                    <button
+                      onClick={() => handleDeletePost(selectedPost.id)}
+                      className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
+                      disabled={deletePostMutation.isPending}
+                    >
+                      🗑️ Supprimer
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -564,21 +661,46 @@ export default function Forums({ specialCategory = null }) {
                 </div>
               ) : (
                 sortedPosts.map((post) => (
-                  <Link
+                  <div
                     key={post.id}
-                    to={`${basePath}/${category}/${post.id}`}
-                    className="block bg-white p-4 rounded-lg mb-3 border border-gray-200 hover:border-blue-500 hover:shadow-md transition-all duration-200"
+                    className="bg-white p-4 rounded-lg mb-3 border border-gray-200 hover:border-blue-500 hover:shadow-md transition-all duration-200"
                   >
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{post.name}</h3>
+                    <Link to={`${basePath}/${category}/${post.id}`}>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2 hover:text-blue-600">{post.name}</h3>
+                    </Link>
                     <p className="text-gray-600 mb-2 line-clamp-2">{post.description}</p>
-                    <div className="flex items-center text-sm text-gray-500">
-                      <span>Par {getAuthorName(post)}</span>
-                      <span className="mx-2">•</span>
-                      <span>{new Date(post.creationDate).toLocaleDateString('fr-FR')}</span>
-                      <span className="mx-2">•</span>
-                      <span>{post.commentsCount || 0} commentaires</span>
+                    <div className="flex items-center justify-between text-sm text-gray-500">
+                      <div className="flex items-center">
+                        <span>Par {getAuthorName(post)}</span>
+                        <span className="mx-2">•</span>
+                        <span>{new Date(post.creationDate).toLocaleDateString('fr-FR')}</span>
+                        <span className="mx-2">•</span>
+                        <span>{post.commentsCount || 0} commentaires</span>
+                      </div>
+                      {isAuthenticated && (user?.id === post.user?.id || user?.userType === 1) && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault()
+                              openEditModal(post)
+                            }}
+                            className="text-blue-600 hover:text-blue-800 text-xs font-medium"
+                          >
+                            Modifier
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault()
+                              handleDeletePost(post.id)
+                            }}
+                            className="text-red-600 hover:text-red-800 text-xs font-medium"
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  </Link>
+                  </div>
                 ))
               )}
             </div>
@@ -706,6 +828,73 @@ export default function Forums({ specialCategory = null }) {
                 <button
                   type="button"
                   onClick={closeCreateModal}
+                  className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+                >
+                  Annuler
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Post Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <h2 className="text-2xl font-bold mb-4">Modifier la publication</h2>
+
+            <form onSubmit={handleEditPost} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Titre</label>
+                <input
+                  type="text"
+                  value={editPostTitle}
+                  onChange={(e) => setEditPostTitle(e.target.value)}
+                  className="bg-white w-full border border-gray-300 rounded-md p-2"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Description</label>
+                <textarea
+                  value={editPostDescription}
+                  onChange={(e) => setEditPostDescription(e.target.value)}
+                  className="bg-white w-full border border-gray-300 rounded-md p-2"
+                  rows="4"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Salon</label>
+                <select
+                  value={editPostForumId || ''}
+                  onChange={(e) => setEditPostForumId(Number(e.target.value))}
+                  className="bg-white w-full border border-gray-300 rounded-md p-2"
+                  required
+                >
+                  <option value="">-- Choisir un salon --</option>
+                  {allForums.map((forum) => (
+                    <option key={forum.id} value={forum.id}>
+                      {forum.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={updatePostMutation.isPending}
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {updatePostMutation.isPending ? 'Enregistrement...' : 'Enregistrer'}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeEditModal}
                   className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
                 >
                   Annuler
