@@ -8,6 +8,7 @@ import Chat from './pages/Chat'
 import Library from './pages/Library'
 import Maps from './pages/Maps'
 import Profile from './pages/Profile'
+import ProfileEdit from './pages/ProfileEdit'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -68,6 +69,7 @@ function App() {
         <Route path="chill" element={<Chill />} />
         <Route path="administrative" element={<Administrative />} />
         <Route path="profile/:username" element={<Profile />} />
+        <Route path="profile-edit" element={<ProfileEdit />} />
         <Route path="settings" element={<Settings />} />
         
         {/* Messages */}

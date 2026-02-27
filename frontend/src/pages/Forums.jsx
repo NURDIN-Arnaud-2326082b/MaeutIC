@@ -3,6 +3,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { forumApi, commentApi } from '../services/apis'
 import { useAuthStore } from '../store'
+import { checkSensitiveContent } from '../utils/sensitiveContentDetector'
 
 const getRandomAnonymousId = () => {
   const letters = 'abcdefghijklmnopqrstuvwxyz'
@@ -33,6 +34,7 @@ export default function Forums({ specialCategory = null }) {
   const [newPostTitle, setNewPostTitle] = useState('')
   const [newPostDescription, setNewPostDescription] = useState('')
   const [selectedForumId, setSelectedForumId] = useState(null)
+  const [preventionAlerts, setPreventionAlerts] = useState([])
 
   // Fetch forums for sidebar
   const { data: forumsData = [] } = useQuery({
@@ -226,7 +228,21 @@ export default function Forums({ specialCategory = null }) {
     setNewPostTitle('')
     setNewPostDescription('')
     setSelectedForumId(null)
+    setPreventionAlerts([])
   }
+
+  // Détecter le contenu sensible lors de la saisie
+  useEffect(() => {
+    if (!showCreateModal) return
+    
+    const timeout = setTimeout(() => {
+      const fullText = `${newPostTitle} ${newPostDescription}`.trim()
+      const warnings = checkSensitiveContent(fullText)
+      setPreventionAlerts(warnings)
+    }, 300) // Debounce de 300ms
+    
+    return () => clearTimeout(timeout)
+  }, [newPostTitle, newPostDescription, showCreateModal])
 
   const handleCreateComment = (e) => {
     e.preventDefault()
@@ -573,7 +589,7 @@ export default function Forums({ specialCategory = null }) {
       {/* Create Post Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center z-[1000]">
-          <div className="bg-white/95 text-gray-700 p-5 rounded-lg w-[90%] max-w-[500px] shadow-lg relative">
+          <div className="bg-white/95 text-gray-700 p-5 rounded-lg w-[90%] max-w-[500px] max-h-[90vh] overflow-y-auto shadow-lg relative">
             <span
               className="absolute top-2 right-2 text-2xl cursor-pointer hover:text-gray-600"
               onClick={closeCreateModal}
@@ -581,6 +597,63 @@ export default function Forums({ specialCategory = null }) {
               &times;
             </span>
             <h2 className="text-xl font-bold mb-4">Créer une publication</h2>
+
+            {/* Alertes de prévention */}
+            {preventionAlerts.length > 0 && (
+              <div className="space-y-2 mb-4 max-h-40 overflow-y-auto">
+                {/* Alerte générale */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0 mt-0.5">💙</div>
+                    <div className="ml-3 flex-1">
+                      <h3 className="font-medium text-blue-800">Nous avons détecté du contenu sensible</h3>
+                      <p className="text-blue-700 mt-1 text-xs">
+                        Votre bien-être est important. Voici des ressources qui peuvent vous aider
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Alertes spécifiques */}
+                {preventionAlerts.map((warning, index) => (
+                  <div key={index} className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm">
+                    <div className="flex items-start">
+                      <div className="flex-shrink-0 mt-0.5">⚠️</div>
+                      <div className="ml-3 flex-1">
+                        <p className="text-yellow-800 text-xs leading-relaxed">
+                          {warning.message}
+                          {warning.link && (
+                            <>
+                              <br />
+                              <a 
+                                href={warning.link} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="underline text-yellow-900 hover:text-yellow-700 text-xs mt-1 inline-block"
+                              >
+                                Plus d'informations
+                              </a>
+                            </>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Message de soutien */}
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0 mt-0.5">🤝</div>
+                    <div className="ml-3">
+                      <p className="text-green-800 text-xs">
+                        <strong>Vous n'êtes pas seul(e).</strong> Demander de l'aide est un signe de force.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <form onSubmit={handleCreatePost} className="space-y-4">
               <div>

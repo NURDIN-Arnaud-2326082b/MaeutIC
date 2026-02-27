@@ -193,7 +193,7 @@ export default function Profile() {
               {isOwnProfile ? (
                 <>
                   <Link
-                    to="/profile/edit"
+                    to="/profile-edit"
                     className="inline-block px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition"
                   >
                     Éditer mon profil
