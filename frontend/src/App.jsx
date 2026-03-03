@@ -13,6 +13,7 @@ import Settings from './pages/Settings'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import AdminInterface from './pages/AdminInterface'
 import Conversation from './pages/Conversation'
 import Methodology from './pages/Methodology'
@@ -83,6 +84,7 @@ function App() {
       <Route path="login" element={<Login />} />
       <Route path="register" element={<Register />} />
       <Route path="forgot-password" element={<ForgotPassword />} />
+      <Route path="reset-password/:token" element={<ResetPassword />} />
       
       {/* 404 */}
       <Route path="*" element={<Navigate to="/" replace />} />

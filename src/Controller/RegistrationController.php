@@ -20,6 +20,9 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\File\Exception\FileException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Mailer\Exception\TransportExceptionInterface as MailerTransportExceptionInterface;
+use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mime\Email;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\String\Slugger\SluggerInterface;
@@ -50,6 +53,7 @@ class RegistrationController extends AbstractController
      * @param TagRepository $tagRepository Repository des tags
      * @param SluggerInterface $slugger Service pour générer des noms de fichiers sûrs
      * @param HttpClientInterface $httpClient Client HTTP pour vérifier le reCAPTCHA
+     * @param MailerInterface $mailer Service d'envoi d'emails
      * @return Response La page d'inscription ou redirection après succès
      * @throws ClientExceptionInterface
      * @throws DecodingExceptionInterface
@@ -58,7 +62,7 @@ class RegistrationController extends AbstractController
      * @throws TransportExceptionInterface
      */
     #[Route('/register', name: 'app_register')]
-    public function register(Request $request, UserPasswordHasherInterface $userPasswordHasher, Security $security, EntityManagerInterface $entityManager, TagRepository $tagRepository, SluggerInterface $slugger, HttpClientInterface $httpClient): Response
+    public function register(Request $request, UserPasswordHasherInterface $userPasswordHasher, Security $security, EntityManagerInterface $entityManager, TagRepository $tagRepository, SluggerInterface $slugger, HttpClientInterface $httpClient, MailerInterface $mailer): Response
     {
 
         if ($this->getUser()) {
@@ -188,7 +192,9 @@ class RegistrationController extends AbstractController
 
             $entityManager->flush();
 
-            // do anything else you need here, like send an email
+            // Send welcome email
+            $this->sendWelcomeEmail($mailer, $user);
+
             return $security->login($user, 'form_login', 'main');
         }
 
@@ -199,5 +205,42 @@ class RegistrationController extends AbstractController
             'taggable_min_choices' => $taggableMinChoices, // Passer les questions au template
             'taggable_questions' => $taggableQuestions, // Passer les questions au template
         ]);
+    }
+
+    /**
+     * Envoie l'email de bienvenue au nouvel utilisateur
+     *
+     * @param MailerInterface $mailer Service d'envoi d'emails
+     * @param User $user L'utilisateur nouvellement inscrit
+     * @return void
+     */
+    private function sendWelcomeEmail(MailerInterface $mailer, User $user): void
+    {
+        try {
+            $email = (new Email())
+                ->from('contact@maieutic-projet.fr')
+                ->to($user->getEmail())
+                ->subject('Bienvenue sur Maieutic !')
+                ->html($this->renderView('email/welcome.html.twig', [
+                    'user' => $user,
+                ]));
+
+            // DEBUG: Log email sending
+            error_log(sprintf(
+                "Sending welcome email to %s (%s %s)",
+                $user->getEmail(),
+                $user->getFirstName(),
+                $user->getLastName()
+            ));
+
+            if ($_ENV['MAILER_DSN'] !== 'null://null') {
+                $mailer->send($email);
+            }
+
+            // En mode null://null, on considère que c'est un succès
+        } catch (MailerTransportExceptionInterface $e) {
+            // Log l'erreur mais ne bloque pas l'inscription
+            error_log('Failed to send welcome email to ' . $user->getEmail() . ': ' . $e->getMessage());
+        }
     }
 }

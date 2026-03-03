@@ -1,0 +1,42 @@
+{% extends 'email/base_email.html.twig' %}
+
+{% block content %}
+    <h2>Nouveau message privé</h2>
+    
+    <p>Bonjour <strong>{{ recipient.firstName }} {{ recipient.lastName }}</strong>,</p>
+    
+    <div class="info">
+        <p style="margin: 0;"><strong>📬 Vous avez reçu un nouveau message de {{ sender.firstName }} {{ sender.lastName }}</strong></p>
+    </div>
+    
+    {% if messagePreview %}
+        <div style="background: white; border: 1px solid #e5e7eb; border-radius: 6px; padding: 20px; margin: 20px 0;">
+            <p style="margin: 0; color: #6b7280; font-size: 14px; margin-bottom: 10px;">
+                De : <strong style="color: #1e293b;">{{ sender.firstName }} {{ sender.lastName }}</strong> (@{{ sender.username }})
+            </p>
+            <p style="margin: 0; color: #374151;">
+                {{ messagePreview|length > 150 ? messagePreview|slice(0, 150) ~ '...' : messagePreview }}
+            </p>
+        </div>
+    {% endif %}
+    
+    <p style="text-align: center; margin: 30px 0;">
+        <a href="{{ conversationUrl }}" class="button">Lire le message</a>
+    </p>
+    
+    <hr class="divider">
+    
+    <div class="warning">
+        <p style="margin: 0;"><strong>⚙️ Gérer les notifications :</strong> Vous pouvez désactiver les notifications par email dans les paramètres de votre compte.</p>
+    </div>
+    
+    <p><em>L'équipe Maieutic</em></p>
+{% endblock %}
+
+{% block footer_extra %}
+    <p style="margin-top: 15px;">
+        <a href="{{ url('app_chat') }}" style="color: #1e40af; text-decoration: none;">Voir toutes mes conversations</a>
+        •
+        <a href="{{ url('app_settings') }}" style="color: #1e40af; text-decoration: none;">Paramètres</a>
+    </p>
+{% endblock %}
