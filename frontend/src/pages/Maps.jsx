@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import * as d3 from 'd3';
-import { getMapUsers } from '../services/mapsApi';
+import { getMapUsers, searchUsers, filterByTags } from '../services/mapsApi';
+import UserMapFilters from '../components/UserMapFilters';
 
 const BACKEND_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8000';
 
@@ -12,21 +13,104 @@ const Maps = () => {
   const svgRef = useRef(null);
   const simulationRef = useRef(null);
   const [hoveredUser, setHoveredUser] = useState(null);
+  
+  // Filter states
   const [userSearch, setUserSearch] = useState('');
-  const [tagSearch, setTagSearch] = useState('');
+  const [selectedTags, setSelectedTags] = useState([]);
   const [showFriends, setShowFriends] = useState(true);
   const [showRecommendations, setShowRecommendations] = useState(true);
+  
+  // Search pagination
+  const [searchResults, setSearchResults] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isSearching, setIsSearching] = useState(false);
 
-  const { data, isLoading } = useQuery({
+  // Determine which data to fetch
+  const shouldSearch = userSearch.trim().length > 0 || selectedTags.length > 0;
+
+  // Fetch initial map users
+  const { data: initialData, isLoading: isLoadingInitial } = useQuery({
     queryKey: ['mapUsers'],
     queryFn: getMapUsers,
+    enabled: !shouldSearch,
   });
 
-  // Filter users based on search and checkboxes
+  // State for search/filter results
+  const [mapData, setMapData] = useState(null);
+
+  // Set initial data
+  useEffect(() => {
+    if (initialData && !shouldSearch) {
+      setMapData(initialData);
+      setSearchResults(null);
+    }
+  }, [initialData, shouldSearch]);
+
+  // Handle search function
+  const handleSearch = useCallback(async (navigation = null) => {
+    if (!userSearch.trim() && selectedTags.length === 0) {
+      setSearchResults(null);
+      setMapData(initialData);
+      return;
+    }
+
+    setIsSearching(true);
+
+    let newPage = currentPage;
+    if (navigation === 'prev' && currentPage > 1) {
+      newPage = currentPage - 1;
+    } else if (navigation === 'next' && searchResults && currentPage < searchResults.totalPages) {
+      newPage = currentPage + 1;
+    } else if (navigation !== 'prev' && navigation !== 'next') {
+      newPage = 1; // Reset to page 1 for new searches
+    }
+
+    try {
+      let result;
+      const options = {
+        friends: showFriends,
+        recommendations: showRecommendations,
+        page: newPage,
+        limit: 20
+      };
+
+      if (selectedTags.length > 0) {
+        const tagIds = selectedTags.map(t => t.id);
+        result = await filterByTags(tagIds, options);
+        setSearchResults({
+          type: 'tag',
+          ...result
+        });
+      } else if (userSearch.trim()) {
+        result = await searchUsers(userSearch.trim(), options);
+        setSearchResults({
+          type: 'user',
+          ...result
+        });
+      }
+
+      setMapData(result);
+      setCurrentPage(newPage);
+    } catch (error) {
+      console.error('Search error:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [userSearch, selectedTags, currentPage, searchResults, showFriends, showRecommendations, initialData]);
+
+  const handleClearSearch = () => {
+    setUserSearch('');
+    setSelectedTags([]);
+    setSearchResults(null);
+    setCurrentPage(1);
+    setMapData(initialData);
+  };
+
+  // Apply checkbox filters to current data
   const filteredUsers = useMemo(() => {
-    if (!data?.users) return [];
+    if (!mapData?.users) return [];
     
-    return data.users.filter(user => {
+    return mapData.users.filter(user => {
       // Always show current user
       if (user.isCurrentUser) return true;
 
@@ -34,22 +118,12 @@ const Maps = () => {
       if (!showFriends && user.isFriend) return false;
       if (!showRecommendations && !user.isFriend && !user.isCurrentUser) return false;
 
-      // Filter by user search
-      if (userSearch) {
-        const search = userSearch.toLowerCase();
-        const fullName = `${user.firstName} ${user.lastName}`.toLowerCase();
-        const username = user.username.toLowerCase();
-        if (!fullName.includes(search) && !username.includes(search)) {
-          return false;
-        }
-      }
-
       return true;
     });
-  }, [data, showFriends, showRecommendations, userSearch]);
+  }, [mapData, showFriends, showRecommendations]);
 
   useEffect(() => {
-    if (!data || !containerRef.current || !svgRef.current) return;
+    if (!mapData || !containerRef.current || !svgRef.current) return;
     if (filteredUsers.length === 0) return;
 
     const container = containerRef.current;
@@ -57,7 +131,7 @@ const Maps = () => {
     const width = container.offsetWidth;
     const height = container.offsetHeight;
 
-    const { friendIds, currentUserId, userScores } = data;
+    const { friendIds, currentUserId, userScores } = mapData;
 
     // Clear previous elements
     svg.selectAll('*').remove();
@@ -220,9 +294,9 @@ const Maps = () => {
         simulationRef.current.stop();
       }
     };
-  }, [filteredUsers, data, navigate]);
+  }, [filteredUsers, mapData, navigate]);
 
-  if (isLoading) {
+  if (isLoadingInitial && !shouldSearch) {
     return (
       <div className="flex-1 flex items-center justify-center bg-gray-50">
         <div className="text-xl text-gray-600">Chargement de la carte...</div>
@@ -230,7 +304,7 @@ const Maps = () => {
     );
   }
 
-  if (!data) {
+  if (!mapData && !isLoadingInitial) {
     return (
       <div className="flex-1 flex items-center justify-center bg-gray-50">
         <div className="text-xl text-red-600">Erreur de chargement des données</div>
@@ -253,60 +327,21 @@ const Maps = () => {
   return (
     <div className="flex-1 flex flex-col bg-gray-50" style={{ height: 'calc(100vh - 80px)' }}>
       {/* Filters Section */}
-      <div className="bg-white/90 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-100 mb-6 mx-6 mt-6" style={{ position: 'relative', zIndex: 40, flexShrink: 0 }}>
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-          {/* Search Bars */}
-          <div className="flex-1 w-full lg:w-auto">
-            <div className="flex flex-row gap-6">
-              {/* User Search */}
-              <div className="flex-1">
-                <input
-                  type="text"
-                  value={userSearch}
-                  onChange={(e) => setUserSearch(e.target.value)}
-                  placeholder="Rechercher par pseudo, nom, prénom, location, spécialisation, sujet de recherche..."
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50/50 transition-all duration-200"
-                />
-              </div>
-
-              {/* Tag Search */}
-              <div className="flex-1">
-                <input
-                  type="text"
-                  value={tagSearch}
-                  onChange={(e) => setTagSearch(e.target.value)}
-                  placeholder="Rechercher un mot-clé..."
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50/50 transition-all duration-200"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Filter Checkboxes */}
-          <div className="flex items-center gap-4 bg-gray-50/50 rounded-xl p-4 border border-gray-200">
-            <label className="flex items-center gap-3 cursor-pointer px-4">
-              <input
-                type="checkbox"
-                checked={showFriends}
-                onChange={(e) => setShowFriends(e.target.checked)}
-                className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 transition-all duration-200"
-              />
-              <span className="text-sm font-medium text-gray-700">Réseau</span>
-            </label>
-
-            <div className="h-8 w-px bg-gray-300/50"></div>
-
-            <label className="flex items-center gap-3 cursor-pointer px-4">
-              <input
-                type="checkbox"
-                checked={showRecommendations}
-                onChange={(e) => setShowRecommendations(e.target.checked)}
-                className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 transition-all duration-200"
-              />
-              <span className="text-sm font-medium text-gray-700">Recommandations</span>
-            </label>
-          </div>
-        </div>
+      <div className="mx-6 mt-6">
+        <UserMapFilters
+          userSearch={userSearch}
+          onUserSearchChange={setUserSearch}
+          selectedTags={selectedTags}
+          onTagsChange={setSelectedTags}
+          showFriends={showFriends}
+          onShowFriendsChange={setShowFriends}
+          showRecommendations={showRecommendations}
+          onShowRecommendationsChange={setShowRecommendations}
+          searchResults={searchResults}
+          onSearch={handleSearch}
+          onClearSearch={handleClearSearch}
+          isLoading={isSearching}
+        />
       </div>
 
       {/* Map Container */}

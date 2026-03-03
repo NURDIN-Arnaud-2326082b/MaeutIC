@@ -8,6 +8,7 @@ use App\Service\NetworkService;
 use App\Service\OptimizedRecommendationService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -115,6 +116,259 @@ class MapsApiController extends AbstractController
             'friendIds' => $friendIds,
             'currentUserId' => $currentUser ? $currentUser->getId() : null,
             'userScores' => $userScores,
+        ]);
+    }
+
+    /**
+     * Search tags for autocomplete
+     */
+    #[Route('/tags/search', name: 'api_maps_tags_search', methods: ['GET'])]
+    public function searchTags(
+        Request $request,
+        \App\Repository\TagRepository $tagRepository
+    ): JsonResponse {
+        $query = $request->query->get('q', '');
+
+        if (strlen($query) < 2) {
+            return new JsonResponse([]);
+        }
+
+        $tags = $tagRepository->createQueryBuilder('t')
+            ->where('t.name LIKE :query')
+            ->setParameter('query', '%' . $query . '%')
+            ->orderBy('t.name', 'ASC')
+            ->setMaxResults(10)
+            ->getQuery()
+            ->getResult();
+
+        $formattedTags = array_map(function ($tag) {
+            return [
+                'id' => $tag->getId(),
+                'name' => $tag->getName(),
+            ];
+        }, $tags);
+
+        return new JsonResponse($formattedTags);
+    }
+
+    /**
+     * Search users by query with pagination
+     */
+    #[Route('/search-users', name: 'api_maps_search_users', methods: ['GET'])]
+    public function searchUsers(
+        Request $request,
+        UserRepository $userRepository,
+        NetworkService $networkService,
+        OptimizedRecommendationService $recommendationService
+    ): JsonResponse {
+        /** @var User|null $currentUser */
+        $currentUser = $this->getUser();
+        $searchQuery = $request->query->get('q', '');
+        $showFriends = $request->query->get('friends', 'true') === 'true';
+        $showRecommendations = $request->query->get('recommendations', 'true') === 'true';
+        $page = $request->query->getInt('page', 1);
+        $limit = min($request->query->getInt('limit', 20), 100);
+
+        $friendIds = [];
+        $friends = [];
+        $userScores = [];
+
+        if ($currentUser) {
+            $friends = $networkService->getUserNetwork($currentUser);
+            $friendIds = array_map(fn($friend) => $friend->getId(), $friends);
+        }
+
+        $searchedUsers = $userRepository->findBySearchQuery($searchQuery, 200);
+        $totalUsers = count($searchedUsers);
+
+        $offset = ($page - 1) * $limit;
+        $paginatedUsers = array_slice($searchedUsers, $offset, $limit);
+        $totalPages = ceil($totalUsers / $limit);
+
+        $usersToDisplay = [];
+
+        if ($currentUser) {
+            $currentUserInResults = array_filter($paginatedUsers, fn($user) => $user->getId() === $currentUser->getId());
+            if (count($currentUserInResults) > 0) {
+                $usersToDisplay[] = $currentUser;
+            }
+
+            if ($showFriends) {
+                $friendsInResults = array_filter($paginatedUsers, function ($user) use ($friendIds) {
+                    return in_array($user->getId(), $friendIds);
+                });
+                $usersToDisplay = array_merge($usersToDisplay, $friendsInResults);
+            }
+
+            if ($showRecommendations) {
+                $otherUsers = array_filter($paginatedUsers, function ($user) use ($currentUser, $friendIds) {
+                    return $user->getId() !== $currentUser->getId() && !in_array($user->getId(), $friendIds);
+                });
+                $usersToDisplay = array_merge($usersToDisplay, $otherUsers);
+
+                if (!empty($otherUsers)) {
+                    $recommendationScores = $recommendationService->calculateRecommendationScores($currentUser, 30);
+                    foreach ($recommendationScores as $userId => $scoreData) {
+                        $userScores[$userId] = $scoreData['score'];
+                    }
+                }
+            }
+        } else {
+            $usersToDisplay = $paginatedUsers;
+        }
+
+        $usersToDisplay = array_unique($usersToDisplay, SORT_REGULAR);
+        if ($currentUser) {
+            $usersToDisplay = $this->filterOutBlockedUsers($usersToDisplay, $currentUser);
+            $friendIds = array_values(array_filter($friendIds, fn($id) => !$currentUser->isBlocked($id) && !$currentUser->isBlockedBy($id)));
+        }
+
+        $usersData = array_map(function($user) use ($userScores, $currentUser, $friendIds) {
+            $score = $userScores[$user->getId()] ?? null;
+            
+            return [
+                'id' => $user->getId(),
+                'username' => $user->getUsername(),
+                'firstName' => $user->getFirstName(),
+                'lastName' => $user->getLastName(),
+                'profileImage' => $user->getProfileImage() 
+                    ? '/profile_images/' . $user->getProfileImage() 
+                    : '/images/default-profile.png',
+                'score' => $score,
+                'isCurrentUser' => $currentUser && $user->getId() === $currentUser->getId(),
+                'isFriend' => in_array($user->getId(), $friendIds),
+            ];
+        }, $usersToDisplay);
+
+        return new JsonResponse([
+            'users' => array_values($usersData),
+            'friendIds' => $friendIds,
+            'currentUserId' => $currentUser ? $currentUser->getId() : null,
+            'userScores' => $userScores,
+            'totalUsers' => $totalUsers,
+            'totalPages' => $totalPages,
+            'currentPage' => $page,
+        ]);
+    }
+
+    /**
+     * Filter users by tags with pagination
+     */
+    #[Route('/filter-by-tags', name: 'api_maps_filter_by_tags', methods: ['GET'])]
+    public function filterByTags(
+        Request $request,
+        UserRepository $userRepository,
+        NetworkService $networkService,
+        OptimizedRecommendationService $recommendationService
+    ): JsonResponse {
+        /** @var User|null $currentUser */
+        $currentUser = $this->getUser();
+        
+        // Get tags array - Symfony automatically parses tags[] into an array
+        $allParams = $request->query->all();
+        $tagIds = $allParams['tags'] ?? [];
+        
+        // Convert to array of integers
+        $tagIds = array_map('intval', is_array($tagIds) ? $tagIds : []);
+        
+        // If no tags, return empty result
+        if (empty($tagIds)) {
+            return new JsonResponse([
+                'users' => [],
+                'friendIds' => [],
+                'currentUserId' => $currentUser ? $currentUser->getId() : null,
+                'userScores' => [],
+                'totalUsers' => 0,
+                'totalPages' => 0,
+                'currentPage' => 1,
+            ]);
+        }
+        
+        $showFriends = $request->query->get('friends', 'true') === 'true';
+        $showRecommendations = $request->query->get('recommendations', 'true') === 'true';
+        $page = $request->query->getInt('page', 1);
+        $limit = min($request->query->getInt('limit', 20), 100);
+
+        $friendIds = [];
+        $friends = [];
+        $userScores = [];
+        $totalUsers = 0;
+
+        if ($currentUser) {
+            $friends = $networkService->getUserNetwork($currentUser);
+            $friendIds = array_map(fn($friend) => $friend->getId(), $friends);
+        }
+
+        $taggedUsers = $userRepository->findByTaggableQuestion1Tags($tagIds, 200);
+        $totalUsers = count($taggedUsers);
+
+        $offset = ($page - 1) * $limit;
+        $paginatedUsers = array_slice($taggedUsers, $offset, $limit);
+        $totalPages = ceil($totalUsers / $limit);
+
+        $usersToDisplay = [];
+
+        if ($currentUser) {
+            $currentUserInResults = array_filter($paginatedUsers, fn($user) => $user->getId() === $currentUser->getId());
+            if (count($currentUserInResults) > 0) {
+                $usersToDisplay[] = $currentUser;
+            }
+
+            if ($showFriends) {
+                $friendsInResults = array_filter($paginatedUsers, function ($user) use ($friendIds) {
+                    return in_array($user->getId(), $friendIds);
+                });
+                $usersToDisplay = array_merge($usersToDisplay, $friendsInResults);
+            }
+
+            if ($showRecommendations) {
+                $otherUsers = array_filter($paginatedUsers, function ($user) use ($currentUser, $friendIds) {
+                    return $user->getId() !== $currentUser->getId() && !in_array($user->getId(), $friendIds);
+                });
+                $usersToDisplay = array_merge($usersToDisplay, $otherUsers);
+
+                if (!empty($otherUsers)) {
+                    $recommendationScores = $recommendationService->calculateRecommendationScores($currentUser, 30);
+                    foreach ($recommendationScores as $userId => $scoreData) {
+                        $userScores[$userId] = $scoreData['score'];
+                    }
+                }
+            }
+        } else {
+            $usersToDisplay = $paginatedUsers;
+        }
+
+        $usersToDisplay = array_unique($usersToDisplay, SORT_REGULAR);
+        if ($currentUser) {
+            $usersToDisplay = $this->filterOutBlockedUsers($usersToDisplay, $currentUser);
+            $friendIds = array_values(array_filter($friendIds, fn($id) => !$currentUser->isBlocked($id) && !$currentUser->isBlockedBy($id)));
+        }
+
+        $usersData = array_map(function($user) use ($userScores, $currentUser, $friendIds) {
+            $score = $userScores[$user->getId()] ?? null;
+            
+            return [
+                'id' => $user->getId(),
+                'username' => $user->getUsername(),
+                'firstName' => $user->getFirstName(),
+                'lastName' => $user->getLastName(),
+                'profileImage' => $user->getProfileImage() 
+                    ? '/profile_images/' . $user->getProfileImage() 
+                    : '/images/default-profile.png',
+                'score' => $score,
+                'isCurrentUser' => $currentUser && $user->getId() === $currentUser->getId(),
+                'isFriend' => in_array($user->getId(), $friendIds),
+            ];
+        }, $usersToDisplay);
+
+        return new JsonResponse([
+            'users' => array_values($usersData),
+            'friendIds' => $friendIds,
+            'currentUserId' => $currentUser ? $currentUser->getId() : null,
+            'userScores' => $userScores,
+            'totalUsers' => $totalUsers,
+            'totalPages' => $totalPages,
+            'currentPage' => $page,
         ]);
     }
 
