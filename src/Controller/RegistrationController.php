@@ -32,9 +32,14 @@ use Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Psr\Log\LoggerInterface;
 
 class RegistrationController extends AbstractController
 {
+    public function __construct(
+        private readonly LoggerInterface $logger,
+    ) {}
+
     /**
      * Gère l'inscription d'un nouvel utilisateur
      *
@@ -77,7 +82,7 @@ class RegistrationController extends AbstractController
             'Quels sont les problèmes de recherche auxquels vous vous intéressez ?',
             'Quelles sont les méthodologies de recherche que vous utilisez dans votre domaine d\'étude ?',
             'Qu\'est ce qui, d\'après vous, vous a amené(e) à faire de la recherche ?',
-            'Comment vous définirirez vous en tant que chercheur?',
+            'Comment vous définirrez vous en tant que chercheur?',
             'Pensez-vous que ce choix ait un lien avec  un évènement de votre biographie ? (rencontre, auteur, environnement personnel, professionnel ....) et si oui pouvez-vous brièvement le/la décrire ?',
             'Pouvez-vous nous raconter qu\'est ce qui a motivé le choix  de vos thématiques de recherche ?',
             'Comment vos expériences personnelles ont-elles influencé votre choix de carrière et vos recherches en sciences humaines et sociales ?',
@@ -226,12 +231,8 @@ class RegistrationController extends AbstractController
                 ]));
 
             // DEBUG: Log email sending
-            error_log(sprintf(
-                "Sending welcome email to %s (%s %s)",
-                $user->getEmail(),
-                $user->getFirstName(),
-                $user->getLastName()
-            ));
+            $this->logger->debug('Sending email to: {email}', ['email' => $email]);
+
 
             if ($_ENV['MAILER_DSN'] !== 'null://null') {
                 $mailer->send($email);
