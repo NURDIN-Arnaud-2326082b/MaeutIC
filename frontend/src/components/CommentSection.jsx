@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import PropTypes from 'prop-types'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { commentApi } from '../services/apis'
 import { useAuthStore } from '../store'
@@ -76,4 +77,9 @@ export default function CommentSection({ postId, comments }) {
       </div>
     </div>
   )
+}
+
+CommentSection.propTypes = {
+  postId: PropTypes.number.isRequired,
+  comments: PropTypes.array.isRequired,
 }
