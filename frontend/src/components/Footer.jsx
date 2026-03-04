@@ -12,7 +12,7 @@ export default function Footer() {
           </div>
           <div className="flex flex-col mr-14 h-full text-gray-700">
             <h2 className="font-medium mb-1">Code source</h2>
-            <a href="https://github.com/NURDIN-Arnaud-2326082b/MaeutIC" target="_blank" rel="noopener noreferrer" className="text-gray-700 hover:text-blue-600">Github</a>
+            <a href="https://github.com/NURDIN-Arnaud-2326082b/MaeutIC" target="_blank" rel="noopener noreferrer" className="text-gray-700 hover:text-blue-600">GitHub</a>
           </div>
           <div className="flex flex-col h-full text-gray-700">
             <h2 className="font-medium mb-1">Nous contacter</h2>
