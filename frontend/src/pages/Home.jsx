@@ -22,34 +22,33 @@ export default function Home() {
   return (
     <>
       {/* Popup notification */}
-      {showPopup && (
-        <div className="fixed top-32 right-5 bg-red-200 text-gray-700 max-w-80 px-6 py-4 rounded-lg shadow-lg flex items-start z-50 transition-opacity duration-500 overflow-hidden">
-          <span className="mr-4">
-            <b>Important : </b>Ce site est toujours en développement, certaines fonctionnalités ne sont donc pas encore disponibles.<br />
-            Si vous rencontrez des bugs ou des problèmes, n'hésitez pas à nous contacter à l'adresse suivante : maieuticprojet@proton.me
-          </span>
-          <button
-            onClick={closePopup}
-            className="ml-auto text-gray-700 font-bold text-xl leading-none hover:text-black"
-          >
-            &times;
-          </button>
-          <div
-            className="absolute left-0 bottom-0 h-1 bg-red-400 transition-all duration-100"
-            style={{
-              width: `${((popupDuration - (Date.now() % popupDuration)) / popupDuration) * 100}%`,
-              animation: `progress ${popupDuration}ms linear`
-            }}
-          ></div>
-        </div>
-      )}
+        {showPopup && (
+          <div className="fixed top-32 right-5 bg-red-200 text-gray-700 max-w-80 px-6 py-4 rounded-lg shadow-lg flex items-start z-50 transition-opacity duration-500 overflow-hidden">
+            <span className="mr-4">
+          <b>Important : </b>Ce site est toujours en développement, certaines fonctionnalités ne sont donc pas encore disponibles.<br />
+          Si vous rencontrez des bugs ou des problèmes, n'hésitez pas à nous contacter à l'adresse suivante : maieuticprojet@proton.me
+            </span>
+            <button
+          onClick={closePopup}
+          className="ml-auto text-gray-700 font-bold text-xl leading-none hover:text-black"
+            >
+          &times;
+            </button>
+            <div
+          className="absolute left-0 bottom-0 h-1 bg-red-400"
+          style={{
+            animation: `progress ${popupDuration}ms linear forwards`
+          }}
+            ></div>
+          </div>
+        )}
 
-      <div className="flex-1 flex flex-col items-center max-w-7xl mx-auto my-10">
-        <h1 className="mt-6 text-center text-4xl font-black text-gray-900 tracking-tight">MaieutIC</h1>
-        <p className="mt-2 text-center text-gray-600">La plateforme facilitant l'échange entre doctorants !</p>
-        
-        <ul className="flex flex-wrap justify-center my-5">
-          {/* Bureau */}
+        <div className="flex-1 flex flex-col items-center max-w-7xl mx-auto my-10">
+          <h1 className="mt-6 text-center text-4xl font-black text-gray-900 tracking-tight">MaieutIC</h1>
+          <p className="mt-2 text-center text-gray-600">La plateforme facilitant l'échange entre doctorants !</p>
+          
+          <ul className="flex flex-wrap justify-center my-5">
+            {/* Bureau */}
           <li>
             <Link
               to={isAuthenticated ? `/profile/${user?.username}` : '/login'}
