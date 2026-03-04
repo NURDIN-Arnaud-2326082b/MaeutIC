@@ -6,14 +6,16 @@ export default function MusicPlayer() {
 
   useEffect(() => {
     const audio = audioRef.current
+    const onPlay = () => setIsPlaying(true)
+    const onPause = () => setIsPlaying(false)
     if (audio) {
-      audio.addEventListener('play', () => setIsPlaying(true))
-      audio.addEventListener('pause', () => setIsPlaying(false))
+      audio.addEventListener('play', onPlay)
+      audio.addEventListener('pause', onPause)
     }
     return () => {
       if (audio) {
-        audio.removeEventListener('play', () => setIsPlaying(true))
-        audio.removeEventListener('pause', () => setIsPlaying(false))
+        audio.removeEventListener('play', onPlay)
+        audio.removeEventListener('pause', onPause)
       }
     }
   }, [])
