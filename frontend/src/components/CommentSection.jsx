@@ -10,7 +10,7 @@ export default function CommentSection({ postId, comments }) {
   const queryClient = useQueryClient()
 
   const createCommentMutation = useMutation({
-    mutationFn: (comment) => commentApi.createComment(postId, comment),
+    mutationFn: (comment) => commentApi.createComment({ postId, ...comment }),
     onSuccess: () => {
       queryClient.invalidateQueries(['comments', postId])
       setNewComment('')
@@ -66,10 +66,10 @@ export default function CommentSection({ postId, comments }) {
                     {comment.user ? `${comment.user.firstName} ${comment.user.lastName}` : 'Utilisateur supprimé'}
                   </span>
                   <span className="text-sm text-gray-500">
-                    {new Date(comment.createdAt).toLocaleDateString('fr-FR')}
+                    {new Date(comment.creationDate).toLocaleDateString('fr-FR')}
                   </span>
                 </div>
-                <p className="text-gray-700">{comment.content}</p>
+                <p className="text-gray-700">{comment.body}</p>
               </div>
             </div>
           </div>
