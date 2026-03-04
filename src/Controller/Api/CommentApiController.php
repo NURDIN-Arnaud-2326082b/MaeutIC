@@ -73,7 +73,11 @@ class CommentApiController extends AbstractController
         }
 
         $data = json_decode($request->getContent(), true);
-        
+
+        if (!is_array($data) || empty($data['content'])) {
+            return $this->json(['error' => 'Invalid or missing "content" field'], 400);
+        }
+
         $comment = new Comment();
         $comment->setBody($data['content']);
         $comment->setPost($post);

@@ -75,7 +75,8 @@ final class ChatApiController extends AbstractController
 
             return new JsonResponse(['status' => 'Message sent']);
         } catch (Exception $e) {
-            return new JsonResponse(['error' => 'An error occurred: ' . $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+            $this->container->get('logger')->error('Chat send error: ' . $e->getMessage(), ['exception' => $e]);
+            return new JsonResponse(['error' => 'An error occurred while sending the message. Please try again later.'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 }
