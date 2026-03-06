@@ -28,5 +28,7 @@ services:
     
     # CORS Listener
     App\EventListener\CorsListener:
+        arguments:
+            $corsAllowOrigin: '%env(CORS_ALLOW_ORIGIN)%'
         tags:
             - { name: kernel.event_subscriber }

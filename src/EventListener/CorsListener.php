@@ -11,18 +11,29 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CorsListener implements EventSubscriberInterface
 {
-    private function getAllowedOrigin($requestOrigin): string
+    /** @var list<string> */
+    private array $allowedOrigins;
+
+    /**
+     * @param string $corsAllowOrigin Comma-separated list of allowed origins (from env CORS_ALLOW_ORIGIN).
+     */
+    public function __construct(string $corsAllowOrigin)
     {
-        $allowedOrigins = [
-            'http://localhost:3000',
-            'http://localhost:3001',
-        ];
-        
-        if (in_array($requestOrigin, $allowedOrigins)) {
-            return $requestOrigin;
+        $this->allowedOrigins = array_filter(
+            array_map('trim', explode(',', $corsAllowOrigin))
+        );
+    }
+
+    /**
+     * Returns the request origin if it is in the allow-list, or null otherwise.
+     */
+    private function getAllowedOrigin(?string $requestOrigin): ?string
+    {
+        if ($requestOrigin === null || $requestOrigin === '') {
+            return null;
         }
-        
-        return 'http://localhost:3000'; // Default fallback
+
+        return in_array($requestOrigin, $this->allowedOrigins, true) ? $requestOrigin : null;
     }
 
     private function isCorsCandidate(Request $request): bool
@@ -51,12 +62,16 @@ class CorsListener implements EventSubscriberInterface
         // Handle preflight OPTIONS request
         if ($request->getMethod() === 'OPTIONS') {
             $response = new Response();
-            $response->headers->set('Access-Control-Allow-Origin', $allowedOrigin);
-            $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-            $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-            $response->headers->set('Access-Control-Allow-Credentials', 'true');
-            $response->headers->set('Access-Control-Max-Age', '3600');
-            $response->headers->set('Vary', 'Origin');
+
+            if ($allowedOrigin !== null) {
+                $response->headers->set('Access-Control-Allow-Origin', $allowedOrigin);
+                $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+                $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+                $response->headers->set('Access-Control-Allow-Credentials', 'true');
+                $response->headers->set('Access-Control-Max-Age', '3600');
+                $response->headers->set('Vary', 'Origin');
+            }
+
             $response->setStatusCode(200);
 
             $event->setResponse($response);
@@ -80,11 +95,14 @@ class CorsListener implements EventSubscriberInterface
         $allowedOrigin = $this->getAllowedOrigin($origin);
 
         $response = $event->getResponse();
-        $response->headers->set('Access-Control-Allow-Origin', $allowedOrigin);
-        $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-        $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-        $response->headers->set('Access-Control-Allow-Credentials', 'true');
-        $response->headers->set('Vary', 'Origin');
+
+        if ($allowedOrigin !== null) {
+            $response->headers->set('Access-Control-Allow-Origin', $allowedOrigin);
+            $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+            $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+            $response->headers->set('Access-Control-Allow-Credentials', 'true');
+            $response->headers->set('Vary', 'Origin');
+        }
     }
 
     public static function getSubscribedEvents(): array
