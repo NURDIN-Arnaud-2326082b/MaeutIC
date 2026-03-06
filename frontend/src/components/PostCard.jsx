@@ -1,9 +1,13 @@
 import { Link } from 'react-router-dom'
 
-export default function PostCard({ post }) {
+export default function PostCard({ post, category, basePath = '/forums' }) {
+  // Résolution de la catégorie : prop > forum.title / forum_title > 'General'
+  const resolvedCategory = category ?? post.forum?.title ?? post.forum_title ?? 'General'
+  const to = `${basePath}/${resolvedCategory}/${post.id}`
+
   return (
     <Link
-      to={`/forums/post/${post.id}`}
+      to={to}
       className="block bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow"
     >
       <div className="flex justify-between items-start">
