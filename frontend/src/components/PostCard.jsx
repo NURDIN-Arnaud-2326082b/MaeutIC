@@ -11,13 +11,13 @@ export default function PostCard({ post }) {
           <h3 className="text-lg font-semibold text-gray-900 mb-2">{post.name}</h3>
           <p className="text-gray-600 text-sm mb-3 line-clamp-2">{post.description}</p>
           <div className="flex items-center gap-4 text-sm text-gray-500">
-            <span>{post.author_name}</span>
+            <span>{post.user ? `${post.user.firstName} ${post.user.lastName}` : post.author_name}</span>
             <span>•</span>
-            <span>{post.creation_date}</span>
-            {post.forum_title && (
+            <span>{post.creationDate ?? post.creation_date}</span>
+            {(post.forum?.title ?? post.forum_title) && (
               <>
                 <span>•</span>
-                <span className="text-blue-600">{post.forum_title}</span>
+                <span className="text-blue-600">{post.forum?.title ?? post.forum_title}</span>
               </>
             )}
           </div>
