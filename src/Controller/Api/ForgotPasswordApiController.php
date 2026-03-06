@@ -209,11 +209,10 @@ class ForgotPasswordApiController extends AbstractController
                 'expiration_date' => new DateTimeImmutable('+1 hour'),
             ]));
 
-        // DEBUG: Log email
         error_log(sprintf(
-            "Sending reset email to %s with URL: %s",
-            $user->getEmail(),
-            $resetUrl
+            "Password reset email sent to user ID %d at %s",
+            $user->getId(),
+            (new DateTimeImmutable())->format('c')
         ));
 
         if ($_ENV['MAILER_DSN'] !== 'null://null') {
