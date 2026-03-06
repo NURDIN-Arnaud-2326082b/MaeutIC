@@ -17,6 +17,7 @@ use App\Repository\TagRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\File\Exception\FileException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -38,6 +39,8 @@ class RegistrationController extends AbstractController
 {
     public function __construct(
         private readonly LoggerInterface $logger,
+        #[Autowire('%app.mailer_dsn%')]
+        private readonly string $mailerDsn,
     ) {}
 
     /**
@@ -231,10 +234,10 @@ class RegistrationController extends AbstractController
                 ]));
 
             // DEBUG: Log email sending
-            $this->logger->debug('Sending email to: {email}', ['email' => $email]);
+            $this->logger->debug('Sending email to: {email}', ['email' => $user->getEmail()]);
 
 
-            if ($_ENV['MAILER_DSN'] !== 'null://null') {
+            if ($this->mailerDsn !== 'null://null') {
                 $mailer->send($email);
             }
 
