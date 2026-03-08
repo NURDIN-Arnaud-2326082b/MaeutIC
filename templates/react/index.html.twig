@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MaeutIC</title>
+    
+    {# PWA Configuration #}
+    <link rel="manifest" href="{{ asset('manifest.json') }}">
+    <meta name="theme-color" content="#4F46E5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MaeutIC">
+    <link rel="apple-touch-icon" href="{{ asset('images/icons/ios/180.png') }}">
+    
+    {# Development vs Production #}
+    {% if app.environment == 'dev' %}
+        {# Vite Dev Server #}
+        <script type="module" src="http://localhost:3000/@vite/client"></script>
+        <script type="module" src="http://localhost:3000/src/main.jsx"></script>
+    {% else %}
+        {# Production Build #}
+        {% set manifest = asset('react/manifest.json')|file_content|json_decode %}
+        <link rel="stylesheet" href="{{ asset('react/' ~ manifest['src/main.jsx']['css'][0]) }}">
+        <script type="module" src="{{ asset('react/' ~ manifest['src/main.jsx']['file']) }}"></script>
+    {% endif %}
+</head>
+<body class="min-h-screen flex flex-col">
+    <div id="root"></div>
+</body>
+</html>
