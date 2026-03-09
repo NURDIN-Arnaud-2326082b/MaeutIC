@@ -1,0 +1,49 @@
+{% extends 'email/base_email.html.twig' %}
+
+{% block content %}
+    <h2>Bienvenue sur Maieutic !</h2>
+    
+    <p>Bonjour <strong>{{ user.firstName }} {{ user.lastName }}</strong>,</p>
+    
+    <div class="success">
+        <p style="margin: 0;"><strong>🎉 Félicitations !</strong> Votre compte Maieutic a été créé avec succès.</p>
+    </div>
+    
+    <p>Nous sommes ravis de vous accueillir dans notre communauté de chercheur·euse·s en sciences humaines et sociales.</p>
+    
+    <h3 style="color: #1e293b; margin-top: 25px;">Que faire maintenant ?</h3>
+    
+    <ul style="line-height: 2;">
+        <li><strong>Complétez votre profil</strong> pour vous présenter à la communauté</li>
+        <li><strong>Explorez la carte interactive</strong> pour découvrir d'autres chercheur·euse·s</li>
+        <li><strong>Participez aux forums</strong> thématiques (Méthodologie, Détente, Administratif)</li>
+        <li><strong>Consultez la bibliothèque</strong> de ressources partagées</li>
+        <li><strong>Échangez en messagerie privée</strong> avec les membres de la communauté</li>
+    </ul>
+    
+    <p style="text-align: center; margin: 30px 0;">
+        <a href="{{ url('app_home') }}" class="button">Accéder à mon compte</a>
+    </p>
+    
+    <hr class="divider">
+    
+    <div class="info">
+        <p style="margin: 0;"><strong>💡 Astuce :</strong> N'hésitez pas à renseigner vos thématiques de recherche et mots-clés dans votre profil pour faciliter les rencontres avec d'autres chercheur·euse·s partageant vos centres d'intérêt.</p>
+    </div>
+    
+    <p>Si vous avez des questions ou besoin d'aide pour prendre en main la plateforme, n'hésitez pas à consulter nos forums ou à contacter notre équipe.</p>
+    
+    <p>Au plaisir de vous retrouver sur Maieutic !</p>
+    
+    <p><em>L'équipe Maieutic</em></p>
+{% endblock %}
+
+{% block footer_extra %}
+    <p style="margin-top: 15px;">
+        <a href="{{ url('app_profile', {username: user.username}) }}" style="color: #1e40af; text-decoration: none;">Voir mon profil</a>
+        •
+        <a href="{{ url('app_maps') }}" style="color: #1e40af; text-decoration: none;">Explorer la carte</a>
+        •
+        <a href="{{ url('app_library') }}" style="color: #1e40af; text-decoration: none;">Bibliothèque</a>
+    </p>
+{% endblock %}

@@ -56,6 +56,12 @@ class PostFormType extends AbstractType
                 'label' => 'Salon',
                 'placeholder' => '-- Choisir un salon --',
                 'required' => true,
+                'query_builder' => function ($repository) {
+                    return $repository->createQueryBuilder('f')
+                        ->where('f.special != :cafe_des_lumieres OR f.special IS NULL')
+                        ->setParameter('cafe_des_lumieres', 'cafe_des_lumieres')
+                        ->orderBy('f.title', 'ASC');
+                },
             ]);
     }
 

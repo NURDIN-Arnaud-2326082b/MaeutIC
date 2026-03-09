@@ -1,0 +1,11 @@
+{
+  "src/main.jsx": {
+    "file": "assets/main-CtvHzpoC.js",
+    "name": "main",
+    "src": "src/main.jsx",
+    "isEntry": true,
+    "css": [
+      "assets/main-MqkAUm2F.css"
+    ]
+  }
+}
