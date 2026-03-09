@@ -4,8 +4,5 @@ controllers:
         namespace: App\Controller
     type: attribute
 
-app_catch_all:
-    path: /{any}
-    controller: App\Controller\ErrorController::show404
-    requirements:
-        any: ".*"
+# Note: ReactController handles SPA routing with priority: -1
+# No catch-all needed here as it would conflict with React routing
