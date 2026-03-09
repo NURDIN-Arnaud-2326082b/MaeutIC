@@ -21,7 +21,6 @@ import Chill from './pages/Chill'
 import Administrative from './pages/Administrative'
 import MethodologyForums from './pages/MethodologyForums'
 import DetenteForums from './pages/DetenteForums'
-import CafeDesLumieresForums from './pages/CafeDesLumieresForums'
 import AdministratifForums from './pages/AdministratifForums'
 
 function App() {
@@ -51,9 +50,6 @@ function App() {
         <Route path="detente-forums" element={<DetenteForums />} />
         <Route path="detente-forums/:category" element={<DetenteForums />} />
         <Route path="detente-forums/:category/:postId" element={<DetenteForums />} />
-        <Route path="cafe_des_lumieres-forums" element={<CafeDesLumieresForums />} />
-        <Route path="cafe_des_lumieres-forums/:category" element={<CafeDesLumieresForums />} />
-        <Route path="cafe_des_lumieres-forums/:category/:postId" element={<CafeDesLumieresForums />} />
         <Route path="administratif-forums" element={<AdministratifForums />} />
         <Route path="administratif-forums/:category" element={<AdministratifForums />} />
         <Route path="administratif-forums/:category/:postId" element={<AdministratifForums />} />

@@ -54,7 +54,7 @@ export default function Forums({ specialCategory = null }) {
   // Filter forums by special category for sidebar only
   const forums = specialCategory 
     ? allForums.filter(f => f.special === specialCategory)
-    : allForums.filter(f => f.special !== 'cafe_des_lumieres')
+    : allForums
   
   // Determine base path for links based on special category
   const getForumBasePath = () => {
@@ -62,7 +62,6 @@ export default function Forums({ specialCategory = null }) {
     const paths = {
       'methodology': '/methodology-forums',
       'detente': '/detente-forums',
-      'cafe_des_lumieres': '/cafe_des_lumieres-forums',
       'administratif': '/administratif-forums'
     }
     return paths[specialCategory] || '/forums'
@@ -76,7 +75,6 @@ export default function Forums({ specialCategory = null }) {
     const titles = {
       'methodology': 'Catégories',
       'detente': 'Catégories',
-      'cafe_des_lumieres': 'Catégories',
       'administratif': 'Catégories'
     }
     return titles[specialCategory] || 'Categories'
@@ -95,21 +93,19 @@ export default function Forums({ specialCategory = null }) {
     switch(specialCategory) {
       case 'methodology': return 'toutes les méthodologies'
       case 'detente': return 'tous les forums détente'
-      case 'cafe_des_lumieres': return 'tous les forums cafe_des_lumieress'
       case 'administratif': return 'tous les forums administratifs'
       default: return 'toutes categories'
     }
   }
   
   const showAllCategoriesLink = () => {
-    // Café des lumières n'affiche pas le lien "Toutes"
-    return specialCategory !== 'cafe_des_lumieres'
+    // Tous les forums spéciaux affichent le lien "Toutes"
+    return true
   }
   
   // Convertir les noms de catégories techniques en noms d'affichage
   const getCategoryDisplayName = (categoryName) => {
     const displayNames = {
-      'cafe_des_lumieres': 'café des lumières',
       'detente': 'détente',
       'methodology': 'méthodologie',
       'administratif': 'administratif',
@@ -122,7 +118,7 @@ export default function Forums({ specialCategory = null }) {
   const { data: postsData = [], isLoading } = useQuery({
     queryKey: ['posts', category, specialCategory],
     queryFn: () => {
-      // Si category === specialCategory (detente, cafe_des_lumieres, methodology, administratif),
+      // Si category === specialCategory (detente, methodology, administratif),
       // récupérer tous les posts pour les filtrer ensuite
       if (category === specialCategory) {
         return forumApi.getAllPosts()
@@ -145,7 +141,7 @@ export default function Forums({ specialCategory = null }) {
   const forumIds = forums.map(f => f.id)
   const posts = specialCategory 
     ? allPosts.filter(post => post.forum && forumIds.includes(post.forum.id))
-    : allPosts.filter(post => post.forum && post.forum.special !== 'cafe_des_lumieres')
+    : allPosts
 
   // Fetch selected post details
   const { data: selectedPostData } = useQuery({
@@ -378,7 +374,7 @@ export default function Forums({ specialCategory = null }) {
                 {getAllCategoriesLabel()}
               </Link>
             )}
-            {forums.filter(f => specialCategory === 'cafe_des_lumieres' || !f.anonymous).map((forum) => (
+            {forums.filter(f => !f.anonymous).map((forum) => (
               <Link
                 key={forum.id}
                 to={`${basePath}/${forum.title}`}
