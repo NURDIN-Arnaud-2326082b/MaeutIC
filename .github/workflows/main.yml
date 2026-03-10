@@ -38,7 +38,7 @@ jobs:
           host: ${{ secrets.IONOS_HOST }}
           username: ${{ secrets.IONOS_USER }}
           password: ${{ secrets.IONOS_PASSWORD }}
-          source: "bin/*, config/*, migrations/*, public/*, src/*, templates/*, ./*.json, ./*.lock"
+          source: "assets/*, bin/*, config/*, migrations/*, public/*, src/*, templates/*, translations/*, importmap.php, ./*.json, ./*.lock"
           target: ${{ secrets.IONOS_PATH }}
 
       - name: Exécuter des commandes sur IONOS (si besoin)
