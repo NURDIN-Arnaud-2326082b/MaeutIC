@@ -27,11 +27,30 @@ jobs:
           npm run build
           cd ..
 
-      - name: Afficher les fichiers avant déploiement
+      - name: Vérifier le build React
         run: |
-          ls -R ./src
-          ls -R ./public/react
-          cat ./composer.json
+          echo "=== Contenu de public/react/ ==="
+          ls -la public/react/
+          echo "=== Contenu de public/react/.vite/ ==="
+          ls -la public/react/.vite/
+          echo "=== Contenu du manifest ==="
+          cat public/react/.vite/manifest.json
+          echo "=== Assets générés ==="
+          ls -la public/react/assets/
+
+      - name: Nettoyer public/react/ sur le serveur avant déploiement
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.IONOS_HOST }}
+          username: ${{ secrets.IONOS_USER }}
+          password: ${{ secrets.IONOS_PASSWORD }}
+          script: |
+            cd ${{ secrets.IONOS_PATH }}
+            echo "Nettoyage de public/react/ pour éviter les assets obsolètes..."
+            rm -rf public/react/assets
+            rm -rf public/react/.vite
+            echo "Nettoyage terminé."
+
       - name: Déployer via SFTP
         uses: appleboy/scp-action@master
         with:
@@ -40,6 +59,8 @@ jobs:
           password: ${{ secrets.IONOS_PASSWORD }}
           source: "assets/*, bin/*, config/*, migrations/*, public/*, src/*, templates/*, translations/*, importmap.php, ./*.json, ./*.lock"
           target: ${{ secrets.IONOS_PATH }}
+          strip_components: 0
+          overwrite: true
 
       - name: Exécuter des commandes sur IONOS (si besoin)
         uses: appleboy/ssh-action@master
@@ -61,10 +82,12 @@ jobs:
             fi
             
             # Vérifier que le build React est présent
+            echo "=== Vérification du build React déployé ==="
+            ls -la public/react/ || echo "ERREUR: Le dossier public/react n'existe pas!"
+            ls -la public/react/.vite/ || echo "ERREUR: Le dossier public/react/.vite n'existe pas!"
+            
             if [ ! -f public/react/.vite/manifest.json ]; then
-              echo "ERREUR: Le manifest React n'existe pas!"
-              echo "Contenu de public/react:"
-              ls -la public/react/ || echo "Le dossier public/react n'existe pas!"
+              echo "ERREUR CRITIQUE: Le manifest React n'existe pas après déploiement!"
               exit 1
             fi
             
@@ -88,12 +111,3 @@ jobs:
             rm -f /*.tar.gz
             
             echo "Déploiement terminé avec succès!"
-      - name: Afficher les fichiers après déploiement
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.IONOS_HOST }}
-          username: ${{ secrets.IONOS_USER }}
-          password: ${{ secrets.IONOS_PASSWORD }}
-          script: |
-            cd ${{ secrets.IONOS_PATH }}
-            ls -R
