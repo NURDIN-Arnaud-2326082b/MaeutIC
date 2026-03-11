@@ -5,6 +5,8 @@ import { forumApi, commentApi } from '../services/apis'
 import { useAuthStore } from '../store'
 import { checkSensitiveContent } from '../utils/sensitiveContentDetector'
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
+
 const getRandomAnonymousId = () => {
   const letters = 'abcdefghijklmnopqrstuvwxyz'
   const randomLetter = () => letters[Math.floor(Math.random() * letters.length)]
@@ -220,7 +222,7 @@ export default function Forums({ specialCategory = null }) {
   
   const updatePostMutation = useMutation({
     mutationFn: ({ id, data }) => 
-      fetch(`http://localhost:8000/api/posts/${id}`, {
+      fetch(`${API_BASE_URL}/posts/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -235,7 +237,7 @@ export default function Forums({ specialCategory = null }) {
 
   const deletePostMutation = useMutation({
     mutationFn: (postId) =>
-      fetch(`http://localhost:8000/api/posts/${postId}`, {
+      fetch(`${API_BASE_URL}/posts/${postId}`, {
         method: 'DELETE',
         credentials: 'include'
       }).then(r => r.json()),
@@ -247,7 +249,7 @@ export default function Forums({ specialCategory = null }) {
   
   const toggleLikeMutation = useMutation({
     mutationFn: (postId) =>
-      fetch(`http://localhost:8000/api/posts/${postId}/like`, {
+      fetch(`${API_BASE_URL}/posts/${postId}/like`, {
         method: 'POST',
         credentials: 'include'
       }).then(r => r.json()),
