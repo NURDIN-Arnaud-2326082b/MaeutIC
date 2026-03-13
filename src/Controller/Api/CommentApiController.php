@@ -3,6 +3,7 @@
 namespace App\Controller\Api;
 
 use App\Entity\Comment;
+use App\Entity\Notification;
 use App\Entity\User;
 use App\Entity\UserLike;
 use App\Repository\CommentRepository;
@@ -85,6 +86,34 @@ class CommentApiController extends AbstractController
         $comment->setCreationDate(new \DateTime());
 
         $this->entityManager->persist($comment);
+
+        // Notification pour l'auteur du post
+        /** @var User $commenter */
+        $commenter = $this->getUser();
+        $postAuthor = $post->getUser();
+        if ($postAuthor && $postAuthor->getId() !== $commenter->getId()) {
+            if (
+                !$postAuthor->isBlocked($commenter->getId()) &&
+                !$postAuthor->isBlockedBy($commenter->getId()) &&
+                !$commenter->isBlocked($postAuthor->getId()) &&
+                !$commenter->isBlockedBy($postAuthor->getId())
+            ) {
+                $forum = $post->getForum();
+                $notif = new Notification();
+                $notif->setType('post_comment');
+                $notif->setSender($commenter);
+                $notif->setRecipient($postAuthor);
+                $notif->setStatus('unread');
+                $notif->setData([
+                    'postId' => $post->getId(),
+                    'forumCategory' => $forum ? $forum->getTitle() : null,
+                    'forumSpecial' => $forum ? $forum->getSpecial() : null,
+                    'message' => sprintf('%s a commenté votre post', $commenter->getUsername() ?? 'Quelqu\'un')
+                ]);
+                $this->entityManager->persist($notif);
+            }
+        }
+
         $this->entityManager->flush();
 
         return $this->json(['success' => true, 'id' => $comment->getId()], 201);
