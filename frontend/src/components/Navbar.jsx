@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store'
-import { getNotifications, acceptNetworkRequest, declineNetworkRequest } from '../services/networkApi'
+import { getNotifications, acceptNetworkRequest, declineNetworkRequest, markNotificationRead, deleteNotification, clearAllNotifications } from '../services/networkApi'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 export default function Navbar() {
@@ -44,6 +44,65 @@ export default function Navbar() {
       queryClient.invalidateQueries(['notifications'])
     },
   })
+
+  // Mark notification as read
+  const markReadMutation = useMutation({
+    mutationFn: markNotificationRead,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['notifications'])
+    },
+  })
+
+  // Delete single notification
+  const deleteNotifMutation = useMutation({
+    mutationFn: deleteNotification,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['notifications'])
+    },
+  })
+
+  // Clear all notifications
+  const clearAllMutation = useMutation({
+    mutationFn: clearAllNotifications,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['notifications'])
+    },
+  })
+
+  const getNotifUrl = (notif) => {
+    const { type, data, sender } = notif
+    if (type === 'post_like' || type === 'post_comment') {
+      if (!data?.postId || !data?.forumCategory) return null
+      const base = data.forumSpecial === 'methodology'
+        ? 'methodology-forums'
+        : data.forumSpecial === 'detente'
+          ? 'detente-forums'
+          : data.forumSpecial === 'administratif'
+            ? 'administratif-forums'
+            : 'forums'
+      return `/${base}/${encodeURIComponent(data.forumCategory)}/${data.postId}`
+    }
+    if (type === 'network_request' || type === 'network_accept') {
+      return sender?.username ? `/profile/${sender.username}` : null
+    }
+    return null
+  }
+
+  const handleNotifClick = (e, notif) => {
+    // Don't trigger if clicking any button (Accept/Decline/Delete)
+    if (e.target.closest('[data-notif-action]')) return
+    const url = getNotifUrl(notif)
+    // For non-network-request notifications, delete on click
+    if (notif.type !== 'network_request') {
+      deleteNotifMutation.mutate(notif.id)
+    } else if (!notif.isRead) {
+      markReadMutation.mutate(notif.id)
+    }
+    setIsNotifOpen(false)
+    if (url) {
+      navigate(url)
+    }
+  }
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -101,7 +160,11 @@ export default function Navbar() {
                     <div className="max-h-96 overflow-y-auto">
                       {notifications.length > 0 ? (
                         notifications.map((notif) => (
-                          <div key={notif.id} className={`p-3 border-b border-gray-100 ${!notif.isRead ? 'bg-blue-50' : ''}`}>
+                          <div
+                            key={notif.id}
+                            className={`p-3 border-b border-gray-100 ${!notif.isRead ? 'bg-blue-50' : ''} ${getNotifUrl(notif) ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+                            onClick={(e) => handleNotifClick(e, notif)}
+                          >
                             <div className="flex items-start gap-3">
                               {notif.sender && (
                                 <img
@@ -127,6 +190,7 @@ export default function Navbar() {
                                 {notif.type === 'network_request' && notif.status === 'pending' && (
                                   <div className="flex gap-2 mt-2">
                                     <button
+                                      data-notif-action
                                       onClick={() => acceptMutation.mutate(notif.id)}
                                       disabled={acceptMutation.isLoading}
                                       className="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
@@ -134,6 +198,7 @@ export default function Navbar() {
                                       Accepter
                                     </button>
                                     <button
+                                      data-notif-action
                                       onClick={() => declineMutation.mutate(notif.id)}
                                       disabled={declineMutation.isLoading}
                                       className="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300 disabled:opacity-50"
@@ -143,12 +208,30 @@ export default function Navbar() {
                                   </div>
                                 )}
                               </div>
+                              <button
+                                data-notif-action
+                                onClick={() => deleteNotifMutation.mutate(notif.id)}
+                                disabled={deleteNotifMutation.isPending}
+                                className="ml-2 text-gray-400 hover:text-red-500 flex-shrink-0 text-xl leading-none disabled:opacity-50"
+                                title="Supprimer"
+                              >
+                                ×
+                              </button>
                             </div>
                           </div>
                         ))
                       ) : (
                         <div className="text-sm text-gray-500 p-4 text-center">Aucune notification</div>
                       )}
+                    </div>
+                    <div className="p-3 border-t border-gray-200">
+                      <button
+                        onClick={() => clearAllMutation.mutate()}
+                        disabled={clearAllMutation.isPending || notifications.length === 0}
+                        className="w-full text-sm text-red-500 hover:text-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Tout supprimer
+                      </button>
                     </div>
                   </div>
                 )}

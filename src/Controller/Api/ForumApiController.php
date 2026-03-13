@@ -61,6 +61,20 @@ class ForumApiController extends AbstractController
             $posts = $forum->getPosts()->toArray();
         }
 
+        // Filter out posts from blocked users (mutual block)
+        if ($currentUser) {
+            $allBlockedIds = array_merge(
+                array_map('intval', $currentUser->getBlocked()),
+                array_map('intval', $currentUser->getBlockedBy())
+            );
+            if (!empty($allBlockedIds)) {
+                $posts = array_values(array_filter($posts, function(Post $post) use ($allBlockedIds) {
+                    $postUser = $post->getUser();
+                    return $postUser === null || !in_array($postUser->getId(), $allBlockedIds, true);
+                }));
+            }
+        }
+
         $data = array_map(function(Post $post) use ($isAdmin, $currentUser) {
             $forum = $post->getForum();
             $user = $post->getUser();
@@ -111,7 +125,15 @@ class ForumApiController extends AbstractController
         $currentUser = $this->getUser();
         $user = $post->getUser();
         $forum = $post->getForum();
-        
+
+        // Block check: hide post if there is a mutual block between current user and post author
+        if ($currentUser && $user) {
+            $authorId = $user->getId();
+            if ($currentUser->isBlocked($authorId) || $currentUser->isBlockedBy($authorId)) {
+                return $this->json(['error' => 'Post not found'], 404);
+            }
+        }
+
         // Check if current user has liked this post
         $isLiked = false;
         if ($currentUser) {

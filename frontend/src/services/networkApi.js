@@ -49,6 +49,22 @@ export const declineNetworkRequest = async (notificationId) => {
 };
 
 /**
+ * Mark a single notification as read
+ */
+export const markNotificationRead = async (notificationId) => {
+  const response = await api.post(`/notifications/mark-read/${notificationId}`);
+  return response.data;
+};
+
+/**
+ * Delete a single notification
+ */
+export const deleteNotification = async (notificationId) => {
+  const response = await api.delete(`/notifications/${notificationId}`);
+  return response.data;
+};
+
+/**
  * Clear all notifications
  */
 export const clearAllNotifications = async () => {

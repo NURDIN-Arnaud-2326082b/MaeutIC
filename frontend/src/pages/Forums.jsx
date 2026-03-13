@@ -49,6 +49,8 @@ export default function Forums({ specialCategory = null }) {
   const { data: forumsData = [] } = useQuery({
     queryKey: ['forums', specialCategory],
     queryFn: () => forumApi.getAll(),
+    staleTime: 0,
+    refetchOnMount: true,
   })
 
   const allForums = Array.isArray(forumsData) ? forumsData : forumsData.data || []
@@ -135,6 +137,8 @@ export default function Forums({ specialCategory = null }) {
       return forumApi.getPostsByCategory(category)
     },
     enabled: !postId,
+    staleTime: 0,
+    refetchOnMount: true,
   })
 
   const allPosts = Array.isArray(postsData) ? postsData : postsData.data || []
@@ -150,6 +154,8 @@ export default function Forums({ specialCategory = null }) {
     queryKey: ['post', postId],
     queryFn: () => forumApi.getPost(postId),
     enabled: !!postId,
+    staleTime: 0,
+    refetchOnMount: true,
   })
 
   const selectedPost = selectedPostData?.data

@@ -165,6 +165,7 @@ class PostApiController extends AbstractController
                     !$user->isBlocked($postAuthor->getId()) &&
                     !$user->isBlockedBy($postAuthor->getId())
                 ) {
+                    $forum = $post->getForum();
                     $notif = new Notification();
                     $notif->setType('post_like');
                     $notif->setSender($user);
@@ -172,6 +173,8 @@ class PostApiController extends AbstractController
                     $notif->setStatus('unread');
                     $notif->setData([
                         'postId' => $post->getId(),
+                        'forumCategory' => $forum ? $forum->getTitle() : null,
+                        'forumSpecial' => $forum ? $forum->getSpecial() : null,
                         'message' => sprintf('%s a aimé votre post', $user->getUsername() ?? 'Quelqu\'un')
                     ]);
                     $entityManager->persist($notif);
