@@ -188,6 +188,64 @@ const Library = () => {
     setOpenDropdownId(openDropdownId === id ? null : id);
   };
 
+  // Glossary helpers
+  const [glossaryFilter, setGlossaryFilter] = useState({ authors: null, books: null, articles: null });
+
+  const getFirstLetter = (str) => str ? str.charAt(0).toUpperCase() : '#';
+
+  const getAvailableLetters = (items, keyFn) => {
+    const letters = new Set(items.map((item) => getFirstLetter(keyFn(item))));
+    return ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z']
+      .filter((l) => letters.has(l));
+  };
+
+  const filterByLetter = (items, keyFn, tab) =>
+    glossaryFilter[tab]
+      ? items.filter((item) => getFirstLetter(keyFn(item)) === glossaryFilter[tab])
+      : items;
+
+  const groupByLetter = (items, keyFn) => {
+    return items.reduce((acc, item) => {
+      const letter = getFirstLetter(keyFn(item));
+      if (!acc[letter]) acc[letter] = [];
+      acc[letter].push(item);
+      return acc;
+    }, {});
+  };
+
+  const GlossaryNav = ({ items, keyFn, tab }) => {
+    const available = getAvailableLetters(items, keyFn);
+    const active = glossaryFilter[tab];
+    return (
+      <div className="flex flex-wrap gap-1 mb-4 items-center">
+        <button
+          onClick={() => setGlossaryFilter((f) => ({ ...f, [tab]: null }))}
+          className={`px-2 py-1 rounded text-sm font-semibold transition ${
+            !active ? 'bg-blue-600 text-white' : 'bg-white/70 text-gray-600 hover:bg-blue-100'
+          }`}
+        >
+          Tout
+        </button>
+        {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((letter) => (
+          <button
+            key={letter}
+            disabled={!available.includes(letter)}
+            onClick={() => setGlossaryFilter((f) => ({ ...f, [tab]: letter }))}
+            className={`px-2 py-1 rounded text-sm font-semibold transition ${
+              active === letter
+                ? 'bg-blue-600 text-white'
+                : available.includes(letter)
+                ? 'bg-white/70 text-gray-700 hover:bg-blue-100'
+                : 'text-gray-300 cursor-default'
+            }`}
+          >
+            {letter}
+          </button>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="flex-1 container mx-auto py-6">
       {/* Tab Navigation */}
@@ -240,9 +298,22 @@ const Library = () => {
               </button>
             </div>
           )}
-          
+
+          <div className="w-full">
+            <GlossaryNav items={authors} keyFn={(a) => a.name} tab="authors" />
+          </div>
+
           <div className="flex flex-wrap w-full">
-            {authors.map((author) => (
+            {(() => {
+              const filtered = filterByLetter(authors, (a) => a.name, 'authors');
+              const grouped = groupByLetter(filtered, (a) => a.name);
+              return Object.keys(grouped).sort().map((letter) => (
+                <div key={letter} className="w-full">
+                  <div id={`author-letter-${letter}`} className="w-full px-4 pt-4 pb-1">
+                    <span className="text-2xl font-bold text-blue-700 border-b-2 border-blue-400 pr-2">{letter}</span>
+                  </div>
+                  <div className="flex flex-wrap">
+                    {grouped[letter].map((author) => (
               <div
                 key={author.id}
                 className="bg-white hover:bg-blue-50 rounded-lg overflow-hidden relative w-44 h-72 m-4 p-3"
@@ -302,6 +373,10 @@ const Library = () => {
                 )}
               </div>
             ))}
+                  </div>
+                </div>
+              ));
+            })()}
           </div>
         </div>
       )}
@@ -323,13 +398,15 @@ const Library = () => {
             </div>
           )}
           
+          <GlossaryNav items={articles} keyFn={(a) => a.title} tab="articles" />
+
           <div className="flex flex-row w-full mb-2">
             <h3 className="w-1/2 font-semibold">Titre</h3>
             <h3 className="flex-1 font-semibold">Auteur</h3>
             {user && <h3 className="w-24"></h3>}
           </div>
           
-          {articles.map((article) => (
+          {filterByLetter(articles, (a) => a.title, 'articles').map((article) => (
             <div
               key={article.id}
               className="relative bg-white hover:bg-blue-50 flex flex-row rounded-lg w-full my-1 p-3 items-center"
@@ -398,8 +475,21 @@ const Library = () => {
             </div>
           )}
           
+          <div className="w-full">
+            <GlossaryNav items={books} keyFn={(b) => b.title} tab="books" />
+          </div>
+
           <div className="flex flex-wrap w-full">
-            {books.map((book) => (
+            {(() => {
+              const filtered = filterByLetter(books, (b) => b.title, 'books');
+              const grouped = groupByLetter(filtered, (b) => b.title);
+              return Object.keys(grouped).sort().map((letter) => (
+                <div key={letter} className="w-full">
+                  <div className="w-full px-4 pt-4 pb-1">
+                    <span className="text-2xl font-bold text-blue-700 border-b-2 border-blue-400 pr-2">{letter}</span>
+                  </div>
+                  <div className="flex flex-wrap">
+                    {grouped[letter].map((book) => (
               <div
                 key={book.id}
                 className="bg-white hover:bg-blue-50 rounded-lg overflow-hidden relative w-44 h-72 m-4 p-3"
@@ -450,6 +540,10 @@ const Library = () => {
                 )}
               </div>
             ))}
+                  </div>
+                </div>
+              ));
+            })()}
           </div>
         </div>
       )}
