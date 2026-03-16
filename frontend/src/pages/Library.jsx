@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../store';
+import BarcodeScanner from '../components/BarcodeScanner';
 import {
   getAuthors,
   createAuthor,
@@ -30,6 +31,13 @@ const Library = () => {
   const [editingBook, setEditingBook] = useState(null);
   const [editingArticle, setEditingArticle] = useState(null);
   const [openDropdownId, setOpenDropdownId] = useState(null);
+  const [showScanner, setShowScanner] = useState(false);
+  const [scannedBook, setScannedBook] = useState(null);
+
+  const handleBookFound = ({ title, author, image }) => {
+    setScannedBook({ title, author, imageUrl: image });
+    setShowScanner(false);
+  };
 
   // Authors
   const { data: authors = [] } = useQuery({
@@ -135,10 +143,24 @@ const Library = () => {
     }
   };
 
-  const handleBookSubmit = (e) => {
+  const handleBookSubmit = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
-    
+
+    // If no file selected but we have a Google Books image URL, fetch & append it
+    const imageFile = formData.get('image');
+    const imageUrl = formData.get('imageUrl');
+    if ((!imageFile || imageFile.size === 0) && imageUrl) {
+      try {
+        const blob = await fetch(imageUrl).then((r) => r.blob());
+        const ext = blob.type.includes('png') ? 'png' : 'jpg';
+        formData.set('image', new File([blob], `cover.${ext}`, { type: blob.type }));
+      } catch {
+        // If fetch fails, proceed without image
+      }
+    }
+    formData.delete('imageUrl');
+
     if (editingBook) {
       updateBookMutation.mutate({ id: editingBook.id, formData });
     } else {
@@ -466,6 +488,7 @@ const Library = () => {
               <button
                 onClick={() => {
                   setEditingBook(null);
+                  setScannedBook(null);
                   setShowBookModal(true);
                 }}
                 className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
@@ -638,16 +661,35 @@ const Library = () => {
       {showBookModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">
-              {editingBook ? 'Modifier le livre' : 'Ajouter un livre'}
-            </h2>
-            <form onSubmit={handleBookSubmit}>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">
+                {editingBook ? 'Modifier le livre' : 'Ajouter un livre'}
+              </h2>
+              {!editingBook && (
+                <button
+                  type="button"
+                  onClick={() => setShowScanner(true)}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition"
+                >
+                  📷 Scanner ISBN
+                </button>
+              )}
+            </div>
+
+            {/* key forces form remount with new defaultValues when scan result arrives */}
+            <form
+              key={scannedBook ? `scan-${scannedBook.title}` : `edit-${editingBook?.id}`}
+              onSubmit={handleBookSubmit}
+            >
+              {/* Hidden field carrying Google Books image URL */}
+              <input type="hidden" name="imageUrl" value={scannedBook?.imageUrl || ''} />
+
               <div className="mb-4">
                 <label className="block text-gray-700 mb-2">Titre</label>
                 <input
                   type="text"
                   name="title"
-                  defaultValue={editingBook?.title || ''}
+                  defaultValue={scannedBook?.title || editingBook?.title || ''}
                   className="w-full px-3 py-2 border rounded"
                   required
                 />
@@ -657,7 +699,7 @@ const Library = () => {
                 <input
                   type="text"
                   name="author"
-                  defaultValue={editingBook?.author || ''}
+                  defaultValue={scannedBook?.author || editingBook?.author || ''}
                   className="w-full px-3 py-2 border rounded"
                   required
                 />
@@ -673,13 +715,28 @@ const Library = () => {
                 />
               </div>
               <div className="mb-4">
-                <label className="block text-gray-700 mb-2">Image</label>
+                <label className="block text-gray-700 mb-2">Image de couverture</label>
+                {scannedBook?.imageUrl && (
+                  <div className="mb-2 flex items-center gap-3">
+                    <img
+                      src={scannedBook.imageUrl}
+                      alt="Couverture"
+                      className="w-16 h-20 object-cover rounded border"
+                    />
+                    <span className="text-xs text-green-700">✔ Image récupérée via Google Books</span>
+                  </div>
+                )}
                 <input
                   type="file"
                   name="image"
                   accept="image/*"
                   className="w-full px-3 py-2 border rounded"
                 />
+                {scannedBook?.imageUrl && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    Laissez vide pour utiliser l'image Google Books, ou choisissez une autre image.
+                  </p>
+                )}
               </div>
               <div className="flex justify-end space-x-2">
                 <button
@@ -687,6 +744,7 @@ const Library = () => {
                   onClick={() => {
                     setShowBookModal(false);
                     setEditingBook(null);
+                    setScannedBook(null);
                   }}
                   className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
                 >
@@ -763,6 +821,14 @@ const Library = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Barcode Scanner overlay */}
+      {showScanner && (
+        <BarcodeScanner
+          onBookFound={handleBookFound}
+          onClose={() => setShowScanner(false)}
+        />
       )}
     </div>
   );
