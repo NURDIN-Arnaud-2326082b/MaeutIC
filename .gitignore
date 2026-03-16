@@ -26,6 +26,9 @@ yarn-error.log
 /assets/vendor/
 ###< symfony/asset-mapper ###
 
+# React/Vite production build output
+/public/react/
+
 ###> phpunit/phpunit ###
 /phpunit.xml
 /.phpunit.cache/
