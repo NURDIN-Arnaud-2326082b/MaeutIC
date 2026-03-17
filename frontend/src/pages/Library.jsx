@@ -24,6 +24,7 @@ const Library = () => {
   const queryClient = useQueryClient();
   
   const [activeTab, setActiveTab] = useState('authors');
+  const [searchQuery, setSearchQuery] = useState('');
   const [showAuthorModal, setShowAuthorModal] = useState(false);
   const [showBookModal, setShowBookModal] = useState(false);
   const [showArticleModal, setShowArticleModal] = useState(false);
@@ -226,6 +227,14 @@ const Library = () => {
       ? items.filter((item) => getFirstLetter(keyFn(item)) === glossaryFilter[tab])
       : items;
 
+  const filterBySearch = (items, fields) => {
+    if (!searchQuery.trim()) return items;
+    const q = searchQuery.toLowerCase();
+    return items.filter((item) =>
+      fields.some((f) => item[f] && item[f].toLowerCase().includes(q))
+    );
+  };
+
   const groupByLetter = (items, keyFn) => {
     return items.reduce((acc, item) => {
       const letter = getFirstLetter(keyFn(item));
@@ -273,7 +282,7 @@ const Library = () => {
       {/* Tab Navigation */}
       <div className="flex justify-center space-x-4 mb-6">
         <button
-          onClick={() => setActiveTab('authors')}
+          onClick={() => { setActiveTab('authors'); setSearchQuery(''); }}
           className={`flex-grow px-4 py-2 rounded-lg font-medium focus:outline-none focus:ring-2 ${
             activeTab === 'authors'
               ? 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
@@ -283,7 +292,7 @@ const Library = () => {
           Auteurs
         </button>
         <button
-          onClick={() => setActiveTab('articles')}
+          onClick={() => { setActiveTab('articles'); setSearchQuery(''); }}
           className={`flex-grow px-4 py-2 rounded-lg font-medium focus:outline-none focus:ring-2 ${
             activeTab === 'articles'
               ? 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
@@ -293,7 +302,7 @@ const Library = () => {
           Articles
         </button>
         <button
-          onClick={() => setActiveTab('books')}
+          onClick={() => { setActiveTab('books'); setSearchQuery(''); }}
           className={`flex-grow px-4 py-2 rounded-lg font-medium focus:outline-none focus:ring-2 ${
             activeTab === 'books'
               ? 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
@@ -322,12 +331,20 @@ const Library = () => {
           )}
 
           <div className="w-full">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Rechercher un auteur..."
+              className="w-full px-4 py-2 mb-3 border rounded-lg bg-white/80 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
             <GlossaryNav items={authors} keyFn={(a) => a.name} tab="authors" />
           </div>
 
           <div className="flex flex-wrap w-full">
             {(() => {
-              const filtered = filterByLetter(authors, (a) => a.name, 'authors');
+              const searched = filterBySearch(authors, ['name', 'nationality']);
+              const filtered = filterByLetter(searched, (a) => a.name, 'authors');
               const grouped = groupByLetter(filtered, (a) => a.name);
               return Object.keys(grouped).sort().map((letter) => (
                 <div key={letter} className="w-full">
@@ -420,6 +437,13 @@ const Library = () => {
             </div>
           )}
           
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Rechercher un article ou un auteur..."
+            className="w-full px-4 py-2 mb-3 border rounded-lg bg-white/80 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
           <GlossaryNav items={articles} keyFn={(a) => a.title} tab="articles" />
 
           <div className="flex flex-row w-full mb-2">
@@ -428,7 +452,7 @@ const Library = () => {
             {user && <h3 className="w-24"></h3>}
           </div>
           
-          {filterByLetter(articles, (a) => a.title, 'articles').map((article) => (
+          {filterByLetter(filterBySearch(articles, ['title', 'author']), (a) => a.title, 'articles').map((article) => (
             <div
               key={article.id}
               className="relative bg-white hover:bg-blue-50 flex flex-row rounded-lg w-full my-1 p-3 items-center"
@@ -499,12 +523,20 @@ const Library = () => {
           )}
           
           <div className="w-full">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Rechercher un livre ou un auteur..."
+              className="w-full px-4 py-2 mb-3 border rounded-lg bg-white/80 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
             <GlossaryNav items={books} keyFn={(b) => b.title} tab="books" />
           </div>
 
           <div className="flex flex-wrap w-full">
             {(() => {
-              const filtered = filterByLetter(books, (b) => b.title, 'books');
+              const searched = filterBySearch(books, ['title', 'author']);
+              const filtered = filterByLetter(searched, (b) => b.title, 'books');
               const grouped = groupByLetter(filtered, (b) => b.title);
               return Object.keys(grouped).sort().map((letter) => (
                 <div key={letter} className="w-full">
