@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import { BrowserMultiFormatReader, DecodeHintType, BarcodeFormat } from '@zxing/library';
 
 /**
- * Scans a book barcode (ISBN) using the native BarcodeDetector API (Chrome/Edge),
+ * Scans a book barcode (ISBN) using @zxing/library (cross-browser: Chrome, Firefox, Safari, Edge),
  * then looks up metadata via Google Books API.
  *
  * Props:
@@ -10,15 +11,15 @@ import { useEffect, useRef, useState } from 'react';
  */
 const BarcodeScanner = ({ onBookFound, onClose }) => {
   const videoRef = useRef(null);
-  const streamRef = useRef(null);
-  const animFrameRef = useRef(null);
+  const readerRef = useRef(null);
+  const hasScannedRef = useRef(false); // prevent double-trigger
   const [status, setStatus] = useState('Initialisation de la caméra…');
   const [error, setError] = useState(null);
-  const [scanning, setScanning] = useState(true);
 
   const stopCamera = () => {
-    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
+    if (readerRef.current) {
+      readerRef.current.reset();
+    }
   };
 
   const handleClose = () => {
@@ -26,9 +27,19 @@ const BarcodeScanner = ({ onBookFound, onClose }) => {
     onClose();
   };
 
+  /** Extract a clean ISBN-13 or ISBN-10 from a raw scanned string (barcode or QR URL). */
+  const extractISBN = (raw) => {
+    // Raw ISBN-13 (978/979 prefix, 13 digits)
+    const isbn13Match = raw.match(/(?:^|[^\d])(97[89]\d{10})(?:[^\d]|$)/);
+    if (isbn13Match) return isbn13Match[1];
+    // Raw ISBN-10 (9 digits + digit or X)
+    const isbn10Match = raw.match(/(?:^|[^\d])(\d{9}[\dX])(?:[^\d]|$)/);
+    if (isbn10Match) return isbn10Match[1];
+    return null;
+  };
+
   const fetchBookByISBN = async (isbn) => {
     setStatus(`ISBN détecté : ${isbn} — recherche en cours…`);
-    setScanning(false);
     stopCamera();
     try {
       const res = await fetch(
@@ -50,57 +61,49 @@ const BarcodeScanner = ({ onBookFound, onClose }) => {
   };
 
   useEffect(() => {
-    if (!('BarcodeDetector' in window)) {
-      setError(
-        'Votre navigateur ne supporte pas le scanner de code-barres (BarcodeDetector). ' +
-        'Utilisez Chrome ou Edge sur desktop/Android.'
-      );
-      return;
-    }
+    const hints = new Map();
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+      BarcodeFormat.EAN_13,
+      BarcodeFormat.EAN_8,
+      BarcodeFormat.CODE_128,
+      BarcodeFormat.QR_CODE,
+    ]);
+    hints.set(DecodeHintType.TRY_HARDER, true);
 
-    let detector;
-    try {
-      detector = new window.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'] });
-    } catch {
-      setError('Impossible d\'initialiser le lecteur de code-barres.');
-      return;
-    }
+    const codeReader = new BrowserMultiFormatReader(hints);
+    readerRef.current = codeReader;
 
-    navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: 'environment' } })
-      .then((stream) => {
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play();
-        }
-        setStatus('Pointez la caméra vers le code-barres du livre…');
-
-        const scan = async () => {
-          if (!videoRef.current || videoRef.current.readyState < 2) {
-            animFrameRef.current = requestAnimationFrame(scan);
-            return;
-          }
-          try {
-            const barcodes = await detector.detect(videoRef.current);
-            if (barcodes.length > 0) {
-              const raw = barcodes[0].rawValue;
-              // Keep only EAN-13/ISBN-13 (starts with 978/979) or EAN-10
-              if (/^(978|979)\d{10}$/.test(raw) || /^\d{9}[\dX]$/.test(raw)) {
-                await fetchBookByISBN(raw);
-                return;
-              }
+    codeReader
+      .decodeFromConstraints(
+        { video: { facingMode: 'environment' } },
+        videoRef.current,
+        (result, err) => {
+          if (result && !hasScannedRef.current) {
+            const raw = result.getText();
+            const isbn = extractISBN(raw);
+            if (isbn) {
+              hasScannedRef.current = true;
+              fetchBookByISBN(isbn);
+            } else {
+              // Code detected but not an ISBN — show feedback without stopping
+              setStatus(`Code détecté (non ISBN) : ${raw.slice(0, 40)}…`);
             }
-          } catch {
-            // detection frame error — keep looping
           }
-          animFrameRef.current = requestAnimationFrame(scan);
-        };
-
-        animFrameRef.current = requestAnimationFrame(scan);
+          if (err && err.name !== 'NotFoundException') {
+            // Ignore NotFoundException (no barcode in frame) — it fires every frame
+            console.warn('ZXing error:', err);
+          }
+        }
+      )
+      .then(() => {
+        setStatus('Pointez la caméra vers le code-barres du livre…');
       })
-      .catch(() => {
-        setError('Accès à la caméra refusé. Autorisez la caméra dans les paramètres du navigateur.');
+      .catch((err) => {
+        if (err.name === 'NotAllowedError') {
+          setError('Accès à la caméra refusé. Autorisez la caméra dans les paramètres du navigateur.');
+        } else {
+          setError(`Impossible d'accéder à la caméra : ${err.message}`);
+        }
       });
 
     return () => stopCamera();
