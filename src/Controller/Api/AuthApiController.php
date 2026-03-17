@@ -51,7 +51,7 @@ class AuthApiController extends AbstractController
         }
 
         // Authentifier l'utilisateur (créer une session)
-        $security->login($user, 'form_login', 'main');
+        $security->login($user, 'json_login', 'main');
 
         return $this->json([
             'user' => [
