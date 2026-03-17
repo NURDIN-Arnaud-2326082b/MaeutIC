@@ -34,6 +34,7 @@ class ResourceApiController extends AbstractController
                 'description' => $resource->getDescription(),
                 'link' => $resource->getLink(),
                 'page' => $resource->getPage(),
+                'userId' => $resource->getUser()?->getId(),
             ];
         }, $resources);
 
@@ -56,8 +57,8 @@ class ResourceApiController extends AbstractController
 
         /** @var \App\Entity\User|null $user */
         $user = $this->getUser();
-        if (!$user || $user->getUserType() !== 1) {
-            return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
+        if (!$user) {
+            return $this->json(['error' => 'Authentification requise'], Response::HTTP_UNAUTHORIZED);
         }
 
         $data = json_decode($request->getContent(), true);
@@ -84,6 +85,7 @@ class ResourceApiController extends AbstractController
                 'description' => $resource->getDescription(),
                 'link' => $resource->getLink(),
                 'page' => $resource->getPage(),
+                'userId' => $resource->getUser()?->getId(),
             ]
         ], Response::HTTP_CREATED);
     }
@@ -106,13 +108,17 @@ class ResourceApiController extends AbstractController
 
         /** @var \App\Entity\User|null $user */
         $user = $this->getUser();
-        if (!$user || $user->getUserType() !== 1) {
-            return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
+        if (!$user) {
+            return $this->json(['error' => 'Authentification requise'], Response::HTTP_UNAUTHORIZED);
         }
 
         $resource = $resourceRepository->find($id);
         if (!$resource || $resource->getPage() !== $page) {
             return $this->json(['error' => 'Resource not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        if ($resource->getUser() !== $user && $user->getUserType() !== 1) {
+            return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
         }
 
         $data = json_decode($request->getContent(), true);
@@ -137,6 +143,7 @@ class ResourceApiController extends AbstractController
                 'description' => $resource->getDescription(),
                 'link' => $resource->getLink(),
                 'page' => $resource->getPage(),
+                'userId' => $resource->getUser()?->getId(),
             ]
         ]);
     }
@@ -158,13 +165,17 @@ class ResourceApiController extends AbstractController
 
         /** @var \App\Entity\User|null $user */
         $user = $this->getUser();
-        if (!$user || $user->getUserType() !== 1) {
-            return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
+        if (!$user) {
+            return $this->json(['error' => 'Authentification requise'], Response::HTTP_UNAUTHORIZED);
         }
 
         $resource = $resourceRepository->find($id);
         if (!$resource || $resource->getPage() !== $page) {
             return $this->json(['error' => 'Resource not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        if ($resource->getUser() !== $user && $user->getUserType() !== 1) {
+            return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
         }
 
         $entityManager->remove($resource);
