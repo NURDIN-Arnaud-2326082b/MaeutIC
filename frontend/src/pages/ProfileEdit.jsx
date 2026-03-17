@@ -10,7 +10,7 @@ export default function ProfileEdit() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { user, isAuthenticated } = useAuthStore()
-  
+
   const [formData, setFormData] = useState({
     email: '',
     lastName: '',
@@ -20,7 +20,8 @@ export default function ProfileEdit() {
     specialization: '',
     researchTopic: '',
   })
-  
+
+  const [mandatoryQuestionsAnswers, setMandatoryQuestionsAnswers] = useState(['', '', ''])
   const [userQuestions, setUserQuestions] = useState({})
   const [taggableQuestions, setTaggableQuestions] = useState([[], []])
   const [profileImage, setProfileImage] = useState(null)
@@ -60,6 +61,7 @@ export default function ProfileEdit() {
         specialization: profileData.user.specialization || '',
         researchTopic: profileData.user.researchTopic || '',
       })
+      setMandatoryQuestionsAnswers(profileData.mandatoryQuestionsAnswers || ['', '', ''])
       setUserQuestions(profileData.userQuestionsAnswers || {})
       setTaggableQuestions(profileData.taggableQuestionsAnswers || [[], []])
     }
@@ -71,17 +73,17 @@ export default function ProfileEdit() {
       if (query.length >= 2) {
         return setTimeout(() => {
           fetch(`${BACKEND_URL}/tag/search?q=${encodeURIComponent(query)}`)
-            .then(r => r.json())
-            .then(tags => {
-              const newSuggestions = [...tagSuggestions]
-              newSuggestions[index] = tags.filter(tag => 
-                !taggableQuestions[index].some(t => t.id === tag.id)
-              )
-              setTagSuggestions(newSuggestions)
-              const newShow = [...showSuggestions]
-              newShow[index] = tags.length > 0
-              setShowSuggestions(newShow)
-            })
+              .then(r => r.json())
+              .then(tags => {
+                const newSuggestions = [...tagSuggestions]
+                newSuggestions[index] = tags.filter(tag =>
+                    !taggableQuestions[index].some(t => t.id === tag.id)
+                )
+                setTagSuggestions(newSuggestions)
+                const newShow = [...showSuggestions]
+                newShow[index] = tags.length > 0
+                setShowSuggestions(newShow)
+              })
         }, 200)
       }
       return null
@@ -94,7 +96,7 @@ export default function ProfileEdit() {
   const updateMutation = useMutation({
     mutationFn: async (data) => {
       const formDataToSend = new FormData()
-      
+
       // Add JSON data
       const jsonData = {
         email: formData.email,
@@ -104,11 +106,12 @@ export default function ProfileEdit() {
         affiliationLocation: formData.affiliationLocation,
         specialization: formData.specialization,
         researchTopic: formData.researchTopic,
+        mandatoryQuestions: mandatoryQuestionsAnswers,
         userQuestions: userQuestions,
         taggableQuestions: taggableQuestions.map(tags => tags.map(t => t.id))
       }
       formDataToSend.append('data', JSON.stringify(jsonData))
-      
+
       // Add image if present
       if (profileImage) {
         formDataToSend.append('profileImage', profileImage)
@@ -137,6 +140,12 @@ export default function ProfileEdit() {
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleMandatoryQuestionChange = (index, value) => {
+    const newAnswers = [...mandatoryQuestionsAnswers]
+    newAnswers[index] = value
+    setMandatoryQuestionsAnswers(newAnswers)
   }
 
   const handleQuestionChange = (index, value) => {
@@ -170,11 +179,65 @@ export default function ProfileEdit() {
     setTagSearchQueries(newQueries)
   }
 
+  const renderTaggableQuestion = (index) => {
+    if (!profileData?.taggableQuestions[index]) return null;
+
+    return (
+        <div className="mt-5 group">
+          <label className="block text-sm font-semibold text-gray-700 mb-1">
+            {profileData.taggableQuestions[index]}
+            {index === 0 && <span className="text-red-500">*</span>}
+          </label>
+          <div className="relative w-full">
+            <input
+                type="text"
+                value={tagSearchQueries[index]}
+                onChange={(e) => handleTagSearchChange(index, e.target.value)}
+                onFocus={() => handleTagSearchChange(index, tagSearchQueries[index])}
+                placeholder="Rechercher un mot-clé..."
+                className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+                autoComplete="off"
+            />
+            {showSuggestions[index] && tagSuggestions[index].length > 0 && (
+                <div className="absolute left-0 right-0 bg-white border border-gray-200 rounded shadow z-10 mt-1 max-h-40 overflow-y-auto">
+                  {tagSuggestions[index].map(tag => (
+                      <div
+                          key={tag.id}
+                          onClick={() => addTag(index, tag)}
+                          className="px-4 py-2 hover:bg-blue-100 cursor-pointer"
+                      >
+                        {tag.name}
+                      </div>
+                  ))}
+                </div>
+            )}
+          </div>
+          <div className="selected-tags mt-2 flex flex-wrap gap-2">
+            {taggableQuestions[index]?.map(tag => (
+                <span
+                    key={tag.id}
+                    className="bg-indigo-100 text-indigo-800 text-sm font-medium px-3 py-1 rounded-full flex items-center gap-1"
+                >
+              {tag.name}
+                  <button
+                      type="button"
+                      onClick={() => removeTag(index, tag.id)}
+                      className="text-indigo-600 font-bold hover:text-red-500"
+                  >
+                &times;
+              </button>
+            </span>
+            ))}
+          </div>
+        </div>
+    );
+  }
+
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
+        <div className="flex justify-center items-center min-h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
     )
   }
 
@@ -191,150 +254,134 @@ export default function ProfileEdit() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-xl w-full mx-auto space-y-8">
-        <div>
-          <h1 className="mt-6 text-center text-4xl font-black text-gray-900 tracking-tight">
-            Éditer mon profil
-          </h1>
-        </div>
-
-        {updateMutation.isSuccess && (
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-            Profil mis à jour avec succès !
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-xl w-full mx-auto space-y-8">
+          <div>
+            <h1 className="mt-6 text-center text-4xl font-black text-gray-900 tracking-tight">
+              Éditer mon profil
+            </h1>
           </div>
-        )}
 
-        {updateMutation.isError && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            Erreur lors de la mise à jour du profil
-          </div>
-        )}
+          {updateMutation.isSuccess && (
+              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+                Profil mis à jour avec succès !
+              </div>
+          )}
 
-        <form 
-          onSubmit={handleSubmit}
-          className="space-y-6 bg-white/50 backdrop-blur-sm p-8 rounded-xl shadow-xl border border-white/20"
-        >
-          <div className="space-y-5">
-            {/* Basic fields */}
-            {Object.keys(fieldLabels).map(field => (
-              <div key={field} className="group">
+          {updateMutation.isError && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                Erreur lors de la mise à jour du profil
+              </div>
+          )}
+
+          <form
+              onSubmit={handleSubmit}
+              className="space-y-6 bg-white/50 backdrop-blur-sm p-8 rounded-xl shadow-xl border border-white/20"
+          >
+            <div className="space-y-5">
+              {/* Basic fields */}
+              {Object.keys(fieldLabels).map(field => (
+                  <div key={field} className="group">
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                      {fieldLabels[field]} {['email', 'lastName', 'firstName', 'username'].includes(field) && <span className="text-red-500">*</span>}
+                    </label>
+                    <input
+                        type={field === 'email' ? 'email' : 'text'}
+                        value={formData[field]}
+                        onChange={(e) => handleInputChange(field, e.target.value)}
+                        className="appearance-none block w-full px-4 py-2 border border-gray-200 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ease-in-out hover:border-indigo-300"
+                        required={['email', 'lastName', 'firstName', 'username'].includes(field)}
+                    />
+                  </div>
+              ))}
+
+              {/* Profile image upload */}
+              <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  {fieldLabels[field]}
+                  Photo de profil
                 </label>
                 <input
-                  type={field === 'email' ? 'email' : 'text'}
-                  value={formData[field]}
-                  onChange={(e) => handleInputChange(field, e.target.value)}
-                  className="appearance-none block w-full px-4 py-2 border border-gray-200 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ease-in-out hover:border-indigo-300"
-                  required={field === 'email' || field === 'username'}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setProfileImage(e.target.files[0])}
+                    className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
                 />
               </div>
-            ))}
 
-            {/* Profile image upload */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Photo de profil
-              </label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setProfileImage(e.target.files[0])}
-                className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-              />
+              {/* SECTION OBLIGATOIRE */}
+              <div className="mt-10 pt-6 border-t border-gray-200">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Profil de chercheur</h3>
+                <p className="text-sm text-gray-600 mb-6">
+                  Ces informations sont importantes pour personnaliser votre expérience.
+                </p>
+
+                {/* Questions obligatoires (Extraites) */}
+                {profileData.mandatoryQuestions && profileData.mandatoryQuestions.map((question, index) => (
+                    <div key={`mandatory-${index}`} className="mt-5 group">
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">
+                        {question} <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                          required
+                          value={mandatoryQuestionsAnswers[index] || ''}
+                          onChange={(e) => handleMandatoryQuestionChange(index, e.target.value)}
+                          className="appearance-none block w-full px-4 py-2 border border-gray-200 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ease-in-out hover:border-indigo-300"
+                          rows="3"
+                      />
+                    </div>
+                ))}
+
+                {/* Taggable 1 (Obligatoire) */}
+                {renderTaggableQuestion(0)}
+              </div>
+
+              {/* SECTION OPTIONNELLE */}
+              <div className="mt-10 pt-6 border-t border-gray-200">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Questions additionnelles</h3>
+                <p className="text-sm text-gray-600 mb-6">
+                  Pour aller plus loin, vous pouvez modifier ces questions optionnelles :
+                </p>
+
+                {/* Taggable 2 (Optionnelle) */}
+                {renderTaggableQuestion(1)}
+
+                {/* Dynamic questions (Optionnelles) */}
+                {profileData.dynamicQuestions && profileData.dynamicQuestions.map((question, index) => (
+                    <div key={`dynamic-${index}`} className="mt-5 group">
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">
+                        {question}
+                      </label>
+                      <textarea
+                          value={userQuestions[index] || ''}
+                          onChange={(e) => handleQuestionChange(index, e.target.value)}
+                          className="appearance-none block w-full px-4 py-2 border border-gray-200 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ease-in-out hover:border-indigo-300"
+                          rows="3"
+                      />
+                    </div>
+                ))}
+              </div>
             </div>
 
-            {/* Dynamic questions */}
-            <div className="mt-10">
-              <h3 className="text-xl font-bold text-gray-900 mb-6">Questions additionnelles</h3>
-
-              {profileData.dynamicQuestions.map((question, index) => (
-                <div key={index} className="mt-5 group">
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    {question}
-                  </label>
-                  <textarea
-                    value={userQuestions[index] || ''}
-                    onChange={(e) => handleQuestionChange(index, e.target.value)}
-                    className="appearance-none block w-full px-4 py-2 border border-gray-200 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ease-in-out hover:border-indigo-300"
-                    rows="3"
-                  />
-                </div>
-              ))}
-
-              {/* Taggable questions */}
-              {profileData.taggableQuestions.map((question, index) => (
-                <div key={index} className="mt-5 group">
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    {question}
-                  </label>
-                  <div className="relative w-full">
-                    <input
-                      type="text"
-                      value={tagSearchQueries[index]}
-                      onChange={(e) => handleTagSearchChange(index, e.target.value)}
-                      onFocus={() => handleTagSearchChange(index, tagSearchQueries[index])}
-                      placeholder="Rechercher un mot-clé..."
-                      className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
-                      autoComplete="off"
-                    />
-                    {showSuggestions[index] && tagSuggestions[index].length > 0 && (
-                      <div className="absolute left-0 right-0 bg-white border border-gray-200 rounded shadow z-10 mt-1 max-h-40 overflow-y-auto">
-                        {tagSuggestions[index].map(tag => (
-                          <div
-                            key={tag.id}
-                            onClick={() => addTag(index, tag)}
-                            className="px-4 py-2 hover:bg-blue-100 cursor-pointer"
-                          >
-                            {tag.name}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="selected-tags mt-2 flex flex-wrap gap-2">
-                    {taggableQuestions[index]?.map(tag => (
-                      <span
-                        key={tag.id}
-                        className="bg-indigo-100 text-indigo-800 text-sm font-medium px-3 py-1 rounded-full flex items-center gap-1"
-                      >
-                        {tag.name}
-                        <button
-                          type="button"
-                          onClick={() => removeTag(index, tag.id)}
-                          className="text-indigo-600 font-bold hover:text-red-500"
-                        >
-                          &times;
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
+            <div className="mt-8">
+              <button
+                  type="submit"
+                  disabled={updateMutation.isPending}
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transform transition-all hover:-translate-y-0.5 disabled:opacity-50"
+              >
+                {updateMutation.isPending ? 'Enregistrement...' : 'Sauvegarder les modifications'}
+              </button>
             </div>
-          </div>
+          </form>
 
-          <div className="mt-8">
+          <div className="mt-4 text-center">
             <button
-              type="submit"
-              disabled={updateMutation.isPending}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transform transition-all hover:-translate-y-0.5 disabled:opacity-50"
+                onClick={() => navigate(`/profile/${user?.username}`)}
+                className="text-indigo-600 hover:underline"
             >
-              {updateMutation.isPending ? 'Enregistrement...' : 'Sauvegarder les modifications'}
+              Retour au profil
             </button>
           </div>
-        </form>
-
-        <div className="mt-4 text-center">
-          <button
-            onClick={() => navigate(`/profile/${user?.username}`)}
-            className="text-indigo-600 hover:underline"
-          >
-            Retour au profil
-          </button>
         </div>
       </div>
-    </div>
   )
 }
