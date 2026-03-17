@@ -20,14 +20,14 @@ class AuthApiController extends AbstractController
 {
     #[Route('/login', name: 'api_login', methods: ['POST'])]
     public function login(
-        Request $request, 
+        Request $request,
         UserRepository $userRepository,
         UserPasswordHasherInterface $passwordHasher,
         Security $security
     ): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
-        
+
         if (!isset($data['username']) || !isset($data['password'])) {
             return $this->json([
                 'error' => 'Username and password required'
@@ -36,7 +36,7 @@ class AuthApiController extends AbstractController
 
         // Trouver l'utilisateur par username
         $user = $userRepository->findOneBy(['username' => $data['username']]);
-        
+
         if (!$user) {
             return $this->json([
                 'error' => 'Invalid credentials'
@@ -60,7 +60,7 @@ class AuthApiController extends AbstractController
                 'username' => $user->getUsername(),
                 'firstName' => $user->getFirstName(),
                 'lastName' => $user->getLastName(),
-                'profileImage' => $user->getProfileImage() 
+                'profileImage' => $user->getProfileImage()
                     ? '/profile_images/' . $user->getProfileImage()
                     : null,
                 'userType' => $user->getUserType(),
@@ -80,7 +80,7 @@ class AuthApiController extends AbstractController
     {
         /** @var User|null $user */
         $user = $this->getUser();
-        
+
         if (!$user) {
             return $this->json(['user' => null], Response::HTTP_OK);
         }
@@ -92,7 +92,7 @@ class AuthApiController extends AbstractController
                 'username' => $user->getUsername(),
                 'firstName' => $user->getFirstName(),
                 'lastName' => $user->getLastName(),
-                'profileImage' => $user->getProfileImage() 
+                'profileImage' => $user->getProfileImage()
                     ? '/profile_images/' . $user->getProfileImage()
                     : null,
                 'userType' => $user->getUserType(),
@@ -102,7 +102,7 @@ class AuthApiController extends AbstractController
 
     #[Route('/register', name: 'api_register', methods: ['POST'])]
     public function register(
-        Request $request, 
+        Request $request,
         UserPasswordHasherInterface $passwordHasher,
         UserRepository $userRepository,
         EntityManagerInterface $entityManager
@@ -110,7 +110,7 @@ class AuthApiController extends AbstractController
     {
         // Supporter à la fois JSON et FormData
         $contentType = $request->headers->get('Content-Type', '');
-        
+
         if (str_contains($contentType, 'multipart/form-data')) {
             // FormData
             $data = $request->request->all();
@@ -118,10 +118,10 @@ class AuthApiController extends AbstractController
             // JSON
             $data = json_decode($request->getContent(), true);
         }
-        
+
         // Validation - utiliser 'plainPassword' si c'est du FormData, sinon 'password'
         $passwordField = isset($data['plainPassword']) ? 'plainPassword' : 'password';
-        
+
         if (!isset($data['email']) || !isset($data[$passwordField])) {
             return $this->json([
                 'error' => 'Email and password required',
@@ -143,7 +143,7 @@ class AuthApiController extends AbstractController
         // Create user
         $user = new User();
         $user->setEmail($data['email']);
-        
+
         if (isset($data['username'])) {
             $user->setUsername($data['username']);
         }
@@ -165,17 +165,17 @@ class AuthApiController extends AbstractController
         if (isset($data['researchTopic'])) {
             $user->setResearchTopic($data['researchTopic']);
         }
-        
+
         $hashedPassword = $passwordHasher->hashPassword($user, $data[$passwordField]);
         $user->setPassword($hashedPassword);
-        
+
         // Gérer l'upload de photo de profil
         $profileImageFile = $request->files->get('profileImage');
         if ($profileImageFile) {
             $originalFilename = pathinfo($profileImageFile->getClientOriginalName(), PATHINFO_FILENAME);
             // Créer un nom de fichier sécurisé
             $newFilename = uniqid() . '.' . $profileImageFile->guessExtension();
-            
+
             try {
                 $profileImageFile->move(
                     $this->getParameter('kernel.project_dir') . '/public/profile_images',
@@ -186,15 +186,42 @@ class AuthApiController extends AbstractController
                 error_log('Error uploading profile image: ' . $e->getMessage());
             }
         }
-        
+
         $entityManager->persist($user);
-        
+
+        // NOUVEAU : Gérer les questions obligatoires
+        if (isset($data['mandatoryQuestions'])) {
+            $mandatoryQuestions = is_string($data['mandatoryQuestions'])
+                ? json_decode($data['mandatoryQuestions'], true)
+                : $data['mandatoryQuestions'];
+
+            if (is_array($mandatoryQuestions)) {
+                $mandatoryLabels = [
+                    'Méthodologies',
+                    'Auteurs marquants',
+                    'Citation'
+                ];
+
+                foreach ($mandatoryQuestions as $index => $answerText) {
+                    if (!empty(trim($answerText))) {
+                        $userQuestion = new UserQuestions();
+                        $userQuestion->setUser($user);
+                        // On enregistre un titre clair en BDD pour s'y retrouver
+                        $label = $mandatoryLabels[$index] ?? 'Mandatory Question ' . $index;
+                        $userQuestion->setQuestion($label);
+                        $userQuestion->setAnswer($answerText);
+                        $entityManager->persist($userQuestion);
+                    }
+                }
+            }
+        }
+
         // Gérer les questions dynamiques si présentes
         if (isset($data['userQuestions'])) {
-            $userQuestions = is_string($data['userQuestions']) 
-                ? json_decode($data['userQuestions'], true) 
+            $userQuestions = is_string($data['userQuestions'])
+                ? json_decode($data['userQuestions'], true)
                 : $data['userQuestions'];
-                
+
             if (is_array($userQuestions)) {
                 foreach ($userQuestions as $index => $answerText) {
                     if (!empty(trim($answerText))) {
@@ -207,13 +234,13 @@ class AuthApiController extends AbstractController
                 }
             }
         }
-        
+
         // Gérer les questions taggables si présentes
         if (isset($data['taggableQuestions'])) {
-            $taggableQuestions = is_string($data['taggableQuestions']) 
-                ? json_decode($data['taggableQuestions'], true) 
+            $taggableQuestions = is_string($data['taggableQuestions'])
+                ? json_decode($data['taggableQuestions'], true)
                 : $data['taggableQuestions'];
-                
+
             if (is_array($taggableQuestions)) {
                 foreach ($taggableQuestions as $index => $tags) {
                     if (is_array($tags)) {
@@ -230,7 +257,7 @@ class AuthApiController extends AbstractController
                 }
             }
         }
-        
+
         $entityManager->flush();
 
         return $this->json([

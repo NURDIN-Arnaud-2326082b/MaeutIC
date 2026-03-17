@@ -32,21 +32,31 @@ class ProfileApiController extends AbstractController
             return $this->json(['error' => 'Non authentifié'], 401);
         }
 
-        // Questions dynamiques
+        // Questions obligatoires (Extraites)
+        $mandatoryQuestions = [
+            'Quelles sont les méthodologies de recherche que vous utilisez dans votre domaine d\'étude ?',
+            'Si vous deviez choisir 4 auteurs qui vous ont marquée, quels seraient-ils ?',
+            'Quelle est la phrase ou la citation qui vous représente le mieux ?',
+        ];
+
+        $mandatoryLabels = [
+            'Méthodologies',
+            'Auteurs marquants',
+            'Citation'
+        ];
+
+        // Questions dynamiques restantes
         $dynamicQuestions = [
             'Pourquoi cette thématique de recherche vous intéresse-t-elle ?',
             'Pourquoi avez-vous souhaité être chercheur ?',
             'Qu\'aimez-vous dans la recherche ?',
             'Quels sont les problèmes de recherche auxquels vous vous intéressez ?',
-            'Quelles sont les méthodologies de recherche que vous utilisez dans votre domaine d\'étude ?',
             'Qu\'est-ce qui, d\'après vous, vous a amené(e) à faire de la recherche ?',
             'Comment vous définiriez-vous en tant que chercheur ?',
             'Pensez-vous que ce choix ait un lien avec un évènement de votre biographie ?',
             'Pouvez-vous nous raconter ce qui a motivé le choix de vos thématiques de recherche ?',
             'Comment vos expériences personnelles ont-elles influencé votre choix de carrière et vos recherches en sciences humaines et sociales ?',
             'En quelques mots, en tant que chercheur(se) qu\'est-ce qui vous anime ?',
-            'Si vous deviez choisir 4 auteurs qui vous ont marquée, quels seraient-ils ?',
-            'Quelle est la phrase ou la citation qui vous représente le mieux ?',
         ];
 
         // Questions taggables
@@ -57,26 +67,34 @@ class ProfileApiController extends AbstractController
 
         // Récupérer les réponses existantes
         $userQuestions = $userQuestionsRepository->findAllByUser($user->getId());
+
         $userQuestionsData = [];
+        $mandatoryQuestionsData = ['', '', ''];
         $taggableQuestionsData = [[], []];
 
         foreach ($userQuestions as $uq) {
-            if (str_starts_with($uq->getQuestion(), 'Taggable')) {
-                $index = (int)filter_var($uq->getQuestion(), FILTER_SANITIZE_NUMBER_INT);
-                $tag = $tagRepository->findOneBy(['name' => $uq->getAnswer()]);
-                if ($tag) {
-                    $taggableQuestionsData[$index][] = [
-                        'id' => $tag->getId(),
-                        'name' => $tag->getName()
-                    ];
-                }
-            } else {
-                $index = (int)filter_var($uq->getQuestion(), FILTER_SANITIZE_NUMBER_INT);
+            $questionTitle = $uq->getQuestion();
+
+            if (in_array($questionTitle, $mandatoryLabels)) {
+                $index = array_search($questionTitle, $mandatoryLabels);
+                $mandatoryQuestionsData[$index] = $uq->getAnswer();
+            } elseif (str_starts_with($questionTitle, 'Taggable')) {
+                $index = (int)filter_var($questionTitle, FILTER_SANITIZE_NUMBER_INT);
+                $answer = $uq->getAnswer();
+                $tag = $tagRepository->findOneBy(['name' => $answer]);
+
+                // CORRECTION : Si le tag n'est pas dans la base de données, on l'affiche quand même (tag personnalisé)
+                $taggableQuestionsData[$index][] = [
+                    'id' => $tag ? $tag->getId() : $answer, // On utilise le texte comme ID temporaire
+                    'name' => $answer
+                ];
+            } elseif (str_starts_with($questionTitle, 'Question')) {
+                $index = (int)filter_var($questionTitle, FILTER_SANITIZE_NUMBER_INT);
                 $userQuestionsData[$index] = $uq->getAnswer();
             }
         }
 
-        // S'assurer que toutes les questions sont présentes
+        // S'assurer que toutes les questions dynamiques sont présentes pour le formulaire
         foreach ($dynamicQuestions as $i => $q) {
             if (!array_key_exists($i, $userQuestionsData)) {
                 $userQuestionsData[$i] = '';
@@ -94,8 +112,10 @@ class ProfileApiController extends AbstractController
                 'researchTopic' => $user->getResearchTopic(),
                 'profileImage' => $user->getProfileImage(),
             ],
+            'mandatoryQuestions' => $mandatoryQuestions,
             'dynamicQuestions' => $dynamicQuestions,
             'taggableQuestions' => $taggableQuestions,
+            'mandatoryQuestionsAnswers' => $mandatoryQuestionsData,
             'userQuestionsAnswers' => $userQuestionsData,
             'taggableQuestionsAnswers' => $taggableQuestionsData,
         ]);
@@ -138,7 +158,7 @@ class ProfileApiController extends AbstractController
 
         // Mettre à jour les infos de base
         $data = json_decode($request->request->get('data'), true);
-        
+
         if (isset($data['email'])) $user->setEmail($data['email']);
         if (isset($data['lastName'])) $user->setLastName($data['lastName']);
         if (isset($data['firstName'])) $user->setFirstName($data['firstName']);
@@ -156,10 +176,28 @@ class ProfileApiController extends AbstractController
         }
         $entityManager->flush();
 
+        // Ajouter les nouvelles réponses obligatoires
+        if (isset($data['mandatoryQuestions'])) {
+            $mandatoryLabels = [
+                'Méthodologies',
+                'Auteurs marquants',
+                'Citation'
+            ];
+            foreach ($data['mandatoryQuestions'] as $index => $answer) {
+                if (!empty(trim($answer))) {
+                    $uq = new UserQuestions();
+                    $uq->setUser($user);
+                    $uq->setQuestion($mandatoryLabels[$index] ?? 'Mandatory Question ' . $index);
+                    $uq->setAnswer($answer);
+                    $entityManager->persist($uq);
+                }
+            }
+        }
+
         // Ajouter les nouvelles réponses classiques
         if (isset($data['userQuestions'])) {
             foreach ($data['userQuestions'] as $index => $answer) {
-                if (!empty($answer)) {
+                if (!empty(trim($answer))) {
                     $uq = new UserQuestions();
                     $uq->setUser($user);
                     $uq->setQuestion('Question ' . $index);
@@ -174,15 +212,26 @@ class ProfileApiController extends AbstractController
             foreach ($data['taggableQuestions'] as $index => $tagIds) {
                 if (is_array($tagIds)) {
                     $already = [];
-                    foreach ($tagIds as $tagId) {
-                        $tag = $tagRepository->find($tagId);
-                        if ($tag && !in_array($tag->getName(), $already, true)) {
+                    foreach ($tagIds as $tagIdentifier) {
+                        $tagName = null;
+
+                        // CORRECTION : Différencier les vrais IDs des tags personnalisés
+                        if (is_numeric($tagIdentifier)) {
+                            $tag = $tagRepository->find($tagIdentifier);
+                            if ($tag) {
+                                $tagName = $tag->getName();
+                            }
+                        } else {
+                            $tagName = $tagIdentifier; // C'est un tag personnalisé (string)
+                        }
+
+                        if ($tagName && !in_array($tagName, $already, true)) {
                             $uq = new UserQuestions();
                             $uq->setUser($user);
                             $uq->setQuestion('Taggable Question ' . $index);
-                            $uq->setAnswer($tag->getName());
+                            $uq->setAnswer($tagName);
                             $entityManager->persist($uq);
-                            $already[] = $tag->getName();
+                            $already[] = $tagName;
                         }
                     }
                 }
