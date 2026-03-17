@@ -6,6 +6,7 @@ import { useAuthStore } from '../store'
 import { checkSensitiveContent } from '../utils/sensitiveContentDetector'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
+const BACKEND_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '')
 
 const getRandomAnonymousId = () => {
   const letters = 'abcdefghijklmnopqrstuvwxyz'
@@ -35,6 +36,8 @@ export default function Forums({ specialCategory = null }) {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [newPostTitle, setNewPostTitle] = useState('')
   const [newPostDescription, setNewPostDescription] = useState('')
+  const [newPostImage, setNewPostImage] = useState(null)
+  const [newPostImagePreview, setNewPostImagePreview] = useState('')
   const [selectedForumId, setSelectedForumId] = useState(null)
   const [preventionAlerts, setPreventionAlerts] = useState([])
   
@@ -44,6 +47,9 @@ export default function Forums({ specialCategory = null }) {
   const [editPostTitle, setEditPostTitle] = useState('')
   const [editPostDescription, setEditPostDescription] = useState('')
   const [editPostForumId, setEditPostForumId] = useState(null)
+  const [editPostImage, setEditPostImage] = useState(null)
+  const [editPostImagePreview, setEditPostImagePreview] = useState('')
+  const [removeEditPostImage, setRemoveEditPostImage] = useState(false)
 
   // Fetch forums for sidebar
   const { data: forumsData = [] } = useQuery({
@@ -219,10 +225,31 @@ export default function Forums({ specialCategory = null }) {
   })
 
   const createPostMutation = useMutation({
-    mutationFn: (data) => forumApi.createPost(data),
+    mutationFn: async (data) => {
+      if (data instanceof FormData) {
+        const response = await fetch(`${API_BASE_URL}/forums/post`, {
+          method: 'POST',
+          credentials: 'include',
+          body: data,
+        })
+
+        const payload = await response.json()
+        if (!response.ok) {
+          throw new Error(payload?.error || 'Erreur lors de la publication')
+        }
+
+        return payload
+      }
+
+      const response = await forumApi.createPost(data)
+      return response.data
+    },
     onSuccess: () => {
       queryClient.invalidateQueries(['posts'])
       closeCreateModal()
+    },
+    onError: (error) => {
+      alert(error?.message || 'Impossible de publier le post')
     },
   })
   
@@ -230,9 +257,9 @@ export default function Forums({ specialCategory = null }) {
     mutationFn: ({ id, data }) => 
       fetch(`${API_BASE_URL}/posts/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: data instanceof FormData ? undefined : { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(data)
+        body: data instanceof FormData ? data : JSON.stringify(data)
       }).then(r => r.json()),
     onSuccess: () => {
       queryClient.invalidateQueries(['posts'])
@@ -269,6 +296,8 @@ export default function Forums({ specialCategory = null }) {
     setShowCreateModal(false)
     setNewPostTitle('')
     setNewPostDescription('')
+    setNewPostImage(null)
+    setNewPostImagePreview('')
     setSelectedForumId(null)
     setPreventionAlerts([])
   }
@@ -278,20 +307,46 @@ export default function Forums({ specialCategory = null }) {
     setEditPostTitle(post.name)
     setEditPostDescription(post.description)
     setEditPostForumId(post.forum?.id)
+    setEditPostImage(null)
+    setRemoveEditPostImage(false)
+    setEditPostImagePreview(post.imageUrl ? resolvePostImageUrl(post.imageUrl) : '')
     setShowEditModal(true)
   }
   
   const closeEditModal = () => {
+    if (editPostImagePreview && editPostImage) {
+      URL.revokeObjectURL(editPostImagePreview)
+    }
     setShowEditModal(false)
     setEditingPost(null)
     setEditPostTitle('')
     setEditPostDescription('')
     setEditPostForumId(null)
+    setEditPostImage(null)
+    setEditPostImagePreview('')
+    setRemoveEditPostImage(false)
   }
   
   const handleEditPost = (e) => {
     e.preventDefault()
     if (!editingPost) return
+
+    if (editPostImage || removeEditPostImage) {
+      const formData = new FormData()
+      formData.append('name', editPostTitle)
+      formData.append('description', editPostDescription)
+      formData.append('forumId', String(editPostForumId))
+      formData.append('removeImage', String(removeEditPostImage))
+      if (editPostImage) {
+        formData.append('image', editPostImage)
+      }
+
+      updatePostMutation.mutate({
+        id: editingPost.id,
+        data: formData
+      })
+      return
+    }
     
     updatePostMutation.mutate({
       id: editingPost.id,
@@ -307,6 +362,41 @@ export default function Forums({ specialCategory = null }) {
     if (confirm('Êtes-vous sûr de vouloir supprimer ce post ?')) {
       deletePostMutation.mutate(postId)
     }
+  }
+
+  const handleEditImageSelection = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) {
+      return
+    }
+
+    if (!file.type.startsWith('image/')) {
+      alert('Veuillez sélectionner une image valide.')
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image trop volumineuse (max 5 MB).')
+      return
+    }
+
+    if (editPostImagePreview && editPostImage) {
+      URL.revokeObjectURL(editPostImagePreview)
+    }
+
+    setEditPostImage(file)
+    setRemoveEditPostImage(false)
+    setEditPostImagePreview(URL.createObjectURL(file))
+  }
+
+  const handleRemoveEditImage = () => {
+    if (editPostImagePreview && editPostImage) {
+      URL.revokeObjectURL(editPostImagePreview)
+    }
+
+    setEditPostImage(null)
+    setEditPostImagePreview('')
+    setRemoveEditPostImage(true)
   }
 
   // Détecter le contenu sensible lors de la saisie
@@ -341,12 +431,63 @@ export default function Forums({ specialCategory = null }) {
   const handleCreatePost = (e) => {
     e.preventDefault()
     const forumId = selectedForumId || currentForum?.id || forums[0]?.id
+
+    if (newPostImage) {
+      const formData = new FormData()
+      formData.append('name', newPostTitle)
+      formData.append('description', newPostDescription)
+      formData.append('forumId', String(forumId))
+      formData.append('image', newPostImage)
+      createPostMutation.mutate(formData)
+      return
+    }
+
     createPostMutation.mutate({
       name: newPostTitle,
       description: newPostDescription,
       forumId
     })
   }
+
+  const handleImageSelection = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) {
+      return
+    }
+
+    if (!file.type.startsWith('image/')) {
+      alert('Veuillez sélectionner une image valide.')
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image trop volumineuse (max 5 MB).')
+      return
+    }
+
+    if (newPostImagePreview) {
+      URL.revokeObjectURL(newPostImagePreview)
+    }
+
+    setNewPostImage(file)
+    setNewPostImagePreview(URL.createObjectURL(file))
+  }
+
+  const clearPostImage = () => {
+    if (newPostImagePreview) {
+      URL.revokeObjectURL(newPostImagePreview)
+    }
+    setNewPostImage(null)
+    setNewPostImagePreview('')
+  }
+
+  useEffect(() => {
+    return () => {
+      if (newPostImagePreview) {
+        URL.revokeObjectURL(newPostImagePreview)
+      }
+    }
+  }, [newPostImagePreview])
 
   const getAuthorName = (item, forumOverride = null) => {
     // Obtenir le forum depuis l'item (post/reply) ou depuis le paramètre (pour les commentaires)
@@ -358,6 +499,16 @@ export default function Forums({ specialCategory = null }) {
     }
     // Sinon afficher le vrai nom (ou "Ancien utilisateur" si pas d'auteur)
     return item.user ? `${item.user.firstName} ${item.user.lastName}` : 'Ancien utilisateur'
+  }
+
+  const resolvePostImageUrl = (imageUrl) => {
+    if (!imageUrl) return null
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      return imageUrl
+    }
+
+    const normalizedPath = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`
+    return `${BACKEND_BASE_URL}${normalizedPath}`
   }
 
   return (
@@ -435,6 +586,13 @@ export default function Forums({ specialCategory = null }) {
               </p>
               <div className="mt-5">
                 <p className="text-gray-700">{selectedPost.description}</p>
+                {selectedPost.imageUrl && (
+                  <img
+                    src={resolvePostImageUrl(selectedPost.imageUrl)}
+                    alt="Visuel du post"
+                    className="mt-4 rounded-xl w-full max-h-[420px] object-cover border border-gray-200"
+                  />
+                )}
               </div>
 
               {/* Actions */}
@@ -673,6 +831,13 @@ export default function Forums({ specialCategory = null }) {
                       <h3 className="text-lg font-semibold text-gray-900 mb-2 hover:text-blue-600">{post.name}</h3>
                     </Link>
                     <p className="text-gray-600 mb-2 line-clamp-2">{post.description}</p>
+                    {post.imageUrl && (
+                      <img
+                        src={resolvePostImageUrl(post.imageUrl)}
+                        alt="Visuel du post"
+                        className="mb-3 rounded-lg w-full max-h-64 object-cover border border-gray-200"
+                      />
+                    )}
                     <div className="flex items-center justify-between text-sm text-gray-500">
                       <div className="flex items-center">
                         <span>Par {getAuthorName(post)}</span>
@@ -821,6 +986,36 @@ export default function Forums({ specialCategory = null }) {
                 </select>
               </div>
 
+              <div>
+                <label className="block text-sm font-medium mb-1">Image (optionnelle)</label>
+                <div className="rounded-xl border-2 border-dashed border-blue-200 bg-blue-50/40 p-4">
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    onChange={handleImageSelection}
+                    className="block w-full text-sm text-gray-700 file:mr-4 file:rounded-full file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-blue-700"
+                  />
+                  <p className="mt-2 text-xs text-gray-500">Format style réseau social, max 5 MB.</p>
+
+                  {newPostImagePreview && (
+                    <div className="mt-3">
+                      <img
+                        src={newPostImagePreview}
+                        alt="Aperçu"
+                        className="w-full max-h-64 object-cover rounded-lg border border-gray-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={clearPostImage}
+                        className="mt-2 text-sm text-red-600 hover:text-red-700"
+                      >
+                        Retirer l'image
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="flex gap-2">
                 <button
                   type="submit"
@@ -886,6 +1081,38 @@ export default function Forums({ specialCategory = null }) {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Image du post</label>
+                <div className="rounded-xl border-2 border-dashed border-blue-200 bg-blue-50/40 p-4">
+                  {editPostImagePreview ? (
+                    <img
+                      src={editPostImagePreview}
+                      alt="Visuel du post"
+                      className="w-full max-h-64 object-cover rounded-lg border border-gray-200 mb-3"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-500 mb-3">Aucune image</p>
+                  )}
+
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    onChange={handleEditImageSelection}
+                    className="block w-full text-sm text-gray-700 file:mr-4 file:rounded-full file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-blue-700"
+                  />
+
+                  {editPostImagePreview && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveEditImage}
+                      className="mt-2 text-sm text-red-600 hover:text-red-700"
+                    >
+                      Retirer l'image
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="flex gap-2">

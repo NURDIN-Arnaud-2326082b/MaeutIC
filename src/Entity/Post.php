@@ -68,6 +68,9 @@ class Post
     #[ORM\Column(type: Types::BOOLEAN, options: ['default' => false])]
     private bool $isReply = false;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $imagePath = null;
+
     public function __construct()
     {
         $this->subscribedUsers = new ArrayCollection();
@@ -291,6 +294,18 @@ class Post
     public function setIsReply(bool $isReply): static
     {
         $this->isReply = $isReply;
+
+        return $this;
+    }
+
+    public function getImagePath(): ?string
+    {
+        return $this->imagePath;
+    }
+
+    public function setImagePath(?string $imagePath): static
+    {
+        $this->imagePath = $imagePath;
 
         return $this;
     }

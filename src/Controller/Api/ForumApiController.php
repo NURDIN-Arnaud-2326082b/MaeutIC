@@ -13,11 +13,14 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Routing\Annotation\Route;
 
 #[Route('/api/forums')]
 class ForumApiController extends AbstractController
 {
+    private const POST_IMAGE_BASE_PATH = '/post_images/';
+
     public function __construct(
         private EntityManagerInterface $entityManager,
         private ForumRepository $forumRepository,
@@ -49,7 +52,6 @@ class ForumApiController extends AbstractController
     {
         /** @var User|null $currentUser */
         $currentUser = $this->getUser();
-        $isAdmin = $currentUser !== null && $currentUser->getUserType() === 1;
 
         if ($category === 'General') {
             $posts = $this->postRepository->findAll();
@@ -75,7 +77,7 @@ class ForumApiController extends AbstractController
             }
         }
 
-        $data = array_map(function(Post $post) use ($isAdmin, $currentUser) {
+        $data = array_map(function(Post $post) use ($currentUser) {
             $forum = $post->getForum();
             $user = $post->getUser();
             
@@ -90,6 +92,7 @@ class ForumApiController extends AbstractController
                 'id' => $post->getId(),
                 'name' => $post->getName(),
                 'description' => $post->getDescription(),
+                'imageUrl' => $this->getPostImageUrl($post),
                 'creationDate' => $post->getCreationDate()->format('c'),
                 'forum' => [
                     'id' => $forum->getId(),
@@ -145,6 +148,7 @@ class ForumApiController extends AbstractController
             'id' => $post->getId(),
             'name' => $post->getName(),
             'description' => $post->getDescription(),
+            'imageUrl' => $this->getPostImageUrl($post),
             'creationDate' => $post->getCreationDate()->format('c'),
             'user' => $user ? [
                 'id' => $user->getId(),
@@ -171,17 +175,37 @@ class ForumApiController extends AbstractController
     public function createPost(Request $request): JsonResponse
     {
         $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+
+        $data = $request->request->all();
+        if (empty($data)) {
+            $data = json_decode($request->getContent(), true) ?? [];
+        }
+
+        $name = trim((string)($data['name'] ?? ''));
+        $description = trim((string)($data['description'] ?? ''));
+        $forumId = (int)($data['forumId'] ?? 0);
+
+        $forum = $forumId > 0 ? $this->forumRepository->find($forumId) : null;
         
-        $data = json_decode($request->getContent(), true);
-        
-        $forum = $this->forumRepository->find($data['forumId']);
-        if (!$forum) {
-            return $this->json(['error' => 'Forum not found'], 404);
+        if ($name === '' || $description === '' || !$forum) {
+            return $this->json(['error' => 'Invalid post payload'], 400);
+        }
+
+        /** @var UploadedFile|null $imageFile */
+        $imageFile = $request->files->get('image');
+        $imageFilename = null;
+        if ($imageFile) {
+            $uploadResult = $this->uploadPostImage($imageFile);
+            if ($uploadResult['error']) {
+                return $this->json(['error' => $uploadResult['error']], 400);
+            }
+            $imageFilename = $uploadResult['filename'];
         }
 
         $post = new Post();
-        $post->setName($data['name']);
-        $post->setDescription($data['description']);
+        $post->setName($name);
+        $post->setDescription($description);
+        $post->setImagePath($imageFilename);
         $post->setForum($forum);
         $post->setUser($this->getUser());
         $post->setCreationDate(new \DateTime());
@@ -199,7 +223,11 @@ class ForumApiController extends AbstractController
         $this->entityManager->persist($post);
         $this->entityManager->flush();
 
-        return $this->json(['success' => true, 'id' => $post->getId()], 201);
+        return $this->json([
+            'success' => true,
+            'id' => $post->getId(),
+            'imageUrl' => $this->getPostImageUrl($post),
+        ], 201);
     }
 
     #[Route('/post/{id}', name: 'api_forum_post_update', methods: ['PUT'])]
@@ -250,6 +278,10 @@ class ForumApiController extends AbstractController
         $user = $this->getUser();
         if ($post->getUser() !== $user && $user->getUserType() !== 1) {
             return $this->json(['error' => 'Unauthorized'], 403);
+        }
+
+        if ($post->getImagePath()) {
+            $this->deletePostImageFile($post->getImagePath());
         }
 
         $this->entityManager->remove($post);
@@ -328,5 +360,48 @@ class ForumApiController extends AbstractController
             $numbers .= rand(0, 9);
         }
         return $letters . '.' . $numbers;
+    }
+
+    private function getPostImageUrl(Post $post): ?string
+    {
+        if (!$post->getImagePath()) {
+            return null;
+        }
+
+        return self::POST_IMAGE_BASE_PATH . $post->getImagePath();
+    }
+
+    /**
+     * @return array{filename: ?string, error: ?string}
+     */
+    private function uploadPostImage(UploadedFile $imageFile): array
+    {
+        $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!in_array($imageFile->getMimeType(), $allowedMimeTypes, true)) {
+            return ['filename' => null, 'error' => 'Image format not supported'];
+        }
+
+        if ($imageFile->getSize() > 5 * 1024 * 1024) {
+            return ['filename' => null, 'error' => 'Image too large (max 5MB)'];
+        }
+
+        $uploadDir = $this->getParameter('kernel.project_dir') . '/public/post_images';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0775, true);
+        }
+
+        $extension = $imageFile->guessExtension() ?: 'jpg';
+        $imageFilename = uniqid('post_', true) . '.' . $extension;
+        $imageFile->move($uploadDir, $imageFilename);
+
+        return ['filename' => $imageFilename, 'error' => null];
+    }
+
+    private function deletePostImageFile(string $filename): void
+    {
+        $path = $this->getParameter('kernel.project_dir') . '/public/post_images/' . $filename;
+        if (is_file($path)) {
+            @unlink($path);
+        }
     }
 }

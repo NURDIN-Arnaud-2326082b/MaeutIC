@@ -12,6 +12,7 @@ use App\Repository\PostLikeRepository;
 use App\Repository\PostRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
@@ -38,6 +39,7 @@ class PostApiController extends AbstractController
             'id' => $post->getId(),
             'name' => $post->getName(),
             'description' => $post->getDescription(),
+            'imageUrl' => $post->getImagePath() ? '/post_images/' . $post->getImagePath() : null,
             'forumId' => $post->getForum()->getId(),
             'forumTitle' => $post->getForum()->getTitle(),
         ]);
@@ -67,7 +69,10 @@ class PostApiController extends AbstractController
             return $this->json(['error' => 'Vous ne pouvez modifier que vos propres posts'], 403);
         }
 
-        $data = json_decode($request->getContent(), true);
+        $data = $request->request->all();
+        if (empty($data)) {
+            $data = json_decode($request->getContent(), true) ?? [];
+        }
 
         if (isset($data['name'])) {
             $post->setName($data['name']);
@@ -84,6 +89,27 @@ class PostApiController extends AbstractController
             }
         }
 
+        $removeImage = filter_var($data['removeImage'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if ($removeImage && $post->getImagePath()) {
+            $this->deletePostImageFile($post->getImagePath());
+            $post->setImagePath(null);
+        }
+
+        /** @var UploadedFile|null $imageFile */
+        $imageFile = $request->files->get('image');
+        if ($imageFile) {
+            $uploadResult = $this->uploadPostImage($imageFile);
+            if ($uploadResult['error']) {
+                return $this->json(['error' => $uploadResult['error']], 400);
+            }
+
+            if ($post->getImagePath()) {
+                $this->deletePostImageFile($post->getImagePath());
+            }
+
+            $post->setImagePath($uploadResult['filename']);
+        }
+
         $entityManager->flush();
 
         return $this->json([
@@ -93,6 +119,7 @@ class PostApiController extends AbstractController
                 'id' => $post->getId(),
                 'name' => $post->getName(),
                 'description' => $post->getDescription(),
+                'imageUrl' => $post->getImagePath() ? '/post_images/' . $post->getImagePath() : null,
                 'forumId' => $post->getForum()->getId(),
             ]
         ]);
@@ -118,6 +145,10 @@ class PostApiController extends AbstractController
         // Admins (userType === 1) peuvent supprimer n'importe quel post
         if ($user->getUserType() !== 1 && $post->getUser() !== $user) {
             return $this->json(['error' => 'Vous ne pouvez supprimer que vos propres posts'], 403);
+        }
+
+        if ($post->getImagePath()) {
+            $this->deletePostImageFile($post->getImagePath());
         }
 
         $entityManager->remove($post);
@@ -215,5 +246,39 @@ class PostApiController extends AbstractController
             'liked' => $liked,
             'count' => $postLikeRepository->countByPost($post)
         ]);
+    }
+
+    /**
+     * @return array{filename: ?string, error: ?string}
+     */
+    private function uploadPostImage(UploadedFile $imageFile): array
+    {
+        $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!in_array($imageFile->getMimeType(), $allowedMimeTypes, true)) {
+            return ['filename' => null, 'error' => 'Image format not supported'];
+        }
+
+        if ($imageFile->getSize() > 5 * 1024 * 1024) {
+            return ['filename' => null, 'error' => 'Image too large (max 5MB)'];
+        }
+
+        $uploadDir = $this->getParameter('kernel.project_dir') . '/public/post_images';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0775, true);
+        }
+
+        $extension = $imageFile->guessExtension() ?: 'jpg';
+        $imageFilename = uniqid('post_', true) . '.' . $extension;
+        $imageFile->move($uploadDir, $imageFilename);
+
+        return ['filename' => $imageFilename, 'error' => null];
+    }
+
+    private function deletePostImageFile(string $filename): void
+    {
+        $path = $this->getParameter('kernel.project_dir') . '/public/post_images/' . $filename;
+        if (is_file($path)) {
+            @unlink($path);
+        }
     }
 }
