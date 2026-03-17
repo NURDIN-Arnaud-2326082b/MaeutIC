@@ -20,12 +20,14 @@ final class ApiLoginController extends AbstractController
      *
      * @return JsonResponse Message de bienvenue
      */
-    #[Route('/api/login', name: 'app_api_login')]
+    #[Route('/api/login', name: 'app_api_login', methods: ['POST'])]
     public function index(): JsonResponse
     {
+        $user = $this->getUser();
+
         return $this->json([
-            'message' => 'Welcome to your new controller!',
-            'path' => 'src/Controller/ApiLoginController.php',
+            'username' => $user->getUserIdentifier(),
+            'roles' => $user->getRoles(),
         ]);
     }
 }
