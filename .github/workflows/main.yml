@@ -24,6 +24,7 @@ jobs:
       - name: Installer les dépendances et builder le frontend React
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
         run: |
           cd frontend
           npm ci
@@ -119,7 +120,7 @@ jobs:
             cat public/react/.vite/manifest.json
             
             # Installation des dépendances
-            /usr/bin/php8.3-cli ~/composer.phar install --no-dev --optimize-autoloader --no-interaction
+            /usr/bin/php8.4-cli ~/composer.phar install --no-dev --optimize-autoloader --no-interaction
             
             # Migrations
             php bin/console doctrine:migrations:migrate --no-interaction --env=prod
