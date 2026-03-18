@@ -18,6 +18,7 @@ import {
 } from '../services/libraryApi';
 
 const BACKEND_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8000';
+const ENABLE_ISBN_SCANNER = false;
 
 const Library = () => {
   const { user } = useAuthStore();
@@ -795,7 +796,7 @@ const Library = () => {
               <h2 className="text-xl font-bold">
                 {editingBook ? 'Modifier le livre' : 'Ajouter un livre'}
               </h2>
-              {!editingBook && (
+              {!editingBook && ENABLE_ISBN_SCANNER && (
                 <button
                   type="button"
                   onClick={() => setShowScanner(true)}
