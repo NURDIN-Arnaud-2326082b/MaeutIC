@@ -12,6 +12,7 @@ use App\Repository\BookRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\Exception\FileException;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -21,6 +22,9 @@ use Symfony\Component\String\Slugger\SluggerInterface;
 #[Route('/api/library')]
 class LibraryApiController extends AbstractController
 {
+    private const ARTICLE_IMAGE_BASE_PATH = '/article_images/';
+    private const ARTICLE_PDF_BASE_PATH = '/article_pdfs/';
+
     // ==================== AUTHORS ====================
 
     /**
@@ -399,11 +403,17 @@ class LibraryApiController extends AbstractController
         $articles = $articleRepository->findBy([], ['title' => 'ASC']);
         
         $articlesData = array_map(function(Article $article) {
+            $isExternal = $this->isExternalUrl($article->getLink());
+
             return [
                 'id' => $article->getId(),
                 'title' => $article->getTitle(),
                 'author' => $article->getAuthor(),
                 'link' => $article->getLink(),
+                'isExternal' => $isExternal,
+                'content' => $article->getContent(),
+                'imageUrl' => $this->getArticleImageUrl($article),
+                'pdfUrl' => $this->getArticlePdfUrl($article),
                 'userId' => $article->getUser()?->getId(),
             ];
         }, $articles);
@@ -424,13 +434,35 @@ class LibraryApiController extends AbstractController
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $data = json_decode($request->getContent(), true);
+        $data = $request->request->all();
+        if (empty($data)) {
+            $data = json_decode($request->getContent(), true) ?? [];
+        }
 
         $article = new Article();
         $article->setTitle($data['title'] ?? '');
         $article->setAuthor($data['author'] ?? '');
-        $article->setLink($data['link'] ?? '');
+        $article->setLink($data['link'] ?? null);
+        $article->setContent($data['content'] ?? null);
         $article->setUser($user);
+
+        $imageFile = $request->files->get('image');
+        if ($imageFile) {
+            $uploadResult = $this->uploadArticleImage($imageFile);
+            if ($uploadResult['error']) {
+                return new JsonResponse(['error' => $uploadResult['error']], Response::HTTP_BAD_REQUEST);
+            }
+            $article->setImagePath($uploadResult['filename']);
+        }
+
+        $pdfFile = $request->files->get('pdf');
+        if ($pdfFile) {
+            $uploadResult = $this->uploadArticlePdf($pdfFile);
+            if ($uploadResult['error']) {
+                return new JsonResponse(['error' => $uploadResult['error']], Response::HTTP_BAD_REQUEST);
+            }
+            $article->setPdfPath($uploadResult['filename']);
+        }
 
         $em->persist($article);
         $em->flush();
@@ -440,6 +472,10 @@ class LibraryApiController extends AbstractController
             'title' => $article->getTitle(),
             'author' => $article->getAuthor(),
             'link' => $article->getLink(),
+            'isExternal' => $this->isExternalUrl($article->getLink()),
+            'content' => $article->getContent(),
+            'imageUrl' => $this->getArticleImageUrl($article),
+            'pdfUrl' => $this->getArticlePdfUrl($article),
             'userId' => $article->getUser()?->getId(),
         ], Response::HTTP_CREATED);
     }
@@ -464,7 +500,10 @@ class LibraryApiController extends AbstractController
             return new JsonResponse(['error' => 'Non autorisé'], Response::HTTP_FORBIDDEN);
         }
 
-        $data = json_decode($request->getContent(), true);
+        $data = $request->request->all();
+        if (empty($data)) {
+            $data = json_decode($request->getContent(), true) ?? [];
+        }
 
         if (isset($data['title'])) {
             $article->setTitle($data['title']);
@@ -473,7 +512,50 @@ class LibraryApiController extends AbstractController
             $article->setAuthor($data['author']);
         }
         if (isset($data['link'])) {
-            $article->setLink($data['link']);
+            $article->setLink($data['link'] ?: null);
+        }
+        if (isset($data['content'])) {
+            $article->setContent($data['content'] ?: null);
+        }
+
+        $removeImage = filter_var($data['removeImage'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if ($removeImage && $article->getImagePath()) {
+            $this->deleteArticleImageFile($article->getImagePath());
+            $article->setImagePath(null);
+        }
+
+        $removePdf = filter_var($data['removePdf'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if ($removePdf && $article->getPdfPath()) {
+            $this->deleteArticlePdfFile($article->getPdfPath());
+            $article->setPdfPath(null);
+        }
+
+        $imageFile = $request->files->get('image');
+        if ($imageFile) {
+            $uploadResult = $this->uploadArticleImage($imageFile);
+            if ($uploadResult['error']) {
+                return new JsonResponse(['error' => $uploadResult['error']], Response::HTTP_BAD_REQUEST);
+            }
+
+            if ($article->getImagePath()) {
+                $this->deleteArticleImageFile($article->getImagePath());
+            }
+
+            $article->setImagePath($uploadResult['filename']);
+        }
+
+        $pdfFile = $request->files->get('pdf');
+        if ($pdfFile) {
+            $uploadResult = $this->uploadArticlePdf($pdfFile);
+            if ($uploadResult['error']) {
+                return new JsonResponse(['error' => $uploadResult['error']], Response::HTTP_BAD_REQUEST);
+            }
+
+            if ($article->getPdfPath()) {
+                $this->deleteArticlePdfFile($article->getPdfPath());
+            }
+
+            $article->setPdfPath($uploadResult['filename']);
         }
 
         $em->flush();
@@ -483,6 +565,10 @@ class LibraryApiController extends AbstractController
             'title' => $article->getTitle(),
             'author' => $article->getAuthor(),
             'link' => $article->getLink(),
+            'isExternal' => $this->isExternalUrl($article->getLink()),
+            'content' => $article->getContent(),
+            'imageUrl' => $this->getArticleImageUrl($article),
+            'pdfUrl' => $this->getArticlePdfUrl($article),
             'userId' => $article->getUser()?->getId(),
         ]);
     }
@@ -506,9 +592,106 @@ class LibraryApiController extends AbstractController
             return new JsonResponse(['error' => 'Non autorisé'], Response::HTTP_FORBIDDEN);
         }
 
+        if ($article->getImagePath()) {
+            $this->deleteArticleImageFile($article->getImagePath());
+        }
+
+        if ($article->getPdfPath()) {
+            $this->deleteArticlePdfFile($article->getPdfPath());
+        }
+
         $em->remove($article);
         $em->flush();
 
         return new JsonResponse(['success' => true]);
+    }
+
+    private function isExternalUrl(?string $link): bool
+    {
+        return $link !== null && preg_match('/^https?:\/\//i', $link) === 1;
+    }
+
+    private function getArticleImageUrl(Article $article): ?string
+    {
+        if (!$article->getImagePath()) {
+            return null;
+        }
+
+        return self::ARTICLE_IMAGE_BASE_PATH . $article->getImagePath();
+    }
+
+    private function getArticlePdfUrl(Article $article): ?string
+    {
+        if (!$article->getPdfPath()) {
+            return null;
+        }
+
+        return self::ARTICLE_PDF_BASE_PATH . $article->getPdfPath();
+    }
+
+    /**
+     * @return array{filename: ?string, error: ?string}
+     */
+    private function uploadArticleImage(UploadedFile $imageFile): array
+    {
+        $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!in_array($imageFile->getMimeType(), $allowedMimeTypes, true)) {
+            return ['filename' => null, 'error' => 'Format image non supporte'];
+        }
+
+        if ($imageFile->getSize() > 5 * 1024 * 1024) {
+            return ['filename' => null, 'error' => 'Image trop volumineuse (max 5 MB)'];
+        }
+
+        $uploadDir = $this->getParameter('kernel.project_dir') . '/public/article_images';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0775, true);
+        }
+
+        $extension = $imageFile->guessExtension() ?: 'jpg';
+        $filename = uniqid('article_img_', true) . '.' . $extension;
+        $imageFile->move($uploadDir, $filename);
+
+        return ['filename' => $filename, 'error' => null];
+    }
+
+    /**
+     * @return array{filename: ?string, error: ?string}
+     */
+    private function uploadArticlePdf(UploadedFile $pdfFile): array
+    {
+        if ($pdfFile->getMimeType() !== 'application/pdf') {
+            return ['filename' => null, 'error' => 'Format PDF non supporte'];
+        }
+
+        if ($pdfFile->getSize() > 10 * 1024 * 1024) {
+            return ['filename' => null, 'error' => 'PDF trop volumineux (max 10 MB)'];
+        }
+
+        $uploadDir = $this->getParameter('kernel.project_dir') . '/public/article_pdfs';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0775, true);
+        }
+
+        $filename = uniqid('article_pdf_', true) . '.pdf';
+        $pdfFile->move($uploadDir, $filename);
+
+        return ['filename' => $filename, 'error' => null];
+    }
+
+    private function deleteArticleImageFile(string $filename): void
+    {
+        $path = $this->getParameter('kernel.project_dir') . '/public/article_images/' . $filename;
+        if (is_file($path)) {
+            @unlink($path);
+        }
+    }
+
+    private function deleteArticlePdfFile(string $filename): void
+    {
+        $path = $this->getParameter('kernel.project_dir') . '/public/article_pdfs/' . $filename;
+        if (is_file($path)) {
+            @unlink($path);
+        }
     }
 }

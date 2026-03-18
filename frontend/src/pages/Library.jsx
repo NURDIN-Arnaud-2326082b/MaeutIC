@@ -34,6 +34,9 @@ const Library = () => {
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const [showScanner, setShowScanner] = useState(false);
   const [scannedBook, setScannedBook] = useState(null);
+  const [selectedArticleId, setSelectedArticleId] = useState(null);
+  const [removeArticleImage, setRemoveArticleImage] = useState(false);
+  const [removeArticlePdf, setRemoveArticlePdf] = useState(false);
 
   const handleBookFound = ({ title, author, image }) => {
     setScannedBook({ title, author, imageUrl: image });
@@ -108,21 +111,29 @@ const Library = () => {
     queryFn: getArticles,
   });
 
+  const selectedArticle = selectedArticleId
+    ? articles.find((article) => article.id === selectedArticleId)
+    : null;
+
   const createArticleMutation = useMutation({
     mutationFn: createArticle,
     onSuccess: () => {
       queryClient.invalidateQueries(['articles']);
       setShowArticleModal(false);
       setEditingArticle(null);
+      setRemoveArticleImage(false);
+      setRemoveArticlePdf(false);
     },
   });
 
   const updateArticleMutation = useMutation({
-    mutationFn: ({ id, data }) => updateArticle(id, data),
+    mutationFn: ({ id, formData }) => updateArticle(id, formData),
     onSuccess: () => {
       queryClient.invalidateQueries(['articles']);
       setShowArticleModal(false);
       setEditingArticle(null);
+      setRemoveArticleImage(false);
+      setRemoveArticlePdf(false);
     },
   });
 
@@ -172,16 +183,18 @@ const Library = () => {
   const handleArticleSubmit = (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
-    const data = {
-      title: formData.get('title'),
-      author: formData.get('author'),
-      link: formData.get('link'),
-    };
+
+    if (!formData.get('link')) {
+      formData.set('link', '');
+    }
+
+    formData.set('removeImage', String(removeArticleImage));
+    formData.set('removePdf', String(removeArticlePdf));
     
     if (editingArticle) {
-      updateArticleMutation.mutate({ id: editingArticle.id, data });
+      updateArticleMutation.mutate({ id: editingArticle.id, formData });
     } else {
-      createArticleMutation.mutate(data);
+      createArticleMutation.mutate(formData);
     }
   };
 
@@ -205,6 +218,24 @@ const Library = () => {
 
   const canEdit = (item) => {
     return user && (item.userId === user.id || user.userType === 1);
+  };
+
+  const resolveAssetUrl = (assetPath) => {
+    if (!assetPath) return null;
+    if (assetPath.startsWith('http://') || assetPath.startsWith('https://')) {
+      return assetPath;
+    }
+
+    const normalized = assetPath.startsWith('/') ? assetPath : `/${assetPath}`;
+    return `${BACKEND_URL}${normalized}`;
+  };
+
+  const isExternalArticle = (article) => {
+    if (typeof article?.isExternal === 'boolean') {
+      return article.isExternal;
+    }
+
+    return /^https?:\/\//i.test(article?.link || '');
   };
 
   const toggleDropdown = (id) => {
@@ -428,6 +459,8 @@ const Library = () => {
               <button
                 onClick={() => {
                   setEditingArticle(null);
+                  setRemoveArticleImage(false);
+                  setRemoveArticlePdf(false);
                   setShowArticleModal(true);
                 }}
                 className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
@@ -446,61 +479,112 @@ const Library = () => {
           />
           <GlossaryNav items={articles} keyFn={(a) => a.title} tab="articles" />
 
-          <div className="flex flex-row w-full mb-2">
-            <h3 className="w-1/2 font-semibold">Titre</h3>
-            <h3 className="flex-1 font-semibold">Auteur</h3>
-            {user && <h3 className="w-24"></h3>}
-          </div>
-          
-          {filterByLetter(filterBySearch(articles, ['title', 'author']), (a) => a.title, 'articles').map((article) => (
-            <div
-              key={article.id}
-              className="relative bg-white hover:bg-blue-50 flex flex-row rounded-lg w-full my-1 p-3 items-center"
-            >
-              <a
-                href={article.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-1/2 text-blue-600 hover:underline"
+          {selectedArticle ? (
+            <div className="bg-white rounded-lg p-5 border border-gray-200">
+              <button
+                type="button"
+                onClick={() => setSelectedArticleId(null)}
+                className="mb-4 text-sm text-blue-600 hover:text-blue-700"
               >
-                {article.title}
-              </a>
-              <p className="flex-1">{article.author}</p>
-              {canEdit(article) && (
-                <div className="absolute top-2 right-2">
-                  <button
-                    onClick={() => toggleDropdown(`article-${article.id}`)}
-                    className="focus:outline-none px-2 py-1"
-                  >
-                    &#9776;
-                  </button>
-                  {openDropdownId === `article-${article.id}` && (
-                    <div className="absolute right-0 mt-2 bg-white rounded shadow-lg z-50">
+                ← Retour à la liste des articles
+              </button>
+
+              <h2 className="text-2xl font-bold text-gray-900">{selectedArticle.title}</h2>
+
+              {selectedArticle.imageUrl && (
+                <img
+                  src={resolveAssetUrl(selectedArticle.imageUrl)}
+                  alt={selectedArticle.title}
+                  className="mt-4 w-full max-h-96 object-cover rounded-lg border border-gray-200"
+                />
+              )}
+
+              <div className="mt-4 whitespace-pre-wrap text-gray-700 leading-relaxed">
+                {selectedArticle.content || 'Aucun contenu textuel disponible pour cet article.'}
+              </div>
+
+              {selectedArticle.pdfUrl && (
+                <a
+                  href={resolveAssetUrl(selectedArticle.pdfUrl)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-5 inline-flex items-center rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+                >
+                  Consulter le PDF joint
+                </a>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-row w-full mb-2">
+                <h3 className="w-1/2 font-semibold">Titre</h3>
+                <h3 className="flex-1 font-semibold">Auteur</h3>
+                {user && <h3 className="w-24"></h3>}
+              </div>
+
+              {filterByLetter(filterBySearch(articles, ['title', 'author']), (a) => a.title, 'articles').map((article) => (
+                <div
+                  key={article.id}
+                  className="relative bg-white hover:bg-blue-50 flex flex-row rounded-lg w-full my-1 p-3 items-center"
+                >
+                  {isExternalArticle(article) ? (
+                    <a
+                      href={article.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-1/2 text-blue-600 hover:underline"
+                    >
+                      {article.title}
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedArticleId(article.id)}
+                      className="w-1/2 text-left text-blue-600 hover:underline"
+                    >
+                      {article.title}
+                    </button>
+                  )}
+                  <p className="flex-1">{article.author}</p>
+                  {canEdit(article) && (
+                    <div className="absolute top-2 right-2">
                       <button
-                        onClick={() => {
-                          setEditingArticle(article);
-                          setShowArticleModal(true);
-                          setOpenDropdownId(null);
-                        }}
-                        className="block px-2 py-1 w-full text-gray-700 hover:bg-gray-100"
+                        onClick={() => toggleDropdown(`article-${article.id}`)}
+                        className="focus:outline-none px-2 py-1"
                       >
-                        Modifier
+                        &#9776;
                       </button>
-                      <button
-                        onClick={() => {
-                          handleDeleteArticle(article.id);
-                          setOpenDropdownId(null);
-                        }}
-                        className="block px-2 py-1 w-full text-red-600 hover:bg-gray-100"
-                      >
-                        Supprimer
-                      </button>
+                      {openDropdownId === `article-${article.id}` && (
+                        <div className="absolute right-0 mt-2 bg-white rounded shadow-lg z-50">
+                          <button
+                            onClick={() => {
+                              setEditingArticle(article);
+                              setRemoveArticleImage(false);
+                              setRemoveArticlePdf(false);
+                              setShowArticleModal(true);
+                              setOpenDropdownId(null);
+                            }}
+                            className="block px-2 py-1 w-full text-gray-700 hover:bg-gray-100"
+                          >
+                            Modifier
+                          </button>
+                          <button
+                            onClick={() => {
+                              handleDeleteArticle(article.id);
+                              setOpenDropdownId(null);
+                            }}
+                            className="block px-2 py-1 w-full text-red-600 hover:bg-gray-100"
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
-            </div>
-          ))}
+              ))}
+            </>
+          )}
         </div>
       )}
 
@@ -605,8 +689,8 @@ const Library = () => {
 
       {/* Author Modal */}
       {showAuthorModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-[12000] overflow-y-auto px-4 pt-24 pb-6">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mt-4 mb-6">
             <h2 className="text-xl font-bold mb-4">
               {editingAuthor ? 'Modifier l\'auteur' : 'Ajouter un auteur'}
             </h2>
@@ -691,8 +775,8 @@ const Library = () => {
 
       {/* Book Modal */}
       {showBookModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-[12000] overflow-y-auto px-4 pt-24 pb-6">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mt-4 mb-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold">
                 {editingBook ? 'Modifier le livre' : 'Ajouter un livre'}
@@ -796,8 +880,8 @@ const Library = () => {
 
       {/* Article Modal */}
       {showArticleModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-[12000] overflow-y-auto px-4 pt-24 pb-6">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mt-4 mb-6">
             <h2 className="text-xl font-bold mb-4">
               {editingArticle ? 'Modifier l\'article' : 'Ajouter un article'}
             </h2>
@@ -829,8 +913,74 @@ const Library = () => {
                   name="link"
                   defaultValue={editingArticle?.link || ''}
                   className="w-full px-3 py-2 border rounded"
-                  required
+                  placeholder="https://... (laisser vide pour article interne)"
                 />
+              </div>
+              <div className="mb-4">
+                <label className="block text-gray-700 mb-2">Contenu textuel</label>
+                <textarea
+                  name="content"
+                  defaultValue={editingArticle?.content || ''}
+                  className="w-full px-3 py-2 border rounded min-h-32"
+                  placeholder="Texte de l'article (utilisé pour les articles internes)"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-gray-700 mb-2">Image</label>
+                {editingArticle?.imageUrl && !removeArticleImage && (
+                  <div className="mb-2">
+                    <img
+                      src={resolveAssetUrl(editingArticle.imageUrl)}
+                      alt={editingArticle.title}
+                      className="w-full h-40 object-cover rounded border"
+                    />
+                  </div>
+                )}
+                <input
+                  type="file"
+                  name="image"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="w-full px-3 py-2 border rounded"
+                />
+                {editingArticle?.imageUrl && (
+                  <label className="inline-flex items-center mt-2 gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={removeArticleImage}
+                      onChange={(e) => setRemoveArticleImage(e.target.checked)}
+                    />
+                    Supprimer l'image actuelle
+                  </label>
+                )}
+              </div>
+              <div className="mb-4">
+                <label className="block text-gray-700 mb-2">PDF</label>
+                {editingArticle?.pdfUrl && !removeArticlePdf && (
+                  <a
+                    href={resolveAssetUrl(editingArticle.pdfUrl)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mb-2 inline-flex text-sm text-blue-600 hover:underline"
+                  >
+                    Voir le PDF actuel
+                  </a>
+                )}
+                <input
+                  type="file"
+                  name="pdf"
+                  accept="application/pdf"
+                  className="w-full px-3 py-2 border rounded"
+                />
+                {editingArticle?.pdfUrl && (
+                  <label className="inline-flex items-center mt-2 gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={removeArticlePdf}
+                      onChange={(e) => setRemoveArticlePdf(e.target.checked)}
+                    />
+                    Supprimer le PDF actuel
+                  </label>
+                )}
               </div>
               <div className="flex justify-end space-x-2">
                 <button
@@ -838,6 +988,8 @@ const Library = () => {
                   onClick={() => {
                     setShowArticleModal(false);
                     setEditingArticle(null);
+                    setRemoveArticleImage(false);
+                    setRemoveArticlePdf(false);
                   }}
                   className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
                 >
