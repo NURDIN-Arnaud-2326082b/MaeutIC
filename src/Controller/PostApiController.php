@@ -50,7 +50,7 @@ class PostApiController extends AbstractController
     /**
      * Met à jour un post
      */
-    #[Route('/{id}', name: 'api_post_update', methods: ['PUT'])]
+    #[Route('/{id}', name: 'api_post_update', methods: ['PUT', 'POST'])]
     #[IsGranted('ROLE_USER')]
     public function updatePost(
         Post $post,
