@@ -266,13 +266,27 @@ export default function Forums({ specialCategory = null }) {
   })
   
   const updatePostMutation = useMutation({
-    mutationFn: ({ id, data }) => 
-      fetch(`${API_BASE_URL}/posts/${id}`, {
+    mutationFn: async ({ id, data }) => {
+      const response = await fetch(`${API_BASE_URL}/posts/${id}`, {
         method: 'PUT',
         headers: data instanceof FormData ? undefined : { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: data instanceof FormData ? data : JSON.stringify(data)
-      }).then(r => r.json()),
+      })
+
+      let payload = null
+      try {
+        payload = await response.json()
+      } catch (_err) {
+        // Ignore JSON parse errors; payload stays null
+      }
+
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Erreur lors de la mise à jour du post')
+      }
+
+      return payload
+    },
     onSuccess: () => {
       queryClient.invalidateQueries(['posts'])
       queryClient.invalidateQueries(['post'])
