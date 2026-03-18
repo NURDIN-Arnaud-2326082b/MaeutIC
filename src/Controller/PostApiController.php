@@ -13,6 +13,7 @@ use App\Repository\PostRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\File\Exception\FileException;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
@@ -329,7 +330,12 @@ class PostApiController extends AbstractController
         }
 
         $pdfFilename = uniqid('post_pdf_', true) . '.pdf';
-        $pdfFile->move($uploadDir, $pdfFilename);
+
+        try {
+            $pdfFile->move($uploadDir, $pdfFilename);
+        } catch (FileException $e) {
+            return ['filename' => null, 'error' => 'Failed to save PDF file'];
+        }
 
         return ['filename' => $pdfFilename, 'error' => null];
     }
