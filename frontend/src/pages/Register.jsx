@@ -183,7 +183,7 @@ export default function Register() {
                 newSearches[index] = e.target.value
                 setTagSearches(newSearches)
               }}
-              onKeyPress={(e) => {
+              onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault()
                   if (tagSearches[index].trim()) {
