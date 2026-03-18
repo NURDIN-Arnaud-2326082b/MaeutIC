@@ -123,11 +123,12 @@ jobs:
             /usr/bin/php8.4-cli ~/composer.phar install --no-dev --optimize-autoloader --no-interaction
             
             # Migrations
-            php bin/console doctrine:migrations:migrate --no-interaction --env=prod
+            /usr/bin/php8.4-cli bin/console doctrine:migrations:migrate --no-interaction --env=prod
+            /usr/bin/php8.4-cli bin/console tailwind:build
             
             # Cache
-            php bin/console cache:clear --env=prod --no-warmup
-            php bin/console cache:warmup --env=prod
+            /usr/bin/php8.4-cli bin/console cache:clear --env=prod --no-warmup
+            /usr/bin/php8.4-cli bin/console cache:warmup --env=prod
             
             # Permissions
             chmod -R 755 var/cache var/log public/react || true
