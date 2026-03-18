@@ -442,7 +442,14 @@ class LibraryApiController extends AbstractController
 
         $article = new Article();
         $article->setTitle($data['title'] ?? '');
-        $article->setLink($data['link'] ?? null);
+        $link = $data['link'] ?? null;
+        if (is_string($link)) {
+            $link = trim($link);
+            if ($link === '') {
+                $link = null;
+            }
+        }
+        $article->setLink($link);
         $article->setContent($data['content'] ?? null);
         $article->setUser($user);
 
