@@ -72,13 +72,21 @@ export const getArticles = async () => {
   return data;
 };
 
-export const createArticle = async (articleData) => {
-  const { data } = await api.post('/library/articles', articleData);
+export const createArticle = async (formData) => {
+  const { data } = await api.post('/library/articles', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
   return data;
 };
 
-export const updateArticle = async (id, articleData) => {
-  const { data } = await api.put(`/library/articles/${id}`, articleData);
+export const updateArticle = async (id, formData) => {
+  const { data } = await api.put(`/library/articles/${id}`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
   return data;
 };
 

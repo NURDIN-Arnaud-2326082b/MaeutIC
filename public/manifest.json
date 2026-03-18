@@ -1,7 +1,7 @@
 {
-  "name": "MaeutIC",
-  "short_name": "MaeutIC",
-  "description": "Application MaeutIC - Plateforme collaborative",
+  "name": "M@ieutIC",
+  "short_name": "M@ieutIC",
+  "description": "Application M@ieutIC - Plateforme collaborative",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

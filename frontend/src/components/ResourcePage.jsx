@@ -17,6 +17,7 @@ export default function ResourcePage({
   const [editingResource, setEditingResource] = useState(null)
   const [formData, setFormData] = useState({ title: '', description: '', link: '' })
 
+  const isAuthenticated = !!user
   const isAdmin = user?.userType === 1
 
   // Normalize forumLinks to always be an array
@@ -69,9 +70,18 @@ export default function ResourcePage({
     updateMutation.mutate({ id: editingResource.id, data: formData })
   }
 
-  const handleDelete = (id) => {
+  const canManageResource = (resource) => {
+    if (!user || !resource) return false
+    return isAdmin || resource.userId === user.id
+  }
+
+  const handleDelete = (resource) => {
+    if (!canManageResource(resource)) {
+      return
+    }
+
     if (confirm('Voulez-vous vraiment supprimer cette ressource ?')) {
-      deleteMutation.mutate(id)
+      deleteMutation.mutate(resource.id)
     }
   }
 
@@ -81,6 +91,10 @@ export default function ResourcePage({
   }
 
   const openEditModal = (resource) => {
+    if (!canManageResource(resource)) {
+      return
+    }
+
     setEditingResource(resource)
     setFormData({
       title: resource.title,
@@ -132,7 +146,7 @@ export default function ResourcePage({
         {description}
       </div>
 
-      {isAdmin && (
+      {isAuthenticated && (
         <div className="mb-6">
           <button
             onClick={openCreateModal}
@@ -178,7 +192,7 @@ export default function ResourcePage({
                     </>
                   )}
 
-                  {isAdmin && (
+                  {canManageResource(resource) && (
                     <div className="absolute top-2 right-2 flex space-x-1">
                       <button
                         onClick={() => openEditModal(resource)}
@@ -188,7 +202,7 @@ export default function ResourcePage({
                         ✏️
                       </button>
                       <button
-                        onClick={() => handleDelete(resource.id)}
+                        onClick={() => handleDelete(resource)}
                         className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-semibold transition"
                         title="Supprimer"
                       >
