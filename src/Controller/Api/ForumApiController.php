@@ -79,41 +79,7 @@ class ForumApiController extends AbstractController
             }
         }
 
-        $data = array_map(function(Post $post) use ($currentUser) {
-            $forum = $post->getForum();
-            $user = $post->getUser();
-            
-            // Check if current user has liked this post
-            $isLiked = false;
-            if ($currentUser) {
-                $existingLike = $this->postLikeRepository->findOneBy(['user' => $currentUser, 'post' => $post]);
-                $isLiked = $existingLike !== null;
-            }
-            
-            return [
-                'id' => $post->getId(),
-                'name' => $post->getName(),
-                'description' => $post->getDescription(),
-                'imageUrl' => $this->getPostImageUrl($post),
-                'pdfUrl' => $this->getPostPdfUrl($post),
-                'creationDate' => $post->getCreationDate()->format('c'),
-                'forum' => [
-                    'id' => $forum->getId(),
-                    'title' => $forum->getTitle(),
-                    'anonymous' => $forum->isAnonymous(),
-                    'special' => $forum->getSpecial(),
-                ],
-                'user' => $user ? [
-                    'id' => $user->getId(),
-                    'firstName' => $user->getFirstName(),
-                    'lastName' => $user->getLastName(),
-                    'username' => $user->getUsername(),
-                ] : null,
-                'likesCount' => $post->getLikes()->count(),
-                'commentsCount' => $post->getComments()->count(),
-                'isLiked' => $isLiked,
-            ];
-        }, $posts);
+        $data = array_map(fn(Post $post) => $this->serializePost($post, $currentUser), $posts);
 
         return $this->json($data);
     }
@@ -130,7 +96,6 @@ class ForumApiController extends AbstractController
         /** @var User|null $currentUser */
         $currentUser = $this->getUser();
         $user = $post->getUser();
-        $forum = $post->getForum();
 
         // Block check: hide post if there is a mutual block between current user and post author
         if ($currentUser && $user) {
@@ -140,37 +105,7 @@ class ForumApiController extends AbstractController
             }
         }
 
-        // Check if current user has liked this post
-        $isLiked = false;
-        if ($currentUser) {
-            $existingLike = $this->postLikeRepository->findOneBy(['user' => $currentUser, 'post' => $post]);
-            $isLiked = $existingLike !== null;
-        }
-        
-        $data = [
-            'id' => $post->getId(),
-            'name' => $post->getName(),
-            'description' => $post->getDescription(),
-            'imageUrl' => $this->getPostImageUrl($post),
-            'pdfUrl' => $this->getPostPdfUrl($post),
-            'creationDate' => $post->getCreationDate()->format('c'),
-            'user' => $user ? [
-                'id' => $user->getId(),
-                'firstName' => $user->getFirstName(),
-                'lastName' => $user->getLastName(),
-                'username' => $user->getUsername(),
-            ] : null,
-            'forum' => [
-                'id' => $forum->getId(),
-                'title' => $forum->getTitle(),
-                'anonymous' => $forum->isAnonymous(),
-                'debussyClairDeLune' => $forum->isDebussyClairDeLune(),
-                'special' => $forum->getSpecial(),
-            ],
-            'likesCount' => $post->getLikes()->count(),
-            'commentsCount' => $post->getComments()->count(),
-            'isLiked' => $isLiked,
-        ];
+        $data = $this->serializePost($post, $currentUser, true);
 
         return $this->json($data);
     }
@@ -455,6 +390,84 @@ class ForumApiController extends AbstractController
         }
 
         return self::POST_PDF_BASE_PATH . $post->getPdfPath();
+    }
+
+    private function serializeParentPost(?Post $parentPost): ?array
+    {
+        if (!$parentPost) {
+            return null;
+        }
+
+        return [
+            'id' => $parentPost->getId(),
+            'name' => $parentPost->getName(),
+            'description' => $parentPost->getDescription(),
+        ];
+    }
+
+    private function serializePost(Post $post, ?User $currentUser = null, bool $includeReplies = false): array
+    {
+        $forum = $post->getForum();
+        $user = $post->getUser();
+        $parentPost = $post->getParentPost();
+
+        $isLiked = false;
+        if ($currentUser) {
+            $existingLike = $this->postLikeRepository->findOneBy(['user' => $currentUser, 'post' => $post]);
+            $isLiked = $existingLike !== null;
+        }
+
+        $data = [
+            'id' => $post->getId(),
+            'name' => $post->getName(),
+            'description' => $post->getDescription(),
+            'imageUrl' => $this->getPostImageUrl($post),
+            'pdfUrl' => $this->getPostPdfUrl($post),
+            'creationDate' => $post->getCreationDate()->format('c'),
+            'forum' => [
+                'id' => $forum->getId(),
+                'title' => $forum->getTitle(),
+                'anonymous' => $forum->isAnonymous(),
+                'debussyClairDeLune' => $forum->isDebussyClairDeLune(),
+                'special' => $forum->getSpecial(),
+            ],
+            'user' => $user ? [
+                'id' => $user->getId(),
+                'firstName' => $user->getFirstName(),
+                'lastName' => $user->getLastName(),
+                'username' => $user->getUsername(),
+            ] : null,
+            'likesCount' => $post->getLikes()->count(),
+            'commentsCount' => $post->getComments()->count(),
+            'isLiked' => $isLiked,
+            'isReply' => $post->getIsReply(),
+            'parentId' => $parentPost?->getId(),
+            'parentPost' => $this->serializeParentPost($parentPost),
+            'repliesCount' => $post->getReplies()->count(),
+        ];
+
+        if ($includeReplies) {
+            $replies = $post->getReplies()->toArray();
+            usort($replies, fn(Post $a, Post $b) => $a->getCreationDate() <=> $b->getCreationDate());
+
+            if ($currentUser) {
+                $allBlockedIds = array_merge(
+                    array_map('intval', $currentUser->getBlocked()),
+                    array_map('intval', $currentUser->getBlockedBy())
+                );
+
+                if (!empty($allBlockedIds)) {
+                    $replies = array_values(array_filter($replies, function (Post $reply) use ($allBlockedIds) {
+                        $replyUser = $reply->getUser();
+                        return $replyUser === null || !in_array($replyUser->getId(), $allBlockedIds, true);
+                    }));
+                }
+            }
+
+            $data['replies'] = array_map(fn(Post $reply) => $this->serializePost($reply, $currentUser, false), $replies);
+        }
+
+        return $data;
     }
 
     /**

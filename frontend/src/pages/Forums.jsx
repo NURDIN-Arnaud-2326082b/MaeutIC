@@ -83,6 +83,14 @@ export default function Forums({ specialCategory = null }) {
   
   const basePath = getForumBasePath()
 
+  const getAllCategoriesPath = () => {
+    if (!specialCategory) {
+      return '/forums/General'
+    }
+
+    return basePath
+  }
+
   const getPostDeleteRedirectPath = () => {
     if (!specialCategory) {
       return `/forums/${category || 'General'}`
@@ -107,7 +115,7 @@ export default function Forums({ specialCategory = null }) {
       case 'methodology': return 'Toutes les méthodologies'
       case 'detente': return 'Tous les forums détente'
       case 'administratif': return 'Tous les forums administratifs'
-      default: return 'Toutes categories'
+      default: return 'Toutes catégories'
     }
   }
   
@@ -210,6 +218,9 @@ export default function Forums({ specialCategory = null }) {
     if (sortBy === 'commented') return (b.commentsCount || 0) - (a.commentsCount || 0)
     return new Date(b.creationDate) - new Date(a.creationDate)
   })
+
+  // Keep replies only in the detail view under their parent post.
+  const listPosts = sortedPosts.filter((post) => !post.isReply)
 
   const createCommentMutation = useMutation({
     mutationFn: (data) => commentApi.createComment(data),
@@ -603,6 +614,22 @@ export default function Forums({ specialCategory = null }) {
     return `${BACKEND_BASE_URL}${normalizedPath}`
   }
 
+  const truncateText = (value, maxLength = 140) => {
+    if (!value) return ''
+    return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value
+  }
+
+  const getPostDetailPath = (targetPost) => {
+    const targetCategory =
+      category === specialCategory || category === 'General'
+        ? targetPost?.forum?.title || category
+        : category
+
+    return `${basePath}/${targetCategory}/${targetPost.id}`
+  }
+
+  const selectedPostReplies = Array.isArray(selectedPost?.replies) ? selectedPost.replies : []
+
   return (
     <div className="flex-1 flex flex-row justify-center items-start h-full my-11">
       {/* Categories Sidebar */}
@@ -615,7 +642,7 @@ export default function Forums({ specialCategory = null }) {
           <div className="flex flex-col">
             {showAllCategoriesLink() && (
               <Link
-                to={basePath}
+                to={getAllCategoriesPath()}
                 className={`p-1 w-full ${
                   category === specialCategory || (!specialCategory && category === 'General')
                     ? 'font-semibold bg-blue-50 text-blue-900'
@@ -676,6 +703,21 @@ export default function Forums({ specialCategory = null }) {
               <p className="text-gray-500">
                 {new Date(selectedPost.creationDate).toLocaleDateString('fr-FR')}
               </p>
+              {selectedPost.isReply && selectedPost.parentPost && (
+                <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm">
+                  <p className="font-medium text-blue-800">Cette publication répond à :</p>
+                  <Link
+                    to={getPostDetailPath({
+                      id: selectedPost.parentPost.id,
+                      forum: selectedPost.forum,
+                    })}
+                    className="mt-1 inline-block text-blue-700 hover:underline"
+                  >
+                    {selectedPost.parentPost.name}
+                  </Link>
+                  <p className="mt-1 text-gray-700 italic">{truncateText(selectedPost.parentPost.description, 220)}</p>
+                </div>
+              )}
               <div className="mt-5">
                 <p className="text-gray-700">{selectedPost.description}</p>
                 {selectedPost.imageUrl && (
@@ -779,6 +821,48 @@ export default function Forums({ specialCategory = null }) {
                       </button>
                     </div>
                   </form>
+                </div>
+              )}
+            </div>
+
+            {/* Replies Section */}
+            <div className="mt-8">
+              <h3 className="text-xl font-semibold text-gray-700">{selectedPostReplies.length} réponses</h3>
+              {selectedPostReplies.length === 0 ? (
+                <p className="mt-2 text-sm text-gray-500">Aucune réponse pour le moment.</p>
+              ) : (
+                <div className="mt-4 space-y-3">
+                  {selectedPostReplies.map((reply) => (
+                    <div key={reply.id} className="rounded-lg border border-gray-200 bg-white p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800">{reply.name}</p>
+                          <p className="text-xs text-gray-500">Par {getAuthorName(reply, selectedPost.forum)}</p>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(reply.creationDate).toLocaleDateString('fr-FR')}
+                        </div>
+                      </div>
+                      <p className="mt-2 text-sm text-gray-700">{reply.description}</p>
+                      {reply.imageUrl && (
+                        <img
+                          src={resolvePostAssetUrl(reply.imageUrl)}
+                          alt="Visuel de la réponse"
+                          className="mt-3 rounded-lg w-full max-h-64 object-cover border border-gray-200"
+                        />
+                      )}
+                      {reply.pdfUrl && (
+                        <a
+                          href={resolvePostAssetUrl(reply.pdfUrl)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-3 inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
+                        >
+                          PDF joint
+                        </a>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -904,7 +988,7 @@ export default function Forums({ specialCategory = null }) {
               </div>
               {searchQuery && (
                 <div className="mt-4 text-sm text-gray-600">
-                  <span>{sortedPosts.length}</span> résultat(s) trouvé(s)
+                  <span>{listPosts.length}</span> résultat(s) trouvé(s)
                   <button
                     onClick={() => setSearchQuery('')}
                     className="ml-2 text-blue-600 hover:text-blue-800 text-xs underline"
@@ -919,17 +1003,17 @@ export default function Forums({ specialCategory = null }) {
             <div className="custom-scrollbar max-h-[600px] overflow-y-auto">
               {isLoading ? (
                 <div className="text-center py-8">Chargement...</div>
-              ) : sortedPosts.length === 0 ? (
+              ) : listPosts.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   Aucune discussion disponible
                 </div>
               ) : (
-                sortedPosts.map((post) => (
+                listPosts.map((post) => (
                   <div
                     key={post.id}
                     className="bg-white p-4 rounded-lg mb-3 border border-gray-200 hover:border-blue-500 hover:shadow-md transition-all duration-200"
                   >
-                    <Link to={`${basePath}/${category}/${post.id}`}>
+                    <Link to={getPostDetailPath(post)}>
                       <h3 className="text-lg font-semibold text-gray-900 mb-2 hover:text-blue-600">{post.name}</h3>
                     </Link>
                     <p className="text-gray-600 mb-2 line-clamp-2">{post.description}</p>
