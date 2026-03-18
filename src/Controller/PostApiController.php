@@ -103,34 +103,38 @@ class PostApiController extends AbstractController
             $post->setPdfPath(null);
         }
 
-        /** @var UploadedFile|null $imageFile */
-        $imageFile = $request->files->get('image');
-        if ($imageFile) {
-            $uploadResult = $this->uploadPostImage($imageFile);
-            if ($uploadResult['error']) {
-                return $this->json(['error' => $uploadResult['error']], 400);
+        // Avoid relying on $request->files for PUT requests, since PHP may not
+        // populate uploaded files for PUT + multipart/form-data.
+        if (!$request->isMethod('PUT')) {
+            /** @var UploadedFile|null $imageFile */
+            $imageFile = $request->files->get('image');
+            if ($imageFile) {
+                $uploadResult = $this->uploadPostImage($imageFile);
+                if ($uploadResult['error']) {
+                    return $this->json(['error' => $uploadResult['error']], 400);
+                }
+
+                if ($post->getImagePath()) {
+                    $this->deletePostImageFile($post->getImagePath());
+                }
+
+                $post->setImagePath($uploadResult['filename']);
             }
 
-            if ($post->getImagePath()) {
-                $this->deletePostImageFile($post->getImagePath());
+            /** @var UploadedFile|null $pdfFile */
+            $pdfFile = $request->files->get('pdf');
+            if ($pdfFile) {
+                $uploadResult = $this->uploadPostPdf($pdfFile);
+                if ($uploadResult['error']) {
+                    return $this->json(['error' => $uploadResult['error']], 400);
+                }
+
+                if ($post->getPdfPath()) {
+                    $this->deletePostPdfFile($post->getPdfPath());
+                }
+
+                $post->setPdfPath($uploadResult['filename']);
             }
-
-            $post->setImagePath($uploadResult['filename']);
-        }
-
-        /** @var UploadedFile|null $pdfFile */
-        $pdfFile = $request->files->get('pdf');
-        if ($pdfFile) {
-            $uploadResult = $this->uploadPostPdf($pdfFile);
-            if ($uploadResult['error']) {
-                return $this->json(['error' => $uploadResult['error']], 400);
-            }
-
-            if ($post->getPdfPath()) {
-                $this->deletePostPdfFile($post->getPdfPath());
-            }
-
-            $post->setPdfPath($uploadResult['filename']);
         }
 
         $entityManager->flush();
