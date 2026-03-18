@@ -25,7 +25,7 @@ class Article
     #[ORM\Column(length: 255)]
     private ?string $title = null;
 
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 255, nullable: true)]
     private ?string $link = null;
 
     #[ORM\Column(type: 'text', nullable: true)]
