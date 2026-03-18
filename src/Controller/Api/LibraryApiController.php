@@ -773,7 +773,12 @@ class LibraryApiController extends AbstractController
 
         $extension = $imageFile->guessExtension() ?: 'jpg';
         $filename = uniqid('article_img_', true) . '.' . $extension;
-        $imageFile->move($uploadDir, $filename);
+
+        try {
+            $imageFile->move($uploadDir, $filename);
+        } catch (FileException $e) {
+            return ['filename' => null, 'error' => 'Erreur lors de l\'enregistrement de l\'image'];
+        }
 
         return ['filename' => $filename, 'error' => null];
     }
@@ -797,7 +802,12 @@ class LibraryApiController extends AbstractController
         }
 
         $filename = uniqid('article_pdf_', true) . '.pdf';
-        $pdfFile->move($uploadDir, $filename);
+
+        try {
+            $pdfFile->move($uploadDir, $filename);
+        } catch (FileException $e) {
+            return ['filename' => null, 'error' => 'Erreur lors de l\'enregistrement du PDF'];
+        }
 
         return ['filename' => $filename, 'error' => null];
     }
