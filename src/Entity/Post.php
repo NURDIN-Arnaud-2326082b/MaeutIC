@@ -71,6 +71,9 @@ class Post
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $imagePath = null;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $pdfPath = null;
+
     public function __construct()
     {
         $this->subscribedUsers = new ArrayCollection();
@@ -306,6 +309,18 @@ class Post
     public function setImagePath(?string $imagePath): static
     {
         $this->imagePath = $imagePath;
+
+        return $this;
+    }
+
+    public function getPdfPath(): ?string
+    {
+        return $this->pdfPath;
+    }
+
+    public function setPdfPath(?string $pdfPath): static
+    {
+        $this->pdfPath = $pdfPath;
 
         return $this;
     }

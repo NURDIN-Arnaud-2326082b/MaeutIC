@@ -20,6 +20,7 @@ use Symfony\Component\Routing\Annotation\Route;
 class ForumApiController extends AbstractController
 {
     private const POST_IMAGE_BASE_PATH = '/post_images/';
+    private const POST_PDF_BASE_PATH = '/post_pdfs/';
 
     public function __construct(
         private EntityManagerInterface $entityManager,
@@ -93,6 +94,7 @@ class ForumApiController extends AbstractController
                 'name' => $post->getName(),
                 'description' => $post->getDescription(),
                 'imageUrl' => $this->getPostImageUrl($post),
+                'pdfUrl' => $this->getPostPdfUrl($post),
                 'creationDate' => $post->getCreationDate()->format('c'),
                 'forum' => [
                     'id' => $forum->getId(),
@@ -149,6 +151,7 @@ class ForumApiController extends AbstractController
             'name' => $post->getName(),
             'description' => $post->getDescription(),
             'imageUrl' => $this->getPostImageUrl($post),
+            'pdfUrl' => $this->getPostPdfUrl($post),
             'creationDate' => $post->getCreationDate()->format('c'),
             'user' => $user ? [
                 'id' => $user->getId(),
@@ -202,10 +205,22 @@ class ForumApiController extends AbstractController
             $imageFilename = $uploadResult['filename'];
         }
 
+        /** @var UploadedFile|null $pdfFile */
+        $pdfFile = $request->files->get('pdf');
+        $pdfFilename = null;
+        if ($pdfFile) {
+            $uploadResult = $this->uploadPostPdf($pdfFile);
+            if ($uploadResult['error']) {
+                return $this->json(['error' => $uploadResult['error']], 400);
+            }
+            $pdfFilename = $uploadResult['filename'];
+        }
+
         $post = new Post();
         $post->setName($name);
         $post->setDescription($description);
         $post->setImagePath($imageFilename);
+        $post->setPdfPath($pdfFilename);
         $post->setForum($forum);
         $post->setUser($this->getUser());
         $post->setCreationDate(new \DateTime());
@@ -227,6 +242,7 @@ class ForumApiController extends AbstractController
             'success' => true,
             'id' => $post->getId(),
             'imageUrl' => $this->getPostImageUrl($post),
+            'pdfUrl' => $this->getPostPdfUrl($post),
         ], 201);
     }
 
@@ -248,7 +264,10 @@ class ForumApiController extends AbstractController
             return $this->json(['error' => 'Unauthorized'], 403);
         }
 
-        $data = json_decode($request->getContent(), true);
+        $data = $request->request->all();
+        if (empty($data)) {
+            $data = json_decode($request->getContent(), true) ?? [];
+        }
         
         if (isset($data['name'])) {
             $post->setName($data['name']);
@@ -257,9 +276,62 @@ class ForumApiController extends AbstractController
             $post->setDescription($data['description']);
         }
 
+        if (isset($data['forumId'])) {
+            $forum = $this->forumRepository->find((int) $data['forumId']);
+            if ($forum) {
+                $post->setForum($forum);
+            }
+        }
+
+        $removeImage = filter_var($data['removeImage'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if ($removeImage && $post->getImagePath()) {
+            $this->deletePostImageFile($post->getImagePath());
+            $post->setImagePath(null);
+        }
+
+        $removePdf = filter_var($data['removePdf'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if ($removePdf && $post->getPdfPath()) {
+            $this->deletePostPdfFile($post->getPdfPath());
+            $post->setPdfPath(null);
+        }
+
+        /** @var UploadedFile|null $imageFile */
+        $imageFile = $request->files->get('image');
+        if ($imageFile) {
+            $uploadResult = $this->uploadPostImage($imageFile);
+            if ($uploadResult['error']) {
+                return $this->json(['error' => $uploadResult['error']], 400);
+            }
+
+            if ($post->getImagePath()) {
+                $this->deletePostImageFile($post->getImagePath());
+            }
+
+            $post->setImagePath($uploadResult['filename']);
+        }
+
+        /** @var UploadedFile|null $pdfFile */
+        $pdfFile = $request->files->get('pdf');
+        if ($pdfFile) {
+            $uploadResult = $this->uploadPostPdf($pdfFile);
+            if ($uploadResult['error']) {
+                return $this->json(['error' => $uploadResult['error']], 400);
+            }
+
+            if ($post->getPdfPath()) {
+                $this->deletePostPdfFile($post->getPdfPath());
+            }
+
+            $post->setPdfPath($uploadResult['filename']);
+        }
+
         $this->entityManager->flush();
 
-        return $this->json(['success' => true]);
+        return $this->json([
+            'success' => true,
+            'imageUrl' => $this->getPostImageUrl($post),
+            'pdfUrl' => $this->getPostPdfUrl($post),
+        ]);
     }
 
     #[Route('/post/{id}', name: 'api_forum_post_delete', methods: ['DELETE'])]
@@ -282,6 +354,10 @@ class ForumApiController extends AbstractController
 
         if ($post->getImagePath()) {
             $this->deletePostImageFile($post->getImagePath());
+        }
+
+        if ($post->getPdfPath()) {
+            $this->deletePostPdfFile($post->getPdfPath());
         }
 
         $this->entityManager->remove($post);
@@ -371,6 +447,15 @@ class ForumApiController extends AbstractController
         return self::POST_IMAGE_BASE_PATH . $post->getImagePath();
     }
 
+    private function getPostPdfUrl(Post $post): ?string
+    {
+        if (!$post->getPdfPath()) {
+            return null;
+        }
+
+        return self::POST_PDF_BASE_PATH . $post->getPdfPath();
+    }
+
     /**
      * @return array{filename: ?string, error: ?string}
      */
@@ -400,6 +485,39 @@ class ForumApiController extends AbstractController
     private function deletePostImageFile(string $filename): void
     {
         $path = $this->getParameter('kernel.project_dir') . '/public/post_images/' . $filename;
+        if (is_file($path)) {
+            @unlink($path);
+        }
+    }
+
+    /**
+     * @return array{filename: ?string, error: ?string}
+     */
+    private function uploadPostPdf(UploadedFile $pdfFile): array
+    {
+        $allowedMimeTypes = ['application/pdf'];
+        if (!in_array($pdfFile->getMimeType(), $allowedMimeTypes, true)) {
+            return ['filename' => null, 'error' => 'PDF format not supported'];
+        }
+
+        if ($pdfFile->getSize() > 10 * 1024 * 1024) {
+            return ['filename' => null, 'error' => 'PDF too large (max 10MB)'];
+        }
+
+        $uploadDir = $this->getParameter('kernel.project_dir') . '/public/post_pdfs';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0775, true);
+        }
+
+        $pdfFilename = uniqid('post_pdf_', true) . '.pdf';
+        $pdfFile->move($uploadDir, $pdfFilename);
+
+        return ['filename' => $pdfFilename, 'error' => null];
+    }
+
+    private function deletePostPdfFile(string $filename): void
+    {
+        $path = $this->getParameter('kernel.project_dir') . '/public/post_pdfs/' . $filename;
         if (is_file($path)) {
             @unlink($path);
         }

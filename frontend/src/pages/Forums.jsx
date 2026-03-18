@@ -38,6 +38,7 @@ export default function Forums({ specialCategory = null }) {
   const [newPostDescription, setNewPostDescription] = useState('')
   const [newPostImage, setNewPostImage] = useState(null)
   const [newPostImagePreview, setNewPostImagePreview] = useState('')
+  const [newPostPdf, setNewPostPdf] = useState(null)
   const [selectedForumId, setSelectedForumId] = useState(null)
   const [preventionAlerts, setPreventionAlerts] = useState([])
   
@@ -50,6 +51,9 @@ export default function Forums({ specialCategory = null }) {
   const [editPostImage, setEditPostImage] = useState(null)
   const [editPostImagePreview, setEditPostImagePreview] = useState('')
   const [removeEditPostImage, setRemoveEditPostImage] = useState(false)
+  const [editPostPdf, setEditPostPdf] = useState(null)
+  const [editPostPdfUrl, setEditPostPdfUrl] = useState('')
+  const [removeEditPostPdf, setRemoveEditPostPdf] = useState(false)
 
   // Fetch forums for sidebar
   const { data: forumsData = [] } = useQuery({
@@ -298,6 +302,7 @@ export default function Forums({ specialCategory = null }) {
     setNewPostDescription('')
     setNewPostImage(null)
     setNewPostImagePreview('')
+    setNewPostPdf(null)
     setSelectedForumId(null)
     setPreventionAlerts([])
   }
@@ -309,7 +314,10 @@ export default function Forums({ specialCategory = null }) {
     setEditPostForumId(post.forum?.id)
     setEditPostImage(null)
     setRemoveEditPostImage(false)
-    setEditPostImagePreview(post.imageUrl ? resolvePostImageUrl(post.imageUrl) : '')
+    setEditPostImagePreview(post.imageUrl ? resolvePostAssetUrl(post.imageUrl) : '')
+    setEditPostPdf(null)
+    setEditPostPdfUrl(post.pdfUrl ? resolvePostAssetUrl(post.pdfUrl) : '')
+    setRemoveEditPostPdf(false)
     setShowEditModal(true)
   }
   
@@ -325,20 +333,27 @@ export default function Forums({ specialCategory = null }) {
     setEditPostImage(null)
     setEditPostImagePreview('')
     setRemoveEditPostImage(false)
+    setEditPostPdf(null)
+    setEditPostPdfUrl('')
+    setRemoveEditPostPdf(false)
   }
   
   const handleEditPost = (e) => {
     e.preventDefault()
     if (!editingPost) return
 
-    if (editPostImage || removeEditPostImage) {
+    if (editPostImage || removeEditPostImage || editPostPdf || removeEditPostPdf) {
       const formData = new FormData()
       formData.append('name', editPostTitle)
       formData.append('description', editPostDescription)
       formData.append('forumId', String(editPostForumId))
       formData.append('removeImage', String(removeEditPostImage))
+      formData.append('removePdf', String(removeEditPostPdf))
       if (editPostImage) {
         formData.append('image', editPostImage)
+      }
+      if (editPostPdf) {
+        formData.append('pdf', editPostPdf)
       }
 
       updatePostMutation.mutate({
@@ -399,6 +414,33 @@ export default function Forums({ specialCategory = null }) {
     setRemoveEditPostImage(true)
   }
 
+  const handleEditPdfSelection = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) {
+      return
+    }
+
+    if (file.type !== 'application/pdf') {
+      alert('Veuillez sélectionner un PDF valide.')
+      return
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert('PDF trop volumineux (max 10 MB).')
+      return
+    }
+
+    setEditPostPdf(file)
+    setEditPostPdfUrl('')
+    setRemoveEditPostPdf(false)
+  }
+
+  const handleRemoveEditPdf = () => {
+    setEditPostPdf(null)
+    setEditPostPdfUrl('')
+    setRemoveEditPostPdf(true)
+  }
+
   // Détecter le contenu sensible lors de la saisie
   useEffect(() => {
     if (!showCreateModal) return
@@ -432,12 +474,17 @@ export default function Forums({ specialCategory = null }) {
     e.preventDefault()
     const forumId = selectedForumId || currentForum?.id || forums[0]?.id
 
-    if (newPostImage) {
+    if (newPostImage || newPostPdf) {
       const formData = new FormData()
       formData.append('name', newPostTitle)
       formData.append('description', newPostDescription)
       formData.append('forumId', String(forumId))
-      formData.append('image', newPostImage)
+      if (newPostImage) {
+        formData.append('image', newPostImage)
+      }
+      if (newPostPdf) {
+        formData.append('pdf', newPostPdf)
+      }
       createPostMutation.mutate(formData)
       return
     }
@@ -481,6 +528,29 @@ export default function Forums({ specialCategory = null }) {
     setNewPostImagePreview('')
   }
 
+  const handlePdfSelection = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) {
+      return
+    }
+
+    if (file.type !== 'application/pdf') {
+      alert('Veuillez sélectionner un PDF valide.')
+      return
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert('PDF trop volumineux (max 10 MB).')
+      return
+    }
+
+    setNewPostPdf(file)
+  }
+
+  const clearPostPdf = () => {
+    setNewPostPdf(null)
+  }
+
   useEffect(() => {
     return () => {
       if (newPostImagePreview) {
@@ -501,13 +571,13 @@ export default function Forums({ specialCategory = null }) {
     return item.user ? `${item.user.firstName} ${item.user.lastName}` : 'Ancien utilisateur'
   }
 
-  const resolvePostImageUrl = (imageUrl) => {
-    if (!imageUrl) return null
-    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-      return imageUrl
+  const resolvePostAssetUrl = (assetUrl) => {
+    if (!assetUrl) return null
+    if (assetUrl.startsWith('http://') || assetUrl.startsWith('https://')) {
+      return assetUrl
     }
 
-    const normalizedPath = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`
+    const normalizedPath = assetUrl.startsWith('/') ? assetUrl : `/${assetUrl}`
     return `${BACKEND_BASE_URL}${normalizedPath}`
   }
 
@@ -588,10 +658,20 @@ export default function Forums({ specialCategory = null }) {
                 <p className="text-gray-700">{selectedPost.description}</p>
                 {selectedPost.imageUrl && (
                   <img
-                    src={resolvePostImageUrl(selectedPost.imageUrl)}
+                    src={resolvePostAssetUrl(selectedPost.imageUrl)}
                     alt="Visuel du post"
                     className="mt-4 rounded-xl w-full max-h-[420px] object-cover border border-gray-200"
                   />
+                )}
+                {selectedPost.pdfUrl && (
+                  <a
+                    href={resolvePostAssetUrl(selectedPost.pdfUrl)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-4 inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+                  >
+                    Voir le PDF joint
+                  </a>
                 )}
               </div>
 
@@ -833,10 +913,21 @@ export default function Forums({ specialCategory = null }) {
                     <p className="text-gray-600 mb-2 line-clamp-2">{post.description}</p>
                     {post.imageUrl && (
                       <img
-                        src={resolvePostImageUrl(post.imageUrl)}
+                        src={resolvePostAssetUrl(post.imageUrl)}
                         alt="Visuel du post"
                         className="mb-3 rounded-lg w-full max-h-64 object-cover border border-gray-200"
                       />
+                    )}
+                    {post.pdfUrl && (
+                      <a
+                        href={resolvePostAssetUrl(post.pdfUrl)}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="mb-3 inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
+                      >
+                        PDF joint
+                      </a>
                     )}
                     <div className="flex items-center justify-between text-sm text-gray-500">
                       <div className="flex items-center">
@@ -1016,6 +1107,32 @@ export default function Forums({ specialCategory = null }) {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-sm font-medium mb-1">PDF (optionnel)</label>
+                <div className="rounded-xl border-2 border-dashed border-red-200 bg-red-50/40 p-4">
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    onChange={handlePdfSelection}
+                    className="block w-full text-sm text-gray-700 file:mr-4 file:rounded-full file:border-0 file:bg-red-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-red-700"
+                  />
+                  <p className="mt-2 text-xs text-gray-500">Format PDF, max 10 MB.</p>
+
+                  {newPostPdf && (
+                    <div className="mt-3 rounded-md border border-red-200 bg-white px-3 py-2 text-sm text-gray-700">
+                      <p className="truncate">{newPostPdf.name}</p>
+                      <button
+                        type="button"
+                        onClick={clearPostPdf}
+                        className="mt-2 text-sm text-red-600 hover:text-red-700"
+                      >
+                        Retirer le PDF
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="flex gap-2">
                 <button
                   type="submit"
@@ -1110,6 +1227,43 @@ export default function Forums({ specialCategory = null }) {
                       className="mt-2 text-sm text-red-600 hover:text-red-700"
                     >
                       Retirer l'image
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">PDF du post</label>
+                <div className="rounded-xl border-2 border-dashed border-red-200 bg-red-50/40 p-4">
+                  {editPostPdf ? (
+                    <p className="text-sm text-gray-700 mb-3">Nouveau fichier: {editPostPdf.name}</p>
+                  ) : editPostPdfUrl ? (
+                    <a
+                      href={editPostPdfUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mb-3 inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-red-700 hover:bg-red-100"
+                    >
+                      Voir le PDF actuel
+                    </a>
+                  ) : (
+                    <p className="text-sm text-gray-500 mb-3">Aucun PDF</p>
+                  )}
+
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    onChange={handleEditPdfSelection}
+                    className="block w-full text-sm text-gray-700 file:mr-4 file:rounded-full file:border-0 file:bg-red-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-red-700"
+                  />
+
+                  {(editPostPdf || editPostPdfUrl) && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveEditPdf}
+                      className="mt-2 text-sm text-red-600 hover:text-red-700"
+                    >
+                      Retirer le PDF
                     </button>
                   )}
                 </div>
