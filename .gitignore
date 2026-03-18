@@ -9,6 +9,10 @@
 /public/bundles/
 /public/author_images/
 /public/profile_images/
+/public/post_images/
+/public/post_pdfs/
+/public/article_images/
+/public/article_pdfs/
 /assets/profile_images/
 /var/
 /vendor/
@@ -25,6 +29,9 @@ yarn-error.log
 /public/assets/
 /assets/vendor/
 ###< symfony/asset-mapper ###
+
+# React/Vite production build output
+/public/react/
 
 ###> phpunit/phpunit ###
 /phpunit.xml

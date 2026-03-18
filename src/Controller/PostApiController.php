@@ -12,6 +12,8 @@ use App\Repository\PostLikeRepository;
 use App\Repository\PostRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\File\Exception\FileException;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
@@ -38,6 +40,8 @@ class PostApiController extends AbstractController
             'id' => $post->getId(),
             'name' => $post->getName(),
             'description' => $post->getDescription(),
+            'imageUrl' => $post->getImagePath() ? '/post_images/' . $post->getImagePath() : null,
+            'pdfUrl' => $post->getPdfPath() ? '/post_pdfs/' . $post->getPdfPath() : null,
             'forumId' => $post->getForum()->getId(),
             'forumTitle' => $post->getForum()->getTitle(),
         ]);
@@ -46,7 +50,7 @@ class PostApiController extends AbstractController
     /**
      * Met à jour un post
      */
-    #[Route('/{id}', name: 'api_post_update', methods: ['PUT'])]
+    #[Route('/{id}', name: 'api_post_update', methods: ['PUT', 'POST'])]
     #[IsGranted('ROLE_USER')]
     public function updatePost(
         Post $post,
@@ -67,7 +71,10 @@ class PostApiController extends AbstractController
             return $this->json(['error' => 'Vous ne pouvez modifier que vos propres posts'], 403);
         }
 
-        $data = json_decode($request->getContent(), true);
+        $data = $request->request->all();
+        if (empty($data)) {
+            $data = json_decode($request->getContent(), true) ?? [];
+        }
 
         if (isset($data['name'])) {
             $post->setName($data['name']);
@@ -84,6 +91,52 @@ class PostApiController extends AbstractController
             }
         }
 
+        $removeImage = filter_var($data['removeImage'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if ($removeImage && $post->getImagePath()) {
+            $this->deletePostImageFile($post->getImagePath());
+            $post->setImagePath(null);
+        }
+
+        $removePdf = filter_var($data['removePdf'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if ($removePdf && $post->getPdfPath()) {
+            $this->deletePostPdfFile($post->getPdfPath());
+            $post->setPdfPath(null);
+        }
+
+        // Avoid relying on $request->files for PUT requests, since PHP may not
+        // populate uploaded files for PUT + multipart/form-data.
+        if (!$request->isMethod('PUT')) {
+            /** @var UploadedFile|null $imageFile */
+            $imageFile = $request->files->get('image');
+            if ($imageFile) {
+                $uploadResult = $this->uploadPostImage($imageFile);
+                if ($uploadResult['error']) {
+                    return $this->json(['error' => $uploadResult['error']], 400);
+                }
+
+                if ($post->getImagePath()) {
+                    $this->deletePostImageFile($post->getImagePath());
+                }
+
+                $post->setImagePath($uploadResult['filename']);
+            }
+
+            /** @var UploadedFile|null $pdfFile */
+            $pdfFile = $request->files->get('pdf');
+            if ($pdfFile) {
+                $uploadResult = $this->uploadPostPdf($pdfFile);
+                if ($uploadResult['error']) {
+                    return $this->json(['error' => $uploadResult['error']], 400);
+                }
+
+                if ($post->getPdfPath()) {
+                    $this->deletePostPdfFile($post->getPdfPath());
+                }
+
+                $post->setPdfPath($uploadResult['filename']);
+            }
+        }
+
         $entityManager->flush();
 
         return $this->json([
@@ -93,6 +146,8 @@ class PostApiController extends AbstractController
                 'id' => $post->getId(),
                 'name' => $post->getName(),
                 'description' => $post->getDescription(),
+                'imageUrl' => $post->getImagePath() ? '/post_images/' . $post->getImagePath() : null,
+                'pdfUrl' => $post->getPdfPath() ? '/post_pdfs/' . $post->getPdfPath() : null,
                 'forumId' => $post->getForum()->getId(),
             ]
         ]);
@@ -118,6 +173,14 @@ class PostApiController extends AbstractController
         // Admins (userType === 1) peuvent supprimer n'importe quel post
         if ($user->getUserType() !== 1 && $post->getUser() !== $user) {
             return $this->json(['error' => 'Vous ne pouvez supprimer que vos propres posts'], 403);
+        }
+
+        if ($post->getImagePath()) {
+            $this->deletePostImageFile($post->getImagePath());
+        }
+
+        if ($post->getPdfPath()) {
+            $this->deletePostPdfFile($post->getPdfPath());
         }
 
         $entityManager->remove($post);
@@ -165,6 +228,7 @@ class PostApiController extends AbstractController
                     !$user->isBlocked($postAuthor->getId()) &&
                     !$user->isBlockedBy($postAuthor->getId())
                 ) {
+                    $forum = $post->getForum();
                     $notif = new Notification();
                     $notif->setType('post_like');
                     $notif->setSender($user);
@@ -172,6 +236,8 @@ class PostApiController extends AbstractController
                     $notif->setStatus('unread');
                     $notif->setData([
                         'postId' => $post->getId(),
+                        'forumCategory' => $forum ? $forum->getTitle() : null,
+                        'forumSpecial' => $forum ? $forum->getSpecial() : null,
                         'message' => sprintf('%s a aimé votre post', $user->getUsername() ?? 'Quelqu\'un')
                     ]);
                     $entityManager->persist($notif);
@@ -212,5 +278,82 @@ class PostApiController extends AbstractController
             'liked' => $liked,
             'count' => $postLikeRepository->countByPost($post)
         ]);
+    }
+
+    /**
+     * @return array{filename: ?string, error: ?string}
+     */
+    private function uploadPostImage(UploadedFile $imageFile): array
+    {
+        $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!in_array($imageFile->getMimeType(), $allowedMimeTypes, true)) {
+            return ['filename' => null, 'error' => 'Image format not supported'];
+        }
+
+        if ($imageFile->getSize() > 5 * 1024 * 1024) {
+            return ['filename' => null, 'error' => 'Image too large (max 5MB)'];
+        }
+
+        $uploadDir = $this->getParameter('kernel.project_dir') . '/public/post_images';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0775, true);
+        }
+
+        $extension = $imageFile->guessExtension() ?: 'jpg';
+        $imageFilename = uniqid('post_', true) . '.' . $extension;
+
+        try {
+            $imageFile->move($uploadDir, $imageFilename);
+        } catch (FileException $e) {
+            return ['filename' => null, 'error' => 'Failed to save image file'];
+        }
+
+        return ['filename' => $imageFilename, 'error' => null];
+    }
+
+    private function deletePostImageFile(string $filename): void
+    {
+        $path = $this->getParameter('kernel.project_dir') . '/public/post_images/' . $filename;
+        if (is_file($path)) {
+            @unlink($path);
+        }
+    }
+
+    /**
+     * @return array{filename: ?string, error: ?string}
+     */
+    private function uploadPostPdf(UploadedFile $pdfFile): array
+    {
+        $allowedMimeTypes = ['application/pdf'];
+        if (!in_array($pdfFile->getMimeType(), $allowedMimeTypes, true)) {
+            return ['filename' => null, 'error' => 'PDF format not supported'];
+        }
+
+        if ($pdfFile->getSize() > 10 * 1024 * 1024) {
+            return ['filename' => null, 'error' => 'PDF too large (max 10MB)'];
+        }
+
+        $uploadDir = $this->getParameter('kernel.project_dir') . '/public/post_pdfs';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0775, true);
+        }
+
+        $pdfFilename = uniqid('post_pdf_', true) . '.pdf';
+
+        try {
+            $pdfFile->move($uploadDir, $pdfFilename);
+        } catch (FileException $e) {
+            return ['filename' => null, 'error' => 'Failed to save PDF file'];
+        }
+
+        return ['filename' => $pdfFilename, 'error' => null];
+    }
+
+    private function deletePostPdfFile(string $filename): void
+    {
+        $path = $this->getParameter('kernel.project_dir') . '/public/post_pdfs/' . $filename;
+        if (is_file($path)) {
+            @unlink($path);
+        }
     }
 }

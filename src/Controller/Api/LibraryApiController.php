@@ -12,6 +12,7 @@ use App\Repository\BookRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\Exception\FileException;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -21,6 +22,9 @@ use Symfony\Component\String\Slugger\SluggerInterface;
 #[Route('/api/library')]
 class LibraryApiController extends AbstractController
 {
+    private const ARTICLE_IMAGE_BASE_PATH = '/article_images/';
+    private const ARTICLE_PDF_BASE_PATH = '/article_pdfs/';
+
     // ==================== AUTHORS ====================
 
     /**
@@ -399,11 +403,18 @@ class LibraryApiController extends AbstractController
         $articles = $articleRepository->findBy([], ['title' => 'ASC']);
         
         $articlesData = array_map(function(Article $article) {
+            $isExternal = $this->isExternalUrl($article->getLink());
+
             return [
                 'id' => $article->getId(),
                 'title' => $article->getTitle(),
-                'author' => $article->getAuthor(),
+                'author' => $this->getDerivedArticleAuthor($article),
                 'link' => $article->getLink(),
+                'isExternal' => $isExternal,
+                'content' => $article->getContent(),
+                'imageUrl' => $this->getArticleImageUrl($article),
+                'pdfUrl' => $this->getArticlePdfUrl($article),
+                ...$this->getArticleConcernPayload($article),
                 'userId' => $article->getUser()?->getId(),
             ];
         }, $articles);
@@ -424,13 +435,46 @@ class LibraryApiController extends AbstractController
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $data = json_decode($request->getContent(), true);
+        $data = $request->request->all();
+        if (empty($data)) {
+            $data = json_decode($request->getContent(), true) ?? [];
+        }
 
         $article = new Article();
         $article->setTitle($data['title'] ?? '');
-        $article->setAuthor($data['author'] ?? '');
-        $article->setLink($data['link'] ?? '');
+        $link = $data['link'] ?? null;
+        if (is_string($link)) {
+            $link = trim($link);
+            if ($link === '') {
+                $link = null;
+            }
+        }
+        $article->setLink($link);
+        $article->setContent($data['content'] ?? null);
         $article->setUser($user);
+
+        $concernError = $this->applyArticleConcern($article, $data, $em);
+        if ($concernError instanceof JsonResponse) {
+            return $concernError;
+        }
+
+        $imageFile = $request->files->get('image');
+        if ($imageFile) {
+            $uploadResult = $this->uploadArticleImage($imageFile);
+            if ($uploadResult['error']) {
+                return new JsonResponse(['error' => $uploadResult['error']], Response::HTTP_BAD_REQUEST);
+            }
+            $article->setImagePath($uploadResult['filename']);
+        }
+
+        $pdfFile = $request->files->get('pdf');
+        if ($pdfFile) {
+            $uploadResult = $this->uploadArticlePdf($pdfFile);
+            if ($uploadResult['error']) {
+                return new JsonResponse(['error' => $uploadResult['error']], Response::HTTP_BAD_REQUEST);
+            }
+            $article->setPdfPath($uploadResult['filename']);
+        }
 
         $em->persist($article);
         $em->flush();
@@ -438,8 +482,13 @@ class LibraryApiController extends AbstractController
         return new JsonResponse([
             'id' => $article->getId(),
             'title' => $article->getTitle(),
-            'author' => $article->getAuthor(),
+            'author' => $this->getDerivedArticleAuthor($article),
             'link' => $article->getLink(),
+            'isExternal' => $this->isExternalUrl($article->getLink()),
+            'content' => $article->getContent(),
+            'imageUrl' => $this->getArticleImageUrl($article),
+            'pdfUrl' => $this->getArticlePdfUrl($article),
+            ...$this->getArticleConcernPayload($article),
             'userId' => $article->getUser()?->getId(),
         ], Response::HTTP_CREATED);
     }
@@ -464,16 +513,113 @@ class LibraryApiController extends AbstractController
             return new JsonResponse(['error' => 'Non autorisé'], Response::HTTP_FORBIDDEN);
         }
 
-        $data = json_decode($request->getContent(), true);
+        // Symfony/PHP do not reliably populate $request->request / $request->files
+        // for multipart/form-data bodies sent with PUT. Reject such requests explicitly
+        // to avoid silently ignoring fields/files.
+        if ($request->isMethod('PUT')) {
+            $contentType = (string) $request->headers->get('Content-Type', '');
+            if (stripos($contentType, 'multipart/form-data') === 0) {
+                return new JsonResponse(
+                    [
+                        'error' => 'Les requêtes PUT avec multipart/form-data ne sont pas prises en charge pour cette ressource. '
+                            . 'Utilisez JSON pour les mises à jour ou une requête POST/dédiée pour les fichiers.'
+                    ],
+                    Response::HTTP_BAD_REQUEST
+                );
+            }
+        }
+
+        $data = $request->request->all();
+        if (empty($data)) {
+            $data = json_decode($request->getContent(), true) ?? [];
+        }
+
+        // Guard against PUT + multipart/form-data where Symfony does not populate $request->files
+        $contentType = $request->headers->get('Content-Type', '');
+        if (
+            $request->isMethod('PUT')
+            && str_starts_with($contentType, 'multipart/form-data')
+            && empty($request->files->all())
+        ) {
+            return new JsonResponse(
+                [
+                    'error' => 'File uploads with multipart/form-data are not supported for PUT requests. '
+                        . 'Use POST (optionally with method override) or a JSON body with separate upload endpoints.',
+                ],
+                Response::HTTP_BAD_REQUEST
+            );
+        }
 
         if (isset($data['title'])) {
             $article->setTitle($data['title']);
         }
-        if (isset($data['author'])) {
-            $article->setAuthor($data['author']);
-        }
         if (isset($data['link'])) {
-            $article->setLink($data['link']);
+            $article->setLink($data['link'] ?: null);
+        }
+        if (isset($data['content'])) {
+            $article->setContent($data['content'] ?: null);
+        }
+        if (array_key_exists('concernType', $data) || array_key_exists('concernId', $data) || array_key_exists('bookId', $data) || array_key_exists('authorId', $data)) {
+            $concernError = $this->applyArticleConcern($article, $data, $em);
+            if ($concernError instanceof JsonResponse) {
+                return $concernError;
+            }
+        }
+
+        $removeImage = filter_var($data['removeImage'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if ($removeImage && $article->getImagePath()) {
+            $this->deleteArticleImageFile($article->getImagePath());
+            $article->setImagePath(null);
+        }
+
+        $removePdf = filter_var($data['removePdf'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if ($removePdf && $article->getPdfPath()) {
+            $this->deleteArticlePdfFile($article->getPdfPath());
+            $article->setPdfPath(null);
+        }
+
+        // Guard against multipart PUT/PATCH where PHP/Symfony do not populate $request->files.
+        $method = $request->getMethod();
+        $contentType = $request->headers->get('Content-Type', '');
+        if (in_array($method, ['PUT', 'PATCH'], true)
+            && stripos($contentType, 'multipart/form-data') !== false
+            && 0 === $request->files->count()
+        ) {
+            return new JsonResponse(
+                [
+                    'error' => 'Multipart form uploads are not supported with ' . $method . ' on this endpoint. '
+                        . 'Please use POST (optionally with a method override) or a dedicated upload endpoint.',
+                ],
+                Response::HTTP_BAD_REQUEST
+            );
+        }
+
+        $imageFile = $request->files->get('image');
+        if ($imageFile) {
+            $uploadResult = $this->uploadArticleImage($imageFile);
+            if ($uploadResult['error']) {
+                return new JsonResponse(['error' => $uploadResult['error']], Response::HTTP_BAD_REQUEST);
+            }
+
+            if ($article->getImagePath()) {
+                $this->deleteArticleImageFile($article->getImagePath());
+            }
+
+            $article->setImagePath($uploadResult['filename']);
+        }
+
+        $pdfFile = $request->files->get('pdf');
+        if ($pdfFile) {
+            $uploadResult = $this->uploadArticlePdf($pdfFile);
+            if ($uploadResult['error']) {
+                return new JsonResponse(['error' => $uploadResult['error']], Response::HTTP_BAD_REQUEST);
+            }
+
+            if ($article->getPdfPath()) {
+                $this->deleteArticlePdfFile($article->getPdfPath());
+            }
+
+            $article->setPdfPath($uploadResult['filename']);
         }
 
         $em->flush();
@@ -481,10 +627,108 @@ class LibraryApiController extends AbstractController
         return new JsonResponse([
             'id' => $article->getId(),
             'title' => $article->getTitle(),
-            'author' => $article->getAuthor(),
+            'author' => $this->getDerivedArticleAuthor($article),
             'link' => $article->getLink(),
+            'isExternal' => $this->isExternalUrl($article->getLink()),
+            'content' => $article->getContent(),
+            'imageUrl' => $this->getArticleImageUrl($article),
+            'pdfUrl' => $this->getArticlePdfUrl($article),
+            ...$this->getArticleConcernPayload($article),
             'userId' => $article->getUser()?->getId(),
         ]);
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function applyArticleConcern(
+        Article $article,
+        array $data,
+        EntityManagerInterface $em
+    ): ?JsonResponse {
+        $concernType = strtolower(trim((string) ($data['concernType'] ?? '')));
+        $concernId = isset($data['concernId']) ? (int) $data['concernId'] : 0;
+
+        // Backward compatibility with previous payloads.
+        if ($concernType === '') {
+            if (isset($data['bookId'])) {
+                $concernType = 'book';
+                $concernId = (int) $data['bookId'];
+            } elseif (isset($data['authorId'])) {
+                $concernType = 'author';
+                $concernId = (int) $data['authorId'];
+            }
+        }
+
+        if ($concernType === 'book' && $concernId > 0) {
+            /** @var BookRepository $bookRepository */
+            $bookRepository = $em->getRepository(Book::class);
+            $book = $bookRepository->find($concernId);
+            if (!$book) {
+                return new JsonResponse(['error' => 'Livre non trouvé'], Response::HTTP_BAD_REQUEST);
+            }
+
+            $article->setRelatedBook($book);
+            $article->setRelatedAuthor(null);
+
+            return null;
+        }
+
+        if ($concernType === 'author' && $concernId > 0) {
+            /** @var AuthorRepository $authorRepository */
+            $authorRepository = $em->getRepository(Author::class);
+            $author = $authorRepository->find($concernId);
+            if (!$author) {
+                return new JsonResponse(['error' => 'Auteur non trouvé'], Response::HTTP_BAD_REQUEST);
+            }
+
+            $article->setRelatedAuthor($author);
+            $article->setRelatedBook(null);
+
+            return null;
+        }
+
+        if ($concernType === 'none' || $concernType === '' || $concernId <= 0) {
+            $article->setRelatedBook(null);
+            $article->setRelatedAuthor(null);
+
+            return null;
+        }
+
+        return new JsonResponse(['error' => 'Type de cible invalide'], Response::HTTP_BAD_REQUEST);
+    }
+
+    /**
+     * @return array{relatedBookId:?int,relatedBookTitle:?string,relatedAuthorId:?int,relatedAuthorName:?string,concernType:string,concernId:?int,concernLabel:?string}
+     */
+    private function getArticleConcernPayload(Article $article): array
+    {
+        $relatedBook = $article->getRelatedBook();
+        $relatedAuthor = $article->getRelatedAuthor();
+
+        $concernType = 'none';
+        $concernId = null;
+        $concernLabel = null;
+
+        if ($relatedBook) {
+            $concernType = 'book';
+            $concernId = $relatedBook->getId();
+            $concernLabel = $relatedBook->getTitle();
+        } elseif ($relatedAuthor) {
+            $concernType = 'author';
+            $concernId = $relatedAuthor->getId();
+            $concernLabel = $relatedAuthor->getName();
+        }
+
+        return [
+            'relatedBookId' => $relatedBook?->getId(),
+            'relatedBookTitle' => $relatedBook?->getTitle(),
+            'relatedAuthorId' => $relatedAuthor?->getId(),
+            'relatedAuthorName' => $relatedAuthor?->getName(),
+            'concernType' => $concernType,
+            'concernId' => $concernId,
+            'concernLabel' => $concernLabel,
+        ];
     }
 
     /**
@@ -506,9 +750,129 @@ class LibraryApiController extends AbstractController
             return new JsonResponse(['error' => 'Non autorisé'], Response::HTTP_FORBIDDEN);
         }
 
+        if ($article->getImagePath()) {
+            $this->deleteArticleImageFile($article->getImagePath());
+        }
+
+        if ($article->getPdfPath()) {
+            $this->deleteArticlePdfFile($article->getPdfPath());
+        }
+
         $em->remove($article);
         $em->flush();
 
         return new JsonResponse(['success' => true]);
+    }
+
+    private function isExternalUrl(?string $link): bool
+    {
+        return $link !== null && preg_match('/^https?:\/\//i', $link) === 1;
+    }
+
+    private function getArticleImageUrl(Article $article): ?string
+    {
+        if (!$article->getImagePath()) {
+            return null;
+        }
+
+        return self::ARTICLE_IMAGE_BASE_PATH . $article->getImagePath();
+    }
+
+    private function getArticlePdfUrl(Article $article): ?string
+    {
+        if (!$article->getPdfPath()) {
+            return null;
+        }
+
+        return self::ARTICLE_PDF_BASE_PATH . $article->getPdfPath();
+    }
+
+    private function getDerivedArticleAuthor(Article $article): ?string
+    {
+        if ($article->getRelatedAuthor()) {
+            return $article->getRelatedAuthor()?->getName();
+        }
+
+        if ($article->getRelatedBook()) {
+            return $article->getRelatedBook()?->getAuthor();
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{filename: ?string, error: ?string}
+     */
+    private function uploadArticleImage(UploadedFile $imageFile): array
+    {
+        $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!in_array($imageFile->getMimeType(), $allowedMimeTypes, true)) {
+            return ['filename' => null, 'error' => 'Format d\'image non supporté'];
+        }
+
+        if ($imageFile->getSize() > 5 * 1024 * 1024) {
+            return ['filename' => null, 'error' => 'Image trop volumineuse (max 5 MB)'];
+        }
+
+        $uploadDir = $this->getParameter('kernel.project_dir') . '/public/article_images';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0775, true);
+        }
+
+        $extension = $imageFile->guessExtension() ?: 'jpg';
+        $filename = uniqid('article_img_', true) . '.' . $extension;
+
+        try {
+            $imageFile->move($uploadDir, $filename);
+        } catch (FileException $e) {
+            return ['filename' => null, 'error' => 'Erreur lors de l\'enregistrement de l\'image'];
+        }
+
+        return ['filename' => $filename, 'error' => null];
+    }
+
+    /**
+     * @return array{filename: ?string, error: ?string}
+     */
+    private function uploadArticlePdf(UploadedFile $pdfFile): array
+    {
+        if ($pdfFile->getMimeType() !== 'application/pdf') {
+            return ['filename' => null, 'error' => 'Format PDF non supporté'];
+        }
+
+        if ($pdfFile->getSize() > 10 * 1024 * 1024) {
+            return ['filename' => null, 'error' => 'PDF trop volumineux (max 10 MB)'];
+        }
+
+        $uploadDir = $this->getParameter('kernel.project_dir') . '/public/article_pdfs';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0775, true);
+        }
+
+        $filename = uniqid('article_pdf_', true) . '.pdf';
+
+        try {
+            $pdfFile->move($uploadDir, $filename);
+        } catch (FileException $e) {
+            return ['filename' => null, 'error' => 'Erreur lors de l\'enregistrement du PDF'];
+        }
+
+        return ['filename' => $filename, 'error' => null];
+    }
+
+    private function deleteArticleImageFile(string $filename): void
+    {
+        $path = $this->getParameter('kernel.project_dir') . '/public/article_images/' . $filename;
+        if (is_file($path)) {
+            @unlink($path);
+        }
+    }
+
+    private function deleteArticlePdfFile(string $filename): void
+    {
+        $path = $this->getParameter('kernel.project_dir') . '/public/article_pdfs/' . $filename;
+        if (is_file($path)) {
+            @unlink($path);
+        }
     }
 }

@@ -167,6 +167,32 @@ class NotificationsApiController extends AbstractController
     }
 
     /**
+     * Mark a notification as read
+     */
+    #[Route('/notifications/mark-read/{id}', name: 'api_notifications_mark_read', methods: ['POST'])]
+    public function markRead(int $id, EntityManagerInterface $entityManager): JsonResponse
+    {
+        /** @var User|null $currentUser */
+        $currentUser = $this->getUser();
+
+        if (!$currentUser) {
+            return $this->json(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $notifRepo = $entityManager->getRepository(Notification::class);
+        $notification = $notifRepo->find($id);
+
+        if (!$notification || $notification->getRecipient()->getId() !== $currentUser->getId()) {
+            return $this->json(['error' => 'Not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $notification->setIsRead(true);
+        $entityManager->flush();
+
+        return $this->json(['success' => true]);
+    }
+
+    /**
      * Clear all notifications for current user
      */
     #[Route('/notifications/clear-all', name: 'api_notifications_clear_all', methods: ['POST'])]
@@ -188,5 +214,31 @@ class NotificationsApiController extends AbstractController
         $entityManager->flush();
 
         return $this->json(['success' => true, 'cleared' => true]);
+    }
+
+    /**
+     * Delete a single notification
+     */
+    #[Route('/notifications/{id}', name: 'api_notifications_delete', methods: ['DELETE'])]
+    public function deleteNotification(int $id, EntityManagerInterface $entityManager): JsonResponse
+    {
+        /** @var User|null $currentUser */
+        $currentUser = $this->getUser();
+
+        if (!$currentUser) {
+            return $this->json(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $notifRepo = $entityManager->getRepository(Notification::class);
+        $notification = $notifRepo->find($id);
+
+        if (!$notification || $notification->getRecipient()->getId() !== $currentUser->getId()) {
+            return $this->json(['error' => 'Not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $entityManager->remove($notification);
+        $entityManager->flush();
+
+        return $this->json(['success' => true]);
     }
 }

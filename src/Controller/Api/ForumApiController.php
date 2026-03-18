@@ -13,11 +13,16 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\File\Exception\FileException;
 use Symfony\Component\Routing\Annotation\Route;
 
 #[Route('/api/forums')]
 class ForumApiController extends AbstractController
 {
+    private const POST_IMAGE_BASE_PATH = '/post_images/';
+    private const POST_PDF_BASE_PATH = '/post_pdfs/';
+
     public function __construct(
         private EntityManagerInterface $entityManager,
         private ForumRepository $forumRepository,
@@ -49,7 +54,6 @@ class ForumApiController extends AbstractController
     {
         /** @var User|null $currentUser */
         $currentUser = $this->getUser();
-        $isAdmin = $currentUser !== null && $currentUser->getUserType() === 1;
 
         if ($category === 'General') {
             $posts = $this->postRepository->findAll();
@@ -61,39 +65,21 @@ class ForumApiController extends AbstractController
             $posts = $forum->getPosts()->toArray();
         }
 
-        $data = array_map(function(Post $post) use ($isAdmin, $currentUser) {
-            $forum = $post->getForum();
-            $user = $post->getUser();
-            
-            // Check if current user has liked this post
-            $isLiked = false;
-            if ($currentUser) {
-                $existingLike = $this->postLikeRepository->findOneBy(['user' => $currentUser, 'post' => $post]);
-                $isLiked = $existingLike !== null;
+        // Filter out posts from blocked users (mutual block)
+        if ($currentUser) {
+            $allBlockedIds = array_merge(
+                array_map('intval', $currentUser->getBlocked()),
+                array_map('intval', $currentUser->getBlockedBy())
+            );
+            if (!empty($allBlockedIds)) {
+                $posts = array_values(array_filter($posts, function(Post $post) use ($allBlockedIds) {
+                    $postUser = $post->getUser();
+                    return $postUser === null || !in_array($postUser->getId(), $allBlockedIds, true);
+                }));
             }
-            
-            return [
-                'id' => $post->getId(),
-                'name' => $post->getName(),
-                'description' => $post->getDescription(),
-                'creationDate' => $post->getCreationDate()->format('c'),
-                'forum' => [
-                    'id' => $forum->getId(),
-                    'title' => $forum->getTitle(),
-                    'anonymous' => $forum->isAnonymous(),
-                    'special' => $forum->getSpecial(),
-                ],
-                'user' => $user ? [
-                    'id' => $user->getId(),
-                    'firstName' => $user->getFirstName(),
-                    'lastName' => $user->getLastName(),
-                    'username' => $user->getUsername(),
-                ] : null,
-                'likesCount' => $post->getLikes()->count(),
-                'commentsCount' => $post->getComments()->count(),
-                'isLiked' => $isLiked,
-            ];
-        }, $posts);
+        }
+
+        $data = array_map(fn(Post $post) => $this->serializePost($post, $currentUser), $posts);
 
         return $this->json($data);
     }
@@ -110,37 +96,16 @@ class ForumApiController extends AbstractController
         /** @var User|null $currentUser */
         $currentUser = $this->getUser();
         $user = $post->getUser();
-        $forum = $post->getForum();
-        
-        // Check if current user has liked this post
-        $isLiked = false;
-        if ($currentUser) {
-            $existingLike = $this->postLikeRepository->findOneBy(['user' => $currentUser, 'post' => $post]);
-            $isLiked = $existingLike !== null;
+
+        // Block check: hide post if there is a mutual block between current user and post author
+        if ($currentUser && $user) {
+            $authorId = $user->getId();
+            if ($currentUser->isBlocked($authorId) || $currentUser->isBlockedBy($authorId)) {
+                return $this->json(['error' => 'Post not found'], 404);
+            }
         }
-        
-        $data = [
-            'id' => $post->getId(),
-            'name' => $post->getName(),
-            'description' => $post->getDescription(),
-            'creationDate' => $post->getCreationDate()->format('c'),
-            'user' => $user ? [
-                'id' => $user->getId(),
-                'firstName' => $user->getFirstName(),
-                'lastName' => $user->getLastName(),
-                'username' => $user->getUsername(),
-            ] : null,
-            'forum' => [
-                'id' => $forum->getId(),
-                'title' => $forum->getTitle(),
-                'anonymous' => $forum->isAnonymous(),
-                'debussyClairDeLune' => $forum->isDebussyClairDeLune(),
-                'special' => $forum->getSpecial(),
-            ],
-            'likesCount' => $post->getLikes()->count(),
-            'commentsCount' => $post->getComments()->count(),
-            'isLiked' => $isLiked,
-        ];
+
+        $data = $this->serializePost($post, $currentUser, true);
 
         return $this->json($data);
     }
@@ -149,17 +114,49 @@ class ForumApiController extends AbstractController
     public function createPost(Request $request): JsonResponse
     {
         $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+
+        $data = $request->request->all();
+        if (empty($data)) {
+            $data = json_decode($request->getContent(), true) ?? [];
+        }
+
+        $name = trim((string)($data['name'] ?? ''));
+        $description = trim((string)($data['description'] ?? ''));
+        $forumId = (int)($data['forumId'] ?? 0);
+
+        $forum = $forumId > 0 ? $this->forumRepository->find($forumId) : null;
         
-        $data = json_decode($request->getContent(), true);
-        
-        $forum = $this->forumRepository->find($data['forumId']);
-        if (!$forum) {
-            return $this->json(['error' => 'Forum not found'], 404);
+        if ($name === '' || $description === '' || !$forum) {
+            return $this->json(['error' => 'Invalid post payload'], 400);
+        }
+
+        /** @var UploadedFile|null $imageFile */
+        $imageFile = $request->files->get('image');
+        $imageFilename = null;
+        if ($imageFile) {
+            $uploadResult = $this->uploadPostImage($imageFile);
+            if ($uploadResult['error']) {
+                return $this->json(['error' => $uploadResult['error']], 400);
+            }
+            $imageFilename = $uploadResult['filename'];
+        }
+
+        /** @var UploadedFile|null $pdfFile */
+        $pdfFile = $request->files->get('pdf');
+        $pdfFilename = null;
+        if ($pdfFile) {
+            $uploadResult = $this->uploadPostPdf($pdfFile);
+            if ($uploadResult['error']) {
+                return $this->json(['error' => $uploadResult['error']], 400);
+            }
+            $pdfFilename = $uploadResult['filename'];
         }
 
         $post = new Post();
-        $post->setName($data['name']);
-        $post->setDescription($data['description']);
+        $post->setName($name);
+        $post->setDescription($description);
+        $post->setImagePath($imageFilename);
+        $post->setPdfPath($pdfFilename);
         $post->setForum($forum);
         $post->setUser($this->getUser());
         $post->setCreationDate(new \DateTime());
@@ -177,7 +174,12 @@ class ForumApiController extends AbstractController
         $this->entityManager->persist($post);
         $this->entityManager->flush();
 
-        return $this->json(['success' => true, 'id' => $post->getId()], 201);
+        return $this->json([
+            'success' => true,
+            'id' => $post->getId(),
+            'imageUrl' => $this->getPostImageUrl($post),
+            'pdfUrl' => $this->getPostPdfUrl($post),
+        ], 201);
     }
 
     #[Route('/post/{id}', name: 'api_forum_post_update', methods: ['PUT'])]
@@ -198,7 +200,10 @@ class ForumApiController extends AbstractController
             return $this->json(['error' => 'Unauthorized'], 403);
         }
 
-        $data = json_decode($request->getContent(), true);
+        $data = $request->request->all();
+        if (empty($data)) {
+            $data = json_decode($request->getContent(), true) ?? [];
+        }
         
         if (isset($data['name'])) {
             $post->setName($data['name']);
@@ -207,9 +212,62 @@ class ForumApiController extends AbstractController
             $post->setDescription($data['description']);
         }
 
+        if (isset($data['forumId'])) {
+            $forum = $this->forumRepository->find((int) $data['forumId']);
+            if ($forum) {
+                $post->setForum($forum);
+            }
+        }
+
+        $removeImage = filter_var($data['removeImage'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if ($removeImage && $post->getImagePath()) {
+            $this->deletePostImageFile($post->getImagePath());
+            $post->setImagePath(null);
+        }
+
+        $removePdf = filter_var($data['removePdf'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if ($removePdf && $post->getPdfPath()) {
+            $this->deletePostPdfFile($post->getPdfPath());
+            $post->setPdfPath(null);
+        }
+
+        /** @var UploadedFile|null $imageFile */
+        $imageFile = $request->files->get('image');
+        if ($imageFile) {
+            $uploadResult = $this->uploadPostImage($imageFile);
+            if ($uploadResult['error']) {
+                return $this->json(['error' => $uploadResult['error']], 400);
+            }
+
+            if ($post->getImagePath()) {
+                $this->deletePostImageFile($post->getImagePath());
+            }
+
+            $post->setImagePath($uploadResult['filename']);
+        }
+
+        /** @var UploadedFile|null $pdfFile */
+        $pdfFile = $request->files->get('pdf');
+        if ($pdfFile) {
+            $uploadResult = $this->uploadPostPdf($pdfFile);
+            if ($uploadResult['error']) {
+                return $this->json(['error' => $uploadResult['error']], 400);
+            }
+
+            if ($post->getPdfPath()) {
+                $this->deletePostPdfFile($post->getPdfPath());
+            }
+
+            $post->setPdfPath($uploadResult['filename']);
+        }
+
         $this->entityManager->flush();
 
-        return $this->json(['success' => true]);
+        return $this->json([
+            'success' => true,
+            'imageUrl' => $this->getPostImageUrl($post),
+            'pdfUrl' => $this->getPostPdfUrl($post),
+        ]);
     }
 
     #[Route('/post/{id}', name: 'api_forum_post_delete', methods: ['DELETE'])]
@@ -228,6 +286,14 @@ class ForumApiController extends AbstractController
         $user = $this->getUser();
         if ($post->getUser() !== $user && $user->getUserType() !== 1) {
             return $this->json(['error' => 'Unauthorized'], 403);
+        }
+
+        if ($post->getImagePath()) {
+            $this->deletePostImageFile($post->getImagePath());
+        }
+
+        if ($post->getPdfPath()) {
+            $this->deletePostPdfFile($post->getPdfPath());
         }
 
         $this->entityManager->remove($post);
@@ -306,5 +372,172 @@ class ForumApiController extends AbstractController
             $numbers .= rand(0, 9);
         }
         return $letters . '.' . $numbers;
+    }
+
+    private function getPostImageUrl(Post $post): ?string
+    {
+        if (!$post->getImagePath()) {
+            return null;
+        }
+
+        return self::POST_IMAGE_BASE_PATH . $post->getImagePath();
+    }
+
+    private function getPostPdfUrl(Post $post): ?string
+    {
+        if (!$post->getPdfPath()) {
+            return null;
+        }
+
+        return self::POST_PDF_BASE_PATH . $post->getPdfPath();
+    }
+
+    private function serializeParentPost(?Post $parentPost): ?array
+    {
+        if (!$parentPost) {
+            return null;
+        }
+
+        return [
+            'id' => $parentPost->getId(),
+            'name' => $parentPost->getName(),
+            'description' => $parentPost->getDescription(),
+        ];
+    }
+
+    private function serializePost(Post $post, ?User $currentUser = null, bool $includeReplies = false): array
+    {
+        $forum = $post->getForum();
+        $user = $post->getUser();
+        $parentPost = $post->getParentPost();
+
+        $isLiked = false;
+        if ($currentUser) {
+            $existingLike = $this->postLikeRepository->findOneBy(['user' => $currentUser, 'post' => $post]);
+            $isLiked = $existingLike !== null;
+        }
+
+        $data = [
+            'id' => $post->getId(),
+            'name' => $post->getName(),
+            'description' => $post->getDescription(),
+            'imageUrl' => $this->getPostImageUrl($post),
+            'pdfUrl' => $this->getPostPdfUrl($post),
+            'creationDate' => $post->getCreationDate()->format('c'),
+            'forum' => [
+                'id' => $forum->getId(),
+                'title' => $forum->getTitle(),
+                'anonymous' => $forum->isAnonymous(),
+                'debussyClairDeLune' => $forum->isDebussyClairDeLune(),
+                'special' => $forum->getSpecial(),
+            ],
+            'user' => $user ? [
+                'id' => $user->getId(),
+                'firstName' => $user->getFirstName(),
+                'lastName' => $user->getLastName(),
+                'username' => $user->getUsername(),
+            ] : null,
+            'likesCount' => $post->getLikes()->count(),
+            'commentsCount' => $post->getComments()->count(),
+            'isLiked' => $isLiked,
+            'isReply' => $post->getIsReply(),
+            'parentId' => $parentPost?->getId(),
+            'parentPost' => $this->serializeParentPost($parentPost),
+            'repliesCount' => $post->getReplies()->count(),
+        ];
+
+        if ($includeReplies) {
+            $replies = $post->getReplies()->toArray();
+            usort($replies, fn(Post $a, Post $b) => $a->getCreationDate() <=> $b->getCreationDate());
+
+            if ($currentUser) {
+                $allBlockedIds = array_merge(
+                    array_map('intval', $currentUser->getBlocked()),
+                    array_map('intval', $currentUser->getBlockedBy())
+                );
+
+                if (!empty($allBlockedIds)) {
+                    $replies = array_values(array_filter($replies, function (Post $reply) use ($allBlockedIds) {
+                        $replyUser = $reply->getUser();
+                        return $replyUser === null || !in_array($replyUser->getId(), $allBlockedIds, true);
+                    }));
+                }
+            }
+
+            $data['replies'] = array_map(fn(Post $reply) => $this->serializePost($reply, $currentUser, false), $replies);
+        }
+
+        return $data;
+    }
+
+    /**
+     * @return array{filename: ?string, error: ?string}
+     */
+    private function uploadPostImage(UploadedFile $imageFile): array
+    {
+        $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!in_array($imageFile->getMimeType(), $allowedMimeTypes, true)) {
+            return ['filename' => null, 'error' => 'Image format not supported'];
+        }
+
+        if ($imageFile->getSize() > 5 * 1024 * 1024) {
+            return ['filename' => null, 'error' => 'Image too large (max 5MB)'];
+        }
+
+        $uploadDir = $this->getParameter('kernel.project_dir') . '/public/post_images';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0775, true);
+        }
+
+        $extension = $imageFile->guessExtension() ?: 'jpg';
+        $imageFilename = uniqid('post_', true) . '.' . $extension;
+        $imageFile->move($uploadDir, $imageFilename);
+
+        return ['filename' => $imageFilename, 'error' => null];
+    }
+
+    private function deletePostImageFile(string $filename): void
+    {
+        $path = $this->getParameter('kernel.project_dir') . '/public/post_images/' . $filename;
+        if (is_file($path)) {
+            @unlink($path);
+        }
+    }
+
+    /**
+     * @return array{filename: ?string, error: ?string}
+     */
+    private function uploadPostPdf(UploadedFile $pdfFile): array
+    {
+        $allowedMimeTypes = ['application/pdf'];
+        if (!in_array($pdfFile->getMimeType(), $allowedMimeTypes, true)) {
+            return ['filename' => null, 'error' => 'PDF format not supported'];
+        }
+
+        if ($pdfFile->getSize() > 10 * 1024 * 1024) {
+            return ['filename' => null, 'error' => 'PDF too large (max 10MB)'];
+        }
+
+        $uploadDir = $this->getParameter('kernel.project_dir') . '/public/post_pdfs';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0775, true);
+        }
+
+        $pdfFilename = uniqid('post_pdf_', true) . '.pdf';
+        try {
+            $pdfFile->move($uploadDir, $pdfFilename);
+        } catch (FileException $e) {
+            return ['filename' => null, 'error' => 'Failed to upload PDF file'];
+        }
+
+        return ['filename' => $pdfFilename, 'error' => null];
+    }
+
+    private function deletePostPdfFile(string $filename): void
+    {
+        $path = $this->getParameter('kernel.project_dir') . '/public/post_pdfs/' . $filename;
+        if (is_file($path)) {
+            @unlink($path);
+        }
     }
 }

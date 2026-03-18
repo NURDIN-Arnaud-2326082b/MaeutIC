@@ -13,20 +13,12 @@ export const getAuthor = async (id) => {
 };
 
 export const createAuthor = async (formData) => {
-  const { data } = await api.post('/library/authors', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+  const { data } = await api.post('/library/authors', formData);
   return data;
 };
 
 export const updateAuthor = async (id, formData) => {
-  const { data } = await api.post(`/library/authors/${id}`, formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+  const { data } = await api.post(`/library/authors/${id}`, formData);
   return data;
 };
 
@@ -43,20 +35,12 @@ export const getBooks = async () => {
 };
 
 export const createBook = async (formData) => {
-  const { data } = await api.post('/library/books', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+  const { data } = await api.post('/library/books', formData);
   return data;
 };
 
 export const updateBook = async (id, formData) => {
-  const { data } = await api.post(`/library/books/${id}`, formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+  const { data } = await api.post(`/library/books/${id}`, formData);
   return data;
 };
 
@@ -72,13 +56,13 @@ export const getArticles = async () => {
   return data;
 };
 
-export const createArticle = async (articleData) => {
-  const { data } = await api.post('/library/articles', articleData);
+export const createArticle = async (formData) => {
+  const { data } = await api.post('/library/articles', formData);
   return data;
 };
 
-export const updateArticle = async (id, articleData) => {
-  const { data } = await api.put(`/library/articles/${id}`, articleData);
+export const updateArticle = async (id, formData) => {
+  const { data } = await api.put(`/library/articles/${id}`, formData);
   return data;
 };
 
