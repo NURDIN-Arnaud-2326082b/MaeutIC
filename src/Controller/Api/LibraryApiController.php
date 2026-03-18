@@ -807,7 +807,7 @@ class LibraryApiController extends AbstractController
     {
         $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
         if (!in_array($imageFile->getMimeType(), $allowedMimeTypes, true)) {
-            return ['filename' => null, 'error' => 'Format image non supporte'];
+            return ['filename' => null, 'error' => 'Format d\'image non supporté'];
         }
 
         if ($imageFile->getSize() > 5 * 1024 * 1024) {
@@ -837,7 +837,7 @@ class LibraryApiController extends AbstractController
     private function uploadArticlePdf(UploadedFile $pdfFile): array
     {
         if ($pdfFile->getMimeType() !== 'application/pdf') {
-            return ['filename' => null, 'error' => 'Format PDF non supporte'];
+            return ['filename' => null, 'error' => 'Format PDF non supporté'];
         }
 
         if ($pdfFile->getSize() > 10 * 1024 * 1024) {
