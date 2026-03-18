@@ -82,6 +82,14 @@ export default function Forums({ specialCategory = null }) {
   }
   
   const basePath = getForumBasePath()
+
+  const getPostDeleteRedirectPath = () => {
+    if (!specialCategory) {
+      return `/forums/${category || 'General'}`
+    }
+
+    return category === specialCategory ? basePath : `${basePath}/${category}`
+  }
   
   // Get sidebar title based on special category
   const getSidebarTitle = () => {
@@ -280,7 +288,7 @@ export default function Forums({ specialCategory = null }) {
       }).then(r => r.json()),
     onSuccess: () => {
       queryClient.invalidateQueries(['posts'])
-      navigate(basePath)
+      navigate(getPostDeleteRedirectPath())
     },
   })
   
