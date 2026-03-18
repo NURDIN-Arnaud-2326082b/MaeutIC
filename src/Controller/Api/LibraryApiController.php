@@ -578,6 +578,22 @@ class LibraryApiController extends AbstractController
             $article->setPdfPath(null);
         }
 
+        // Guard against multipart PUT/PATCH where PHP/Symfony do not populate $request->files.
+        $method = $request->getMethod();
+        $contentType = $request->headers->get('Content-Type', '');
+        if (in_array($method, ['PUT', 'PATCH'], true)
+            && stripos($contentType, 'multipart/form-data') !== false
+            && 0 === $request->files->count()
+        ) {
+            return new JsonResponse(
+                [
+                    'error' => 'Multipart form uploads are not supported with ' . $method . ' on this endpoint. '
+                        . 'Please use POST (optionally with a method override) or a dedicated upload endpoint.',
+                ],
+                Response::HTTP_BAD_REQUEST
+            );
+        }
+
         $imageFile = $request->files->get('image');
         if ($imageFile) {
             $uploadResult = $this->uploadArticleImage($imageFile);
