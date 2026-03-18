@@ -63,6 +63,7 @@ jobs:
           target: ${{ secrets.IONOS_PATH }}
           strip_components: 0
           overwrite: true
+          rm: true
 
       - name: Exécuter des commandes sur IONOS (si besoin)
         uses: appleboy/ssh-action@master
