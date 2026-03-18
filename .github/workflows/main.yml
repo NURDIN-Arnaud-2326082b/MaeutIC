@@ -31,17 +31,6 @@ jobs:
           npm run build
           cd ..
 
-      - name: Vérifier le build React
-        run: |
-          echo "=== Contenu de public/react/ ==="
-          ls -la public/react/
-          echo "=== Contenu de public/react/.vite/ ==="
-          ls -la public/react/.vite/
-          echo "=== Contenu du manifest ==="
-          cat public/react/.vite/manifest.json
-          echo "=== Assets générés ==="
-          ls -la public/react/assets/
-
       - name: Versionner le Service Worker
         run: |
           bash bin/build-sw.sh
@@ -102,16 +91,6 @@ jobs:
             set -e
             cd ${{ secrets.IONOS_PATH }}
             
-            # Créer .env.local avec APP_ENV=prod s'il n'existe pas
-            if [ ! -f .env.local ]; then
-              echo "Création de .env.local avec APP_ENV=prod"
-              echo "APP_ENV=prod" > .env.local
-            elif ! grep -q "APP_ENV=prod" .env.local; then
-              echo "Mise à jour de .env.local avec APP_ENV=prod"
-              sed -i '/^APP_ENV=/d' .env.local
-              echo "APP_ENV=prod" >> .env.local
-            fi
-            
             # Vérifier que le build React est présent
             echo "=== Vérification du build React déployé ==="
             ls -la public/react/ || echo "ERREUR: Le dossier public/react n'existe pas!"
@@ -122,8 +101,8 @@ jobs:
               exit 1
             fi
             
-            echo "Manifest React trouvé:"
-            cat public/react/.vite/manifest.json
+            # echo "Manifest React trouvé:"
+            # cat public/react/.vite/manifest.json
             
             # Installation des dépendances
             /usr/bin/php8.4-cli ~/composer.phar install --no-dev --optimize-autoloader --no-interaction
