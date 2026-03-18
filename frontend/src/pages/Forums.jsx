@@ -978,8 +978,8 @@ export default function Forums({ specialCategory = null }) {
 
       {/* Create Post Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center z-[1000]">
-          <div className="bg-white/95 text-gray-700 p-5 rounded-lg w-[90%] max-w-[500px] max-h-[90vh] overflow-y-auto shadow-lg relative">
+        <div className="fixed inset-0 z-[1200] bg-black/50 overflow-y-auto px-4 pt-24 pb-6">
+          <div className="relative mx-auto w-full max-w-[500px] rounded-lg bg-white/95 p-5 text-gray-700 shadow-lg max-h-[calc(100vh-7rem)] overflow-y-auto">
             <span
               className="absolute top-2 right-2 text-2xl cursor-pointer hover:text-gray-600"
               onClick={closeCreateModal}
@@ -1164,8 +1164,8 @@ export default function Forums({ specialCategory = null }) {
 
       {/* Edit Post Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[1200] bg-black/50 overflow-y-auto px-4 pt-24 pb-6">
+          <div className="mx-auto w-full max-w-2xl rounded-lg bg-white p-6 max-h-[calc(100vh-7rem)] overflow-y-auto">
             <h2 className="text-2xl font-bold mb-4">Modifier la publication</h2>
 
             <form onSubmit={handleEditPost} className="space-y-4">
