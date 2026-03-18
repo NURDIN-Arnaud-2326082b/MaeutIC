@@ -12,6 +12,7 @@ use App\Repository\PostLikeRepository;
 use App\Repository\PostRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\File\Exception\FileException;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\File\Exception\FileException;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -301,7 +302,12 @@ class PostApiController extends AbstractController
 
         $extension = $imageFile->guessExtension() ?: 'jpg';
         $imageFilename = uniqid('post_', true) . '.' . $extension;
-        $imageFile->move($uploadDir, $imageFilename);
+
+        try {
+            $imageFile->move($uploadDir, $imageFilename);
+        } catch (FileException $e) {
+            return ['filename' => null, 'error' => 'Failed to save image file'];
+        }
 
         return ['filename' => $imageFilename, 'error' => null];
     }
