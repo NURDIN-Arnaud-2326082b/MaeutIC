@@ -534,6 +534,22 @@ class LibraryApiController extends AbstractController
             $data = json_decode($request->getContent(), true) ?? [];
         }
 
+        // Guard against PUT + multipart/form-data where Symfony does not populate $request->files
+        $contentType = $request->headers->get('Content-Type', '');
+        if (
+            $request->isMethod('PUT')
+            && str_starts_with($contentType, 'multipart/form-data')
+            && empty($request->files->all())
+        ) {
+            return new JsonResponse(
+                [
+                    'error' => 'File uploads with multipart/form-data are not supported for PUT requests. '
+                        . 'Use POST (optionally with method override) or a JSON body with separate upload endpoints.',
+                ],
+                Response::HTTP_BAD_REQUEST
+            );
+        }
+
         if (isset($data['title'])) {
             $article->setTitle($data['title']);
         }
