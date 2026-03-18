@@ -513,6 +513,22 @@ class LibraryApiController extends AbstractController
             return new JsonResponse(['error' => 'Non autorisé'], Response::HTTP_FORBIDDEN);
         }
 
+        // Symfony/PHP do not reliably populate $request->request / $request->files
+        // for multipart/form-data bodies sent with PUT. Reject such requests explicitly
+        // to avoid silently ignoring fields/files.
+        if ($request->isMethod('PUT')) {
+            $contentType = (string) $request->headers->get('Content-Type', '');
+            if (stripos($contentType, 'multipart/form-data') === 0) {
+                return new JsonResponse(
+                    [
+                        'error' => 'Les requêtes PUT avec multipart/form-data ne sont pas prises en charge pour cette ressource. '
+                            . 'Utilisez JSON pour les mises à jour ou une requête POST/dédiée pour les fichiers.'
+                    ],
+                    Response::HTTP_BAD_REQUEST
+                );
+            }
+        }
+
         $data = $request->request->all();
         if (empty($data)) {
             $data = json_decode($request->getContent(), true) ?? [];
