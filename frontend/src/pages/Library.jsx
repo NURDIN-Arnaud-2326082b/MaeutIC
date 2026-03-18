@@ -927,60 +927,70 @@ const Library = () => {
               </div>
               <div className="mb-4">
                 <label className="block text-gray-700 mb-2">Image</label>
-                {editingArticle?.imageUrl && !removeArticleImage && (
-                  <div className="mb-2">
-                    <img
-                      src={resolveAssetUrl(editingArticle.imageUrl)}
-                      alt={editingArticle.title}
-                      className="w-full h-40 object-cover rounded border"
-                    />
-                  </div>
-                )}
-                <input
-                  type="file"
-                  name="image"
-                  accept="image/png,image/jpeg,image/webp,image/gif"
-                  className="w-full px-3 py-2 border rounded"
-                />
-                {editingArticle?.imageUrl && (
-                  <label className="inline-flex items-center mt-2 gap-2 text-sm text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={removeArticleImage}
-                      onChange={(e) => setRemoveArticleImage(e.target.checked)}
-                    />
-                    Supprimer l'image actuelle
-                  </label>
-                )}
+                <div className="rounded-xl border-2 border-dashed border-blue-200 bg-blue-50/40 p-4">
+                  {editingArticle?.imageUrl && !removeArticleImage && (
+                    <div className="mb-3">
+                      <img
+                        src={resolveAssetUrl(editingArticle.imageUrl)}
+                        alt={editingArticle.title}
+                        className="w-full max-h-64 object-cover rounded-lg border border-gray-200"
+                      />
+                    </div>
+                  )}
+
+                  <input
+                    type="file"
+                    name="image"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    className="block w-full text-sm text-gray-700 file:mr-4 file:rounded-full file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-blue-700"
+                  />
+                  <p className="mt-2 text-xs text-gray-500">Formats image, max 5 MB.</p>
+
+                  {editingArticle?.imageUrl && (
+                    <label className="inline-flex items-center mt-2 gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={removeArticleImage}
+                        onChange={(e) => setRemoveArticleImage(e.target.checked)}
+                      />
+                      Supprimer l'image actuelle
+                    </label>
+                  )}
+                </div>
               </div>
               <div className="mb-4">
                 <label className="block text-gray-700 mb-2">PDF</label>
-                {editingArticle?.pdfUrl && !removeArticlePdf && (
-                  <a
-                    href={resolveAssetUrl(editingArticle.pdfUrl)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mb-2 inline-flex text-sm text-blue-600 hover:underline"
-                  >
-                    Voir le PDF actuel
-                  </a>
-                )}
-                <input
-                  type="file"
-                  name="pdf"
-                  accept="application/pdf"
-                  className="w-full px-3 py-2 border rounded"
-                />
-                {editingArticle?.pdfUrl && (
-                  <label className="inline-flex items-center mt-2 gap-2 text-sm text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={removeArticlePdf}
-                      onChange={(e) => setRemoveArticlePdf(e.target.checked)}
-                    />
-                    Supprimer le PDF actuel
-                  </label>
-                )}
+                <div className="rounded-xl border-2 border-dashed border-red-200 bg-red-50/40 p-4">
+                  {editingArticle?.pdfUrl && !removeArticlePdf && (
+                    <a
+                      href={resolveAssetUrl(editingArticle.pdfUrl)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mb-3 inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-red-700 hover:bg-red-100"
+                    >
+                      Voir le PDF actuel
+                    </a>
+                  )}
+
+                  <input
+                    type="file"
+                    name="pdf"
+                    accept="application/pdf"
+                    className="block w-full text-sm text-gray-700 file:mr-4 file:rounded-full file:border-0 file:bg-red-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-red-700"
+                  />
+                  <p className="mt-2 text-xs text-gray-500">Format PDF, max 10 MB.</p>
+
+                  {editingArticle?.pdfUrl && (
+                    <label className="inline-flex items-center mt-2 gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={removeArticlePdf}
+                        onChange={(e) => setRemoveArticlePdf(e.target.checked)}
+                      />
+                      Supprimer le PDF actuel
+                    </label>
+                  )}
+                </div>
               </div>
               <div className="flex justify-end space-x-2">
                 <button
