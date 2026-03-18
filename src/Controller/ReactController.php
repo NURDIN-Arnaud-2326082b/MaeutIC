@@ -12,7 +12,16 @@ class ReactController extends AbstractController
      * Catch-all route for React SPA
      * This should be the last route in your routing config
      */
-    #[Route('/{reactRouting}', name: 'react_app', requirements: ['reactRouting' => '.*'], priority: -1)]
+    #[Route(
+        '/{reactRouting}',
+        name: 'react_app',
+        requirements: [
+            // Exclude API, static files, and direct file requests from SPA fallback.
+            'reactRouting' => '(?!api(?:/|$))(?!react(?:/|$))(?!js(?:/|$))(?!images(?:/|$))(?!audio(?:/|$))(?!article_images(?:/|$))(?!article_pdfs(?:/|$))(?!author_images(?:/|$))(?!book_images(?:/|$))(?!post_images(?:/|$))(?!post_pdfs(?:/|$))(?!profile_images(?:/|$))(?!manifest\.json$)(?!sw\.js$)(?!favicon\.ico$)(?!robots\.txt$)(?!.*\.[a-zA-Z0-9]+$).*',
+        ],
+        methods: ['GET'],
+        priority: -1
+    )]
     public function index(): Response
     {
         $manifest = null;
@@ -35,9 +44,16 @@ class ReactController extends AbstractController
             }
         }
         
-        return $this->render('react/index.html.twig', [
+        $response = $this->render('react/index.html.twig', [
             'manifest' => $manifest,
             'environment' => $env,
         ]);
+
+        // Always serve the SPA shell without browser/proxy caching to avoid stale HTML after deploy.
+        $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        $response->headers->set('Pragma', 'no-cache');
+        $response->headers->set('Expires', '0');
+
+        return $response;
     }
 }

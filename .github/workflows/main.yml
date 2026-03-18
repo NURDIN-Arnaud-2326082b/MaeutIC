@@ -42,6 +42,12 @@ jobs:
           echo "=== Assets générés ==="
           ls -la public/react/assets/
 
+      - name: Versionner le Service Worker
+        run: |
+          bash bin/build-sw.sh
+          echo "=== Service Worker versionné ==="
+          head -n 12 public/sw.js
+
       - name: Nettoyer les dossiers applicatifs sur le serveur (sans toucher aux fichiers sensibles)
         uses: appleboy/ssh-action@v1.2.0
         with:
