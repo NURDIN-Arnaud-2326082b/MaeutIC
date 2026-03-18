@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -11,10 +12,10 @@ jobs:
 
     steps:
       - name: Cloner le dépôt
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -40,37 +41,58 @@ jobs:
           echo "=== Assets générés ==="
           ls -la public/react/assets/
 
-      - name: Nettoyer public/react/ sur le serveur avant déploiement
-        uses: appleboy/ssh-action@master
+      - name: Nettoyer les dossiers applicatifs sur le serveur (sans toucher aux fichiers sensibles)
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.IONOS_HOST }}
           username: ${{ secrets.IONOS_USER }}
           password: ${{ secrets.IONOS_PASSWORD }}
           script: |
-            cd ${{ secrets.IONOS_PATH }}
-            echo "Nettoyage de public/react/ pour éviter les assets obsolètes..."
-            rm -rf public/react/assets
-            rm -rf public/react/.vite
-            echo "Nettoyage terminé."
+            set -e
+            DEPLOY_PATH="${{ secrets.IONOS_PATH }}"
+
+            if [ -z "$DEPLOY_PATH" ] || [ "$DEPLOY_PATH" = "/" ]; then
+              echo "ERREUR: IONOS_PATH est vide ou invalide."
+              exit 1
+            fi
+
+            cd "$DEPLOY_PATH"
+
+            echo "Nettoyage sélectif des dossiers versionnés (code/statique)..."
+            for dir in assets bin config frontend migrations src templates translations public/react public/js public/images; do
+              if [ -e "$dir" ]; then
+                rm -rf "$dir"
+                echo "Supprimé: $dir"
+              fi
+            done
+
+            echo "Nettoyage sélectif des fichiers racine versionnés..."
+            rm -f composer.json composer.lock importmap.php phpunit.dist.xml postcss.config.mjs tailwind.config.js
+
+            echo "Création des dossiers nécessaires..."
+            mkdir -p public/react public/js public/images var/cache var/log
+
+            echo "Nettoyage terminé. Les fichiers sensibles (.env.local, var, médias utilisateurs) sont préservés."
 
       - name: Déployer via SFTP
-        uses: appleboy/scp-action@master
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.IONOS_HOST }}
           username: ${{ secrets.IONOS_USER }}
           password: ${{ secrets.IONOS_PASSWORD }}
-          source: "assets/*, bin/*, config/*, frontend/*, migrations/*, public/*, src/*, templates/*, translations/*, importmap.php, ./*.json, ./*.lock"
+          source: "assets/*, bin/*, config/*, frontend/*, migrations/*, public/index.php, public/manifest.json, public/sw.js, public/check-deployment.php, public/react/*, public/js/*, public/images/*, src/*, templates/*, translations/*, composer.json, composer.lock, importmap.php, phpunit.dist.xml, postcss.config.mjs, tailwind.config.js"
           target: ${{ secrets.IONOS_PATH }}
           strip_components: 0
           overwrite: true
 
       - name: Exécuter des commandes sur IONOS (si besoin)
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.IONOS_HOST }}
           username: ${{ secrets.IONOS_USER }}
           password: ${{ secrets.IONOS_PASSWORD }}
           script: |
+            set -e
             cd ${{ secrets.IONOS_PATH }}
             
             # Créer .env.local avec APP_ENV=prod s'il n'existe pas
@@ -107,9 +129,9 @@ jobs:
             php bin/console cache:warmup --env=prod
             
             # Permissions
-            chmod -R 755 var/cache var/log public/react
+            chmod -R 755 var/cache var/log public/react || true
             
             # Nettoyage
-            rm -f /*.tar.gz
+            rm -f ./*.tar.gz
             
             echo "Déploiement terminé avec succès!"
