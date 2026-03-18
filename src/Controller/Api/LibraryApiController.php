@@ -408,12 +408,13 @@ class LibraryApiController extends AbstractController
             return [
                 'id' => $article->getId(),
                 'title' => $article->getTitle(),
-                'author' => $article->getAuthor(),
+                'author' => $this->getDerivedArticleAuthor($article),
                 'link' => $article->getLink(),
                 'isExternal' => $isExternal,
                 'content' => $article->getContent(),
                 'imageUrl' => $this->getArticleImageUrl($article),
                 'pdfUrl' => $this->getArticlePdfUrl($article),
+                ...$this->getArticleConcernPayload($article),
                 'userId' => $article->getUser()?->getId(),
             ];
         }, $articles);
@@ -441,10 +442,14 @@ class LibraryApiController extends AbstractController
 
         $article = new Article();
         $article->setTitle($data['title'] ?? '');
-        $article->setAuthor($data['author'] ?? '');
         $article->setLink($data['link'] ?? null);
         $article->setContent($data['content'] ?? null);
         $article->setUser($user);
+
+        $concernError = $this->applyArticleConcern($article, $data, $em);
+        if ($concernError instanceof JsonResponse) {
+            return $concernError;
+        }
 
         $imageFile = $request->files->get('image');
         if ($imageFile) {
@@ -470,12 +475,13 @@ class LibraryApiController extends AbstractController
         return new JsonResponse([
             'id' => $article->getId(),
             'title' => $article->getTitle(),
-            'author' => $article->getAuthor(),
+            'author' => $this->getDerivedArticleAuthor($article),
             'link' => $article->getLink(),
             'isExternal' => $this->isExternalUrl($article->getLink()),
             'content' => $article->getContent(),
             'imageUrl' => $this->getArticleImageUrl($article),
             'pdfUrl' => $this->getArticlePdfUrl($article),
+            ...$this->getArticleConcernPayload($article),
             'userId' => $article->getUser()?->getId(),
         ], Response::HTTP_CREATED);
     }
@@ -508,14 +514,17 @@ class LibraryApiController extends AbstractController
         if (isset($data['title'])) {
             $article->setTitle($data['title']);
         }
-        if (isset($data['author'])) {
-            $article->setAuthor($data['author']);
-        }
         if (isset($data['link'])) {
             $article->setLink($data['link'] ?: null);
         }
         if (isset($data['content'])) {
             $article->setContent($data['content'] ?: null);
+        }
+        if (array_key_exists('concernType', $data) || array_key_exists('concernId', $data) || array_key_exists('bookId', $data) || array_key_exists('authorId', $data)) {
+            $concernError = $this->applyArticleConcern($article, $data, $em);
+            if ($concernError instanceof JsonResponse) {
+                return $concernError;
+            }
         }
 
         $removeImage = filter_var($data['removeImage'] ?? false, FILTER_VALIDATE_BOOLEAN);
@@ -563,14 +572,108 @@ class LibraryApiController extends AbstractController
         return new JsonResponse([
             'id' => $article->getId(),
             'title' => $article->getTitle(),
-            'author' => $article->getAuthor(),
+            'author' => $this->getDerivedArticleAuthor($article),
             'link' => $article->getLink(),
             'isExternal' => $this->isExternalUrl($article->getLink()),
             'content' => $article->getContent(),
             'imageUrl' => $this->getArticleImageUrl($article),
             'pdfUrl' => $this->getArticlePdfUrl($article),
+            ...$this->getArticleConcernPayload($article),
             'userId' => $article->getUser()?->getId(),
         ]);
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function applyArticleConcern(
+        Article $article,
+        array $data,
+        EntityManagerInterface $em
+    ): ?JsonResponse {
+        $concernType = strtolower(trim((string) ($data['concernType'] ?? '')));
+        $concernId = isset($data['concernId']) ? (int) $data['concernId'] : 0;
+
+        // Backward compatibility with previous payloads.
+        if ($concernType === '') {
+            if (isset($data['bookId'])) {
+                $concernType = 'book';
+                $concernId = (int) $data['bookId'];
+            } elseif (isset($data['authorId'])) {
+                $concernType = 'author';
+                $concernId = (int) $data['authorId'];
+            }
+        }
+
+        if ($concernType === 'book' && $concernId > 0) {
+            /** @var BookRepository $bookRepository */
+            $bookRepository = $em->getRepository(Book::class);
+            $book = $bookRepository->find($concernId);
+            if (!$book) {
+                return new JsonResponse(['error' => 'Livre non trouvé'], Response::HTTP_BAD_REQUEST);
+            }
+
+            $article->setRelatedBook($book);
+            $article->setRelatedAuthor(null);
+
+            return null;
+        }
+
+        if ($concernType === 'author' && $concernId > 0) {
+            /** @var AuthorRepository $authorRepository */
+            $authorRepository = $em->getRepository(Author::class);
+            $author = $authorRepository->find($concernId);
+            if (!$author) {
+                return new JsonResponse(['error' => 'Auteur non trouvé'], Response::HTTP_BAD_REQUEST);
+            }
+
+            $article->setRelatedAuthor($author);
+            $article->setRelatedBook(null);
+
+            return null;
+        }
+
+        if ($concernType === 'none' || $concernType === '' || $concernId <= 0) {
+            $article->setRelatedBook(null);
+            $article->setRelatedAuthor(null);
+
+            return null;
+        }
+
+        return new JsonResponse(['error' => 'Type de cible invalide'], Response::HTTP_BAD_REQUEST);
+    }
+
+    /**
+     * @return array{relatedBookId:?int,relatedBookTitle:?string,relatedAuthorId:?int,relatedAuthorName:?string,concernType:string,concernId:?int,concernLabel:?string}
+     */
+    private function getArticleConcernPayload(Article $article): array
+    {
+        $relatedBook = $article->getRelatedBook();
+        $relatedAuthor = $article->getRelatedAuthor();
+
+        $concernType = 'none';
+        $concernId = null;
+        $concernLabel = null;
+
+        if ($relatedBook) {
+            $concernType = 'book';
+            $concernId = $relatedBook->getId();
+            $concernLabel = $relatedBook->getTitle();
+        } elseif ($relatedAuthor) {
+            $concernType = 'author';
+            $concernId = $relatedAuthor->getId();
+            $concernLabel = $relatedAuthor->getName();
+        }
+
+        return [
+            'relatedBookId' => $relatedBook?->getId(),
+            'relatedBookTitle' => $relatedBook?->getTitle(),
+            'relatedAuthorId' => $relatedAuthor?->getId(),
+            'relatedAuthorName' => $relatedAuthor?->getName(),
+            'concernType' => $concernType,
+            'concernId' => $concernId,
+            'concernLabel' => $concernLabel,
+        ];
     }
 
     /**
@@ -627,6 +730,19 @@ class LibraryApiController extends AbstractController
         }
 
         return self::ARTICLE_PDF_BASE_PATH . $article->getPdfPath();
+    }
+
+    private function getDerivedArticleAuthor(Article $article): ?string
+    {
+        if ($article->getRelatedAuthor()) {
+            return $article->getRelatedAuthor()?->getName();
+        }
+
+        if ($article->getRelatedBook()) {
+            return $article->getRelatedBook()?->getAuthor();
+        }
+
+        return null;
     }
 
     /**

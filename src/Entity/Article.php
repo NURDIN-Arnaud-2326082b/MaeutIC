@@ -26,9 +26,6 @@ class Article
     private ?string $title = null;
 
     #[ORM\Column(length: 255)]
-    private ?string $author = null;
-
-    #[ORM\Column(length: 255, nullable: true)]
     private ?string $link = null;
 
     #[ORM\Column(type: 'text', nullable: true)]
@@ -44,6 +41,14 @@ class Article
     #[ORM\JoinColumn(nullable: true, onDelete: "SET NULL")]
     private ?User $user = null;
 
+    #[ORM\ManyToOne(targetEntity: Book::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: "SET NULL")]
+    private ?Book $relatedBook = null;
+
+    #[ORM\ManyToOne(targetEntity: Author::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: "SET NULL")]
+    private ?Author $relatedAuthor = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -57,18 +62,6 @@ class Article
     public function setTitle(string $title): static
     {
         $this->title = $title;
-
-        return $this;
-    }
-
-    public function getAuthor(): ?string
-    {
-        return $this->author;
-    }
-
-    public function setAuthor(string $author): static
-    {
-        $this->author = $author;
 
         return $this;
     }
@@ -129,6 +122,30 @@ class Article
     public function setUser(?User $user): static
     {
         $this->user = $user;
+
+        return $this;
+    }
+
+    public function getRelatedBook(): ?Book
+    {
+        return $this->relatedBook;
+    }
+
+    public function setRelatedBook(?Book $relatedBook): static
+    {
+        $this->relatedBook = $relatedBook;
+
+        return $this;
+    }
+
+    public function getRelatedAuthor(): ?Author
+    {
+        return $this->relatedAuthor;
+    }
+
+    public function setRelatedAuthor(?Author $relatedAuthor): static
+    {
+        $this->relatedAuthor = $relatedAuthor;
 
         return $this;
     }

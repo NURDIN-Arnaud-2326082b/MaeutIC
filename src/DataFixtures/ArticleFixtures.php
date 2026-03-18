@@ -17,7 +17,6 @@ class ArticleFixtures extends Fixture implements DependentFixtureInterface
         for ($i = 1; $i <= 10; $i++) {
             $article = new Article();
             $article->setTitle("Article Title $i")
-                ->setAuthor("Author $i")
                 ->setLink("https://example.com/article-$i")
                 ->setUser($user1);
             $manager->persist($article);

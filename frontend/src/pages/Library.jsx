@@ -37,6 +37,8 @@ const Library = () => {
   const [selectedArticleId, setSelectedArticleId] = useState(null);
   const [removeArticleImage, setRemoveArticleImage] = useState(false);
   const [removeArticlePdf, setRemoveArticlePdf] = useState(false);
+  const [articleConcernType, setArticleConcernType] = useState('none');
+  const [articleConcernId, setArticleConcernId] = useState('');
 
   const handleBookFound = ({ title, author, image }) => {
     setScannedBook({ title, author, imageUrl: image });
@@ -123,6 +125,8 @@ const Library = () => {
       setEditingArticle(null);
       setRemoveArticleImage(false);
       setRemoveArticlePdf(false);
+      setArticleConcernType('none');
+      setArticleConcernId('');
     },
   });
 
@@ -134,6 +138,8 @@ const Library = () => {
       setEditingArticle(null);
       setRemoveArticleImage(false);
       setRemoveArticlePdf(false);
+      setArticleConcernType('none');
+      setArticleConcernId('');
     },
   });
 
@@ -190,6 +196,8 @@ const Library = () => {
 
     formData.set('removeImage', String(removeArticleImage));
     formData.set('removePdf', String(removeArticlePdf));
+    formData.set('concernType', articleConcernType);
+    formData.set('concernId', articleConcernId || '0');
     
     if (editingArticle) {
       updateArticleMutation.mutate({ id: editingArticle.id, formData });
@@ -461,6 +469,8 @@ const Library = () => {
                   setEditingArticle(null);
                   setRemoveArticleImage(false);
                   setRemoveArticlePdf(false);
+                  setArticleConcernType('none');
+                  setArticleConcernId('');
                   setShowArticleModal(true);
                 }}
                 className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
@@ -517,12 +527,13 @@ const Library = () => {
           ) : (
             <>
               <div className="flex flex-row w-full mb-2">
-                <h3 className="w-1/2 font-semibold">Titre</h3>
-                <h3 className="flex-1 font-semibold">Auteur</h3>
+                <h3 className="w-2/5 font-semibold">Titre</h3>
+                <h3 className="w-1/4 font-semibold">Auteur</h3>
+                <h3 className="w-1/4 font-semibold">Livre</h3>
                 {user && <h3 className="w-24"></h3>}
               </div>
 
-              {filterByLetter(filterBySearch(articles, ['title', 'author']), (a) => a.title, 'articles').map((article) => (
+              {filterByLetter(filterBySearch(articles, ['title', 'author', 'concernLabel', 'relatedBookTitle', 'relatedAuthorName']), (a) => a.title, 'articles').map((article) => (
                 <div
                   key={article.id}
                   className="relative bg-white hover:bg-blue-50 flex flex-row rounded-lg w-full my-1 p-3 items-center"
@@ -532,7 +543,7 @@ const Library = () => {
                       href={article.link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="w-1/2 text-blue-600 hover:underline"
+                      className="w-2/5 text-blue-600 hover:underline"
                     >
                       {article.title}
                     </a>
@@ -540,12 +551,13 @@ const Library = () => {
                     <button
                       type="button"
                       onClick={() => setSelectedArticleId(article.id)}
-                      className="w-1/2 text-left text-blue-600 hover:underline"
+                      className="w-2/5 text-left text-blue-600 hover:underline"
                     >
                       {article.title}
                     </button>
                   )}
-                  <p className="flex-1">{article.author}</p>
+                  <p className="w-1/4 truncate pr-3">{article.author}</p>
+                  <p className="w-1/4 truncate pr-3 text-gray-700">{article.relatedBookTitle || '-'}</p>
                   {canEdit(article) && (
                     <div className="absolute top-2 right-2">
                       <button
@@ -561,6 +573,8 @@ const Library = () => {
                               setEditingArticle(article);
                               setRemoveArticleImage(false);
                               setRemoveArticlePdf(false);
+                              setArticleConcernType(article.concernType || (article.relatedBookId ? 'book' : article.relatedAuthorId ? 'author' : 'none'));
+                              setArticleConcernId(String(article.concernId || article.relatedBookId || article.relatedAuthorId || ''));
                               setShowArticleModal(true);
                               setOpenDropdownId(null);
                             }}
@@ -897,14 +911,41 @@ const Library = () => {
                 />
               </div>
               <div className="mb-4">
-                <label className="block text-gray-700 mb-2">Auteur</label>
-                <input
-                  type="text"
-                  name="author"
-                  defaultValue={editingArticle?.author || ''}
-                  className="w-full px-3 py-2 border rounded"
-                  required
-                />
+                <label className="block text-gray-700 mb-2">Concerne</label>
+                <div className="grid grid-cols-1 gap-2">
+                  <select
+                    value={articleConcernType}
+                    onChange={(e) => {
+                      setArticleConcernType(e.target.value);
+                      setArticleConcernId('');
+                    }}
+                    className="w-full px-3 py-2 border rounded bg-white"
+                  >
+                    <option value="none">-- Aucun --</option>
+                    <option value="book">Livre</option>
+                    <option value="author">Auteur</option>
+                  </select>
+
+                  {articleConcernType !== 'none' && (
+                    <select
+                      value={articleConcernId}
+                      onChange={(e) => setArticleConcernId(e.target.value)}
+                      className="w-full px-3 py-2 border rounded bg-white"
+                    >
+                      <option value="">-- Choisir --</option>
+                      {articleConcernType === 'book' && books.map((book) => (
+                        <option key={book.id} value={book.id}>
+                          {book.title}
+                        </option>
+                      ))}
+                      {articleConcernType === 'author' && authors.map((author) => (
+                        <option key={author.id} value={author.id}>
+                          {author.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
               </div>
               <div className="mb-4">
                 <label className="block text-gray-700 mb-2">Lien</label>
@@ -1000,6 +1041,8 @@ const Library = () => {
                     setEditingArticle(null);
                     setRemoveArticleImage(false);
                     setRemoveArticlePdf(false);
+                    setArticleConcernType('none');
+                    setArticleConcernId('');
                   }}
                   className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
                 >
