@@ -167,9 +167,7 @@ class LibraryApiController extends AbstractController
             'deathYear' => $author->getDeathYear(),
             'nationality' => $author->getNationality(),
             'link' => $author->getLink(),
-            'image' => $author->getImage()
-                ? '/author_images/' . $author->getImage()
-                : '/images/default-author.png',
+            'image' => $this->getAuthorImageUrl($author),
             'userId' => $author->getUser()?->getId(),
         ]);
     }
