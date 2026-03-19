@@ -11,7 +11,7 @@ use Doctrine\Migrations\AbstractMigration;
  * Migration pour supprimer tous les forums "café des lumières"
  * et leurs posts/commentaires associés
  */
-final class VersionRemoveCafeDesLumieres extends AbstractMigration
+final class VersionS20260309120000 extends AbstractMigration
 {
     public function getDescription(): string
     {
