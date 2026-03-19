@@ -8,31 +8,40 @@ use App\Entity\Forum;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
 use Doctrine\Common\DataFixtures\DependentFixtureInterface;
+use Faker\Factory;
 
 class PostFixtures extends Fixture implements DependentFixtureInterface
 {
     public function load(ObjectManager $manager): void
     {
-        $user = $this->getReference('user1', User::class);
+        $faker = Factory::create('fr_FR');
 
-        // Loop through forums and create 5 posts for each
         for ($i = 0; $i < 8; $i++) {
+            // CORRECTION ICI : Ajout de Forum::class
+            if (!$this->hasReference("forum" . ($i + 1), Forum::class)) continue;
+
+            /** @var Forum $forum */
             $forum = $this->getReference("forum" . ($i + 1), Forum::class);
 
-            for ($j = 1; $j <= 5; $j++) {
+            $numPosts = $faker->numberBetween(5, 8);
+
+            for ($j = 1; $j <= $numPosts; $j++) {
+                $randomUserId = $faker->numberBetween(1, 10);
+                /** @var User $user */
+                $user = $this->getReference("user" . $randomUserId, User::class);
+
                 $post = new Post();
-                $post->setName("Post Title $j for Forum $i")
-                     ->setDescription("This is the body of post $j in forum $i.")
-                     ->setUser($user)
-                     ->setCreationDate(new \DateTime())
-                     ->setLastActivity(new \DateTime())
-                     ->setForum($forum);
+                $post->setName(rtrim($faker->sentence($faker->numberBetween(4, 8)), '.') . ' ?')
+                    ->setDescription($faker->paragraphs($faker->numberBetween(2, 4), true))
+                    ->setUser($user)
+                    ->setCreationDate($faker->dateTimeBetween('-6 months', '-1 months'))
+                    ->setLastActivity($faker->dateTimeBetween('-1 months', 'now'))
+                    ->setForum($forum);
 
                 $manager->persist($post);
 
-                // Add a reference for the first post of each forum
-                if ($j === 1) {
-                    $this->addReference("post" . ($i + 1), $post);
+                if ($j <= 5) {
+                    $this->addReference("post_" . $i . "_" . $j, $post);
                 }
             }
         }
