@@ -8,31 +8,42 @@ use App\Entity\Post;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
 use Doctrine\Common\DataFixtures\DependentFixtureInterface;
-
+use Faker\Factory;
 
 class CommentFixtures extends Fixture implements DependentFixtureInterface
 {
     public function load(ObjectManager $manager): void
     {
-        $user = $this->getReference('user1', User::class);
+        $faker = Factory::create('fr_FR');
 
         for ($i = 0; $i < 8; $i++) {
-            // Get the poste reference
-            $post = $this->getReference("post" . ($i + 1), Post::class);
-
-            // Create 5 comments for each post
             for ($j = 1; $j <= 5; $j++) {
-                $comment = new Comment();
-                $comment->setBody("This is comment number $j for post " . ($i + 1) . ". je m'appelle ". $user->getUsername() ." et j'adore commenter.")
-                        ->setCreationDate(new \DateTime())
+                $postRef = "post_" . $i . "_" . $j;
+
+                // CORRECTION ICI : Ajout de Post::class
+                if (!$this->hasReference($postRef, Post::class)) continue;
+
+                /** @var Post $post */
+                $post = $this->getReference($postRef, Post::class);
+
+                $numComments = $faker->numberBetween(0, 6);
+
+                for ($k = 1; $k <= $numComments; $k++) {
+                    $randomUserId = $faker->numberBetween(1, 10);
+                    /** @var User $user */
+                    $user = $this->getReference("user" . $randomUserId, User::class);
+
+                    $comment = new Comment();
+                    $comment->setBody($faker->realText($faker->numberBetween(50, 300)))
+                        ->setCreationDate($faker->dateTimeBetween($post->getCreationDate(), 'now'))
                         ->setUser($user)
                         ->setPost($post);
 
-                $manager->persist($comment);
+                    $manager->persist($comment);
 
-                // Add a reference for the first comments of each posts
-                if ($j === 1) {
-                    $this->addReference("comment" . ($i + 1), $comment);
+                    if ($i === 0 && $k === 1) {
+                        $this->addReference("comment" . $j, $comment);
+                    }
                 }
             }
         }

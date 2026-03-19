@@ -3,7 +3,6 @@
 namespace App\DataFixtures;
 
 use App\Entity\Forum;
-use App\Entity\User;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
 
@@ -11,74 +10,31 @@ class ForumFixtures extends Fixture
 {
     public function load(ObjectManager $manager): void
     {
-        // $user = $this->getReference('user1', User::class);
-        $forumNames = [
-            'Divers',
-            'Administratif',
-            'Méthodologie quantitative',
-            'Méthodologie qualitative',
-            'Méthodologie mixte',
-            'Auteurs',
-            'Oeuvres',
-            'Détente'
+        $forumsData = [
+            ['title' => 'Divers', 'body' => 'Discussions générales, actualités de la recherche et échanges informels entre membres du réseau.', 'special' => null],
+            ['title' => 'Administratif', 'body' => 'Entraide sur les démarches, financements, bourses, contrats doctoraux et qualification.', 'special' => 'administratif'],
+            ['title' => 'Méthodologie quantitative', 'body' => 'Questions sur les statistiques, R, Python, SPSS, passation de questionnaires et échantillonnage.', 'special' => 'methodology'],
+            ['title' => 'Méthodologie qualitative', 'body' => 'Échanges autour des grilles d\'entretien, de l\'observation participante et des logiciels comme NVivo.', 'special' => 'methodology'],
+            ['title' => 'Méthodologie mixte', 'body' => 'Comment trianguler vos données qualitatives et quantitatives efficacement ?', 'special' => 'methodology'],
+            ['title' => 'Auteurs', 'body' => 'Débats et partages de fiches de lecture sur les grands théoriciens et auteurs contemporains.', 'special' => null],
+            ['title' => 'Oeuvres', 'body' => 'Recommandations d\'ouvrages, critiques littéraires et revues de littérature.', 'special' => null],
+            ['title' => 'Détente', 'body' => 'La pause café des chercheurs. Anecdotes de terrain, memes académiques et décompression.', 'special' => 'detente']
         ];
 
-        $metho_forum = [
-            'Méthodologie quantitative',
-            'Méthodologie qualitative',
-            'Méthodologie mixte'
-        ];
-
-        $detente_forum = [
-            'Détente'
-        ];
-
-        $admin_forum = [
-            'Administratif'
-        ];
-
-        // Create 10 forums with a reference to the user
-        foreach ($forumNames as $i => $forumName) {
+        foreach ($forumsData as $i => $data) {
             $forum = new Forum();
-            $forum->setTitle("$forumName")
-                  ->setBody("This is forum number $i.")
-                  ->setLastActivity(new \DateTime());
+            $forum->setTitle($data['title'])
+                ->setBody($data['body'])
+                ->setLastActivity(new \DateTime());
+
+            if ($data['special']) {
+                $forum->setSpecial($data['special']);
+            }
 
             $manager->persist($forum);
-
             $this->addReference("forum" . ($i + 1), $forum);
         }
-        $manager->flush();
 
-        // Donner aux forums methodologies la spécialité correspondante
-        foreach ($metho_forum as $methodologyName) {
-            $forum = $manager->getRepository(Forum::class)->findOneBy(['title' => $methodologyName]);
-            if ($forum) {
-                $forum->setSpecial('methodology');
-                $manager->persist($forum);
-            }
-        }
         $manager->flush();
-
-        // Donner au forum détente la spécialité correspondante
-        foreach ($detente_forum as $detenteName) {
-            $forum = $manager->getRepository(Forum::class)->findOneBy(['title' => $detenteName]);
-            if ($forum) {
-                $forum->setSpecial('detente');
-                $manager->persist($forum);
-            }
-        }
-        $manager->flush();
-
-        // Donner au forum administratif la spécialité correspondante
-        foreach ($admin_forum as $adminName) {
-            $forum = $manager->getRepository(Forum::class)->findOneBy(['title' => $adminName]);
-            if ($forum) {
-                $forum->setSpecial('administratif');
-                $manager->persist($forum);
-            }
-        }
-        $manager->flush();
-
     }
 }

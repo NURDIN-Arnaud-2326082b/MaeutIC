@@ -6,7 +6,7 @@ use App\Entity\User;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
-use Doctrine\Common\DataFixtures\DependentFixtureInterface;
+use Faker\Factory;
 
 class UserFixtures extends Fixture
 {
@@ -19,36 +19,57 @@ class UserFixtures extends Fixture
 
     public function load(ObjectManager $manager): void
     {
-        $user = new User();
-        $user->setEmail('user@example.com')
-             ->setUsername('user1')
-             ->setPassword($this->passwordHasher->hashPassword($user, 'password'))
-             ->setLastName('Doe')
-             ->setFirstName('John')
-             ->setAffiliationLocation('New York, USA')
-             ->setSpecialization('Web Development')
-             ->setResearchTopic('Symfony Framework')
-             ->setUserType(0)
-             ->setGenre('male');
+        // Initialiser Faker en français
+        $faker = Factory::create('fr_FR');
 
-        $user2 = new User();
-        $user2->setEmail('user2@example.com')
-            ->setUsername('user2')
-            ->setPassword($this->passwordHasher->hashPassword($user, 'password'))
-            ->setLastName('Doe')
-            ->setFirstName('John')
-            ->setAffiliationLocation('New York, USA')
-            ->setSpecialization('Web Development')
-            ->setResearchTopic('Symfony Framework')
-            ->setUserType(1)
-            ->setGenre('female');
+        // Quelques spécialités et sujets réalistes pour la génération
+        $specializations = ['Sociologie', 'Anthropologie', 'Psychologie sociale', 'Histoire contemporaine', 'Sciences de l\'éducation', 'Philosophie', 'Sciences politiques'];
 
-        $manager->persist($user);
-        $manager->persist($user2);
+        // 1. On crée un utilisateur de test "fixe" pour que tu puisses te connecter facilement
+        $testUser = new User();
+        $testUser->setEmail('test@chercheur.fr')
+            ->setUsername('jean_dupont')
+            ->setPassword($this->passwordHasher->hashPassword($testUser, 'password123!'))
+            ->setLastName('Dupont')
+            ->setFirstName('Jean')
+            ->setAffiliationLocation('Université Paris-Saclay')
+            ->setSpecialization('Sociologie')
+            ->setResearchTopic('L\'impact du numérique sur les dynamiques de groupe')
+            ->setUserType(0)
+            ->setGenre('homme');
+
+        $manager->persist($testUser);
+        $this->addReference('user1', $testUser); // On garde 'user1' pour ne pas casser tes autres fixtures
+
+        // 2. On génère 9 autres chercheurs très réalistes
+        for ($i = 2; $i <= 10; $i++) {
+            $user = new User();
+
+            // Un peu de logique pour accorder le genre et les prénoms
+            $genre = $faker->randomElement(['homme', 'femme']);
+            $firstName = $genre === 'homme' ? $faker->firstNameMale() : $faker->firstNameFemale();
+            $lastName = $faker->lastName();
+
+            $specialty = $faker->randomElement($specializations);
+
+            // Générer un nom d'utilisateur crédible (ex: marie.laurent89)
+            $username = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $firstName . '.' . $lastName)) . $faker->numberBetween(10, 99);
+
+            $user->setEmail($faker->unique()->safeEmail())
+                ->setUsername($username)
+                ->setPassword($this->passwordHasher->hashPassword($user, 'password'))
+                ->setLastName($lastName)
+                ->setFirstName($firstName)
+                ->setAffiliationLocation($faker->company() . ' - ' . $faker->city())
+                ->setSpecialization($specialty)
+                ->setResearchTopic($faker->catchPhrase()) // Catchphrase génère des phrases qui font très "titre de thèse"
+                ->setUserType($faker->randomElement([0, 1]))
+                ->setGenre($genre);
+
+            $manager->persist($user);
+            $this->addReference('user' . $i, $user);
+        }
+
         $manager->flush();
-
-        // Add reference for other fixtures
-        $this->addReference('user1', $user);
-        $this->addReference('user2', $user2);
     }
 }

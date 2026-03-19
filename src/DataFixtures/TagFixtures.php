@@ -10,10 +10,19 @@ class TagFixtures extends Fixture
 {
     public function load(ObjectManager $manager): void
     {
-        for ($i = 1; $i <= 10; $i++) {
+        $motsCles = [
+            'Sociologie', 'Anthropologie', 'IA', 'Écologie', 'Politiques publiques',
+            'Genre', 'Inégalités', 'Travail', 'Santé', 'Éducation', 'Migration',
+            'Ville', 'Numérique', 'Qualitatif', 'Quantitatif', 'Épistémologie'
+        ];
+
+        foreach ($motsCles as $i => $mot) {
             $tag = new Tag();
-            $tag->setName("Tag $i");
+            $tag->setName($mot);
             $manager->persist($tag);
+
+            // On garde la référence pour TaggableFixtures
+            $this->addReference("tag_" . $i, $tag);
         }
 
         $manager->flush();

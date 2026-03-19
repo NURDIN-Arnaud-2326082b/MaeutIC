@@ -7,20 +7,25 @@ use App\Entity\User;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
 use Doctrine\Common\DataFixtures\DependentFixtureInterface;
+use Faker\Factory;
 
 class BookFixtures extends Fixture implements DependentFixtureInterface
 {
     public function load(ObjectManager $manager): void
     {
-        $user1 = $this->getReference('user1', User::class);
+        $faker = Factory::create('fr_FR');
 
-        for ($i = 1; $i <= 10; $i++) {
+        for ($i = 1; $i <= 15; $i++) {
+            /** @var User $user */
+            $user = $this->getReference("user" . $faker->numberBetween(1, 10), User::class);
+
             $book = new Book();
-            $book->setTitle("Book Title $i")
-                ->setAuthor("Author $i")
-                ->setLink("https://example.com/book-$i")
-                ->setImage("https://example.com/image-$i.jpg")
-                ->setUser($user1);
+            $book->setTitle(ucfirst($faker->words($faker->numberBetween(2, 5), true)))
+                ->setAuthor($faker->firstName() . ' ' . $faker->lastName())
+                ->setLink($faker->url())
+                ->setImage("https://covers.openlibrary.org/b/id/" . $faker->numberBetween(8000000, 9000000) . "-M.jpg") // Vraies images de couvertures aléatoires
+                ->setUser($user);
+
             $manager->persist($book);
         }
 
@@ -29,8 +34,6 @@ class BookFixtures extends Fixture implements DependentFixtureInterface
 
     public function getDependencies(): array
     {
-        return [
-            UserFixtures::class,
-        ];
+        return [UserFixtures::class];
     }
 }
