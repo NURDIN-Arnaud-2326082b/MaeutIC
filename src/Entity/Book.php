@@ -29,8 +29,8 @@ class Book
     #[ORM\Column(length: 255)]
     private ?string $author = null;
 
-    #[ORM\Column(length: 255)]
-    private ?string $link = null;
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $isbn = null;
 
     #[ORM\Column(length: 255)]
     private ?string $image = null;
@@ -68,14 +68,14 @@ class Book
         return $this;
     }
 
-    public function getLink(): ?string
+    public function getIsbn(): ?string
     {
-        return $this->link;
+        return $this->isbn;
     }
 
-    public function setLink(string $link): static
+    public function setIsbn(string $isbn): static
     {
-        $this->link = $link;
+        $this->isbn = $isbn;
 
         return $this;
     }

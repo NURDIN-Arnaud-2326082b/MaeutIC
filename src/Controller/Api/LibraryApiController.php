@@ -240,7 +240,7 @@ class LibraryApiController extends AbstractController
                 'id' => $book->getId(),
                 'title' => $book->getTitle(),
                 'author' => $book->getAuthor(),
-                'link' => $book->getLink(),
+                'isbn' => $book->getIsbn(),
                 'image' => $book->getImage() ?: '/images/default-book.png',
                 'userId' => $book->getUser()?->getId(),
             ];
@@ -285,7 +285,7 @@ class LibraryApiController extends AbstractController
         $book = new Book();
         $book->setTitle($request->request->get('title'));
         $book->setAuthor($request->request->get('author'));
-        $book->setLink($request->request->get('link'));
+        $book->setIsbn($request->request->get('isbn'));
         $book->setUser($user);
 
         // Handle image upload
@@ -314,7 +314,7 @@ class LibraryApiController extends AbstractController
             'id' => $book->getId(),
             'title' => $book->getTitle(),
             'author' => $book->getAuthor(),
-            'link' => $book->getLink(),
+            'isbn' => $book->getIsbn(),
             'image' => $book->getImage() ?: '/images/default-book.png',
             'userId' => $book->getUser()?->getId(),
         ], Response::HTTP_CREATED);
@@ -348,8 +348,8 @@ class LibraryApiController extends AbstractController
         if ($request->request->has('author')) {
             $book->setAuthor($request->request->get('author'));
         }
-        if ($request->request->has('link')) {
-            $book->setLink($request->request->get('link'));
+        if ($request->request->has('isbn')) {
+            $book->setIsbn($request->request->get('isbn'));
         }
 
         // Handle image upload
@@ -377,7 +377,7 @@ class LibraryApiController extends AbstractController
             'id' => $book->getId(),
             'title' => $book->getTitle(),
             'author' => $book->getAuthor(),
-            'link' => $book->getLink(),
+            'isbn' => $book->getIsbn(),
             'image' => $book->getImage() ?: '/images/default-book.png',
             'userId' => $book->getUser()?->getId(),
         ]);

@@ -3,18 +3,18 @@ import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {useAuthStore} from '../store';
 import BarcodeScanner from '../components/BarcodeScanner';
 import {
-  createArticle,
-  createAuthor,
-  createBook,
-  deleteArticle,
-  deleteAuthor,
-  deleteBook,
-  getArticles,
-  getAuthors,
-  getBooks,
-  updateArticle,
-  updateAuthor,
-  updateBook,
+    createArticle,
+    createAuthor,
+    createBook,
+    deleteArticle,
+    deleteAuthor,
+    deleteBook,
+    getArticles,
+    getAuthors,
+    getBooks,
+    updateArticle,
+    updateAuthor,
+    updateBook,
 } from '../services/libraryApi';
 
 const BACKEND_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8000';
@@ -676,7 +676,9 @@ const Library = () => {
                                                 key={book.id}
                                                 className="bg-white hover:bg-blue-50 rounded-lg overflow-hidden relative w-44 h-72 m-4 p-3"
                                             >
-                                                <a href={book.link} target="_blank" rel="noopener noreferrer">
+                                                <a href={book.isbn ? `https://isbnsearch.org/isbn/${book.isbn}` : '#'}
+                                                   target="_blank"
+                                                   rel="noopener noreferrer">
                                                     <img
                                                         // src={`${BACKEND_URL}${book.image}`}
                                                         src={resolveAssetUrl(book.image)}
@@ -870,9 +872,9 @@ const Library = () => {
                             <div className="mb-4">
                                 <label className="block text-gray-700 mb-2">Lien</label>
                                 <input
-                                    type="url"
-                                    name="link"
-                                    defaultValue={editingBook?.link || ''}
+                                    type="text"
+                                    name="isbn"
+                                    defaultValue={editingBook?.isbn || ''}
                                     className="w-full px-3 py-2 border rounded"
                                     required
                                 />
