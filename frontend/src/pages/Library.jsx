@@ -433,7 +433,7 @@ const Library = () => {
                                                         // src={`${BACKEND_URL}${author.image}`}
                                                         src={resolveAssetUrl(author.image)}
                                                         alt={author.name}
-                                                        className="w-full h-40 object-cover rounded-lg"
+                                                        className="w-full h-40 object-contain rounded-lg"
                                                     />
                                                 </a>
 
