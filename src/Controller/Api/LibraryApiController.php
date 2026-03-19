@@ -34,8 +34,8 @@ class LibraryApiController extends AbstractController
     public function getAuthors(AuthorRepository $authorRepository): JsonResponse
     {
         $authors = $authorRepository->findAllOrderedByName();
-        
-        $authorsData = array_map(function(Author $author) {
+
+        $authorsData = array_map(function (Author $author) {
             return [
                 'id' => $author->getId(),
                 'name' => $author->getName(),
@@ -43,9 +43,7 @@ class LibraryApiController extends AbstractController
                 'deathYear' => $author->getDeathYear(),
                 'nationality' => $author->getNationality(),
                 'link' => $author->getLink(),
-                'image' => $author->getImage() 
-                    ? '/author_images/' . $author->getImage() 
-                    : '/images/default-author.png',
+                'image' => $this->getAuthorImageUrl($author),
                 'userId' => $author->getUser()?->getId(),
                 'userType' => $author->getUser()?->getUserType(),
             ];
@@ -54,24 +52,21 @@ class LibraryApiController extends AbstractController
         return new JsonResponse($authorsData);
     }
 
-    /**
-     * Get a single author
-     */
-    #[Route('/authors/{id}', name: 'api_library_author', methods: ['GET'])]
-    public function getAuthor(Author $author): JsonResponse
+    private function getAuthorImageUrl(Author $author): string
     {
-        return new JsonResponse([
-            'id' => $author->getId(),
-            'name' => $author->getName(),
-            'birthYear' => $author->getBirthYear(),
-            'deathYear' => $author->getDeathYear(),
-            'nationality' => $author->getNationality(),
-            'link' => $author->getLink(),
-            'image' => $author->getImage() 
-                ? '/author_images/' . $author->getImage() 
-                : '/images/default-author.png',
-            'userId' => $author->getUser()?->getId(),
-        ]);
+        $image = $author->getImage();
+
+        if (!$image) {
+            return '/images/default-profile.png';
+        }
+
+        // Si c'est déjà une URL externe (ex: générée par Faker), on la retourne telle quelle
+        if (str_starts_with($image, 'http://') || str_starts_with($image, 'https://')) {
+            return $image;
+        }
+
+        // Sinon, c'est un fichier uploadé localement
+        return '/author_images/' . $image;
     }
 
     /**
@@ -79,10 +74,11 @@ class LibraryApiController extends AbstractController
      */
     #[Route('/authors', name: 'api_library_author_create', methods: ['POST'])]
     public function createAuthor(
-        Request $request,
+        Request                $request,
         EntityManagerInterface $em,
-        SluggerInterface $slugger
-    ): JsonResponse {
+        SluggerInterface       $slugger
+    ): JsonResponse
+    {
         $user = $this->getUser();
         if (!$user) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
@@ -125,9 +121,7 @@ class LibraryApiController extends AbstractController
             'deathYear' => $author->getDeathYear(),
             'nationality' => $author->getNationality(),
             'link' => $author->getLink(),
-            'image' => $author->getImage() 
-                ? '/author_images/' . $author->getImage() 
-                : '/images/default-author.png',
+            'image' => $this->getAuthorImageUrl($author),
             'userId' => $author->getUser()?->getId(),
         ], Response::HTTP_CREATED);
     }
@@ -137,11 +131,12 @@ class LibraryApiController extends AbstractController
      */
     #[Route('/authors/{id}', name: 'api_library_author_update', methods: ['POST'])]
     public function updateAuthor(
-        Author $author,
-        Request $request,
+        Author                 $author,
+        Request                $request,
         EntityManagerInterface $em,
-        SluggerInterface $slugger
-    ): JsonResponse {
+        SluggerInterface       $slugger
+    ): JsonResponse
+    {
         /** @var User $user */
         $user = $this->getUser();
         if (!$user) {
@@ -197,8 +192,8 @@ class LibraryApiController extends AbstractController
             'deathYear' => $author->getDeathYear(),
             'nationality' => $author->getNationality(),
             'link' => $author->getLink(),
-            'image' => $author->getImage() 
-                ? '/author_images/' . $author->getImage() 
+            'image' => $author->getImage()
+                ? '/author_images/' . $author->getImage()
                 : '/images/default-author.png',
             'userId' => $author->getUser()?->getId(),
         ]);
@@ -209,9 +204,10 @@ class LibraryApiController extends AbstractController
      */
     #[Route('/authors/{id}', name: 'api_library_author_delete', methods: ['DELETE'])]
     public function deleteAuthor(
-        Author $author,
+        Author                 $author,
         EntityManagerInterface $em
-    ): JsonResponse {
+    ): JsonResponse
+    {
         /** @var User $user */
         $user = $this->getUser();
         if (!$user) {
@@ -238,8 +234,8 @@ class LibraryApiController extends AbstractController
     public function getBooks(BookRepository $bookRepository): JsonResponse
     {
         $books = $bookRepository->findBy([], ['title' => 'ASC']);
-        
-        $booksData = array_map(function(Book $book) {
+
+        $booksData = array_map(function (Book $book) {
             return [
                 'id' => $book->getId(),
                 'title' => $book->getTitle(),
@@ -254,14 +250,33 @@ class LibraryApiController extends AbstractController
     }
 
     /**
+     * Get a single author
+     */
+    #[Route('/authors/{id}', name: 'api_library_author', methods: ['GET'])]
+    public function getAuthor(Author $author): JsonResponse
+    {
+        return new JsonResponse([
+            'id' => $author->getId(),
+            'name' => $author->getName(),
+            'birthYear' => $author->getBirthYear(),
+            'deathYear' => $author->getDeathYear(),
+            'nationality' => $author->getNationality(),
+            'link' => $author->getLink(),
+            'image' => $this->getAuthorImageUrl($author),
+            'userId' => $author->getUser()?->getId(),
+        ]);
+    }
+
+    /**
      * Create a new book
      */
     #[Route('/books', name: 'api_library_book_create', methods: ['POST'])]
     public function createBook(
-        Request $request,
+        Request                $request,
         EntityManagerInterface $em,
-        SluggerInterface $slugger
-    ): JsonResponse {
+        SluggerInterface       $slugger
+    ): JsonResponse
+    {
         $user = $this->getUser();
         if (!$user) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
@@ -310,11 +325,12 @@ class LibraryApiController extends AbstractController
      */
     #[Route('/books/{id}', name: 'api_library_book_update', methods: ['POST'])]
     public function updateBook(
-        Book $book,
-        Request $request,
+        Book                   $book,
+        Request                $request,
         EntityManagerInterface $em,
-        SluggerInterface $slugger
-    ): JsonResponse {
+        SluggerInterface       $slugger
+    ): JsonResponse
+    {
         /** @var User $user */
         $user = $this->getUser();
         if (!$user) {
@@ -367,14 +383,17 @@ class LibraryApiController extends AbstractController
         ]);
     }
 
+    // ==================== ARTICLES ====================
+
     /**
      * Delete a book
      */
     #[Route('/books/{id}', name: 'api_library_book_delete', methods: ['DELETE'])]
     public function deleteBook(
-        Book $book,
+        Book                   $book,
         EntityManagerInterface $em
-    ): JsonResponse {
+    ): JsonResponse
+    {
         /** @var User $user */
         $user = $this->getUser();
         if (!$user) {
@@ -392,8 +411,6 @@ class LibraryApiController extends AbstractController
         return new JsonResponse(['success' => true]);
     }
 
-    // ==================== ARTICLES ====================
-
     /**
      * Get all articles
      */
@@ -401,8 +418,8 @@ class LibraryApiController extends AbstractController
     public function getArticles(ArticleRepository $articleRepository): JsonResponse
     {
         $articles = $articleRepository->findBy([], ['title' => 'ASC']);
-        
-        $articlesData = array_map(function(Article $article) {
+
+        $articlesData = array_map(function (Article $article) {
             $isExternal = $this->isExternalUrl($article->getLink());
 
             return [
@@ -422,14 +439,84 @@ class LibraryApiController extends AbstractController
         return new JsonResponse($articlesData);
     }
 
+    private function isExternalUrl(?string $link): bool
+    {
+        return $link !== null && preg_match('/^https?:\/\//i', $link) === 1;
+    }
+
+    private function getDerivedArticleAuthor(Article $article): ?string
+    {
+        if ($article->getRelatedAuthor()) {
+            return $article->getRelatedAuthor()?->getName();
+        }
+
+        if ($article->getRelatedBook()) {
+            return $article->getRelatedBook()?->getAuthor();
+        }
+
+        return null;
+    }
+
+    private function getArticleImageUrl(Article $article): ?string
+    {
+        if (!$article->getImagePath()) {
+            return null;
+        }
+
+        return self::ARTICLE_IMAGE_BASE_PATH . $article->getImagePath();
+    }
+
+    private function getArticlePdfUrl(Article $article): ?string
+    {
+        if (!$article->getPdfPath()) {
+            return null;
+        }
+
+        return self::ARTICLE_PDF_BASE_PATH . $article->getPdfPath();
+    }
+
+    /**
+     * @return array{relatedBookId:?int,relatedBookTitle:?string,relatedAuthorId:?int,relatedAuthorName:?string,concernType:string,concernId:?int,concernLabel:?string}
+     */
+    private function getArticleConcernPayload(Article $article): array
+    {
+        $relatedBook = $article->getRelatedBook();
+        $relatedAuthor = $article->getRelatedAuthor();
+
+        $concernType = 'none';
+        $concernId = null;
+        $concernLabel = null;
+
+        if ($relatedBook) {
+            $concernType = 'book';
+            $concernId = $relatedBook->getId();
+            $concernLabel = $relatedBook->getTitle();
+        } elseif ($relatedAuthor) {
+            $concernType = 'author';
+            $concernId = $relatedAuthor->getId();
+            $concernLabel = $relatedAuthor->getName();
+        }
+
+        return [
+            'relatedBookId' => $relatedBook?->getId(),
+            'relatedBookTitle' => $relatedBook?->getTitle(),
+            'relatedAuthorId' => $relatedAuthor?->getId(),
+            'relatedAuthorName' => $relatedAuthor?->getName(),
+            'concernType' => $concernType,
+            'concernId' => $concernId,
+            'concernLabel' => $concernLabel,
+        ];
+    }
+
     /**
      * Create a new article
      */
     #[Route('/articles', name: 'api_library_article_create', methods: ['POST'])]
     public function createArticle(
-        Request $request,
+        Request                $request,
         EntityManagerInterface $em
-    ): JsonResponse {
+    ): JsonResponse
+    {
         $user = $this->getUser();
         if (!$user) {
             return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
@@ -494,14 +581,136 @@ class LibraryApiController extends AbstractController
     }
 
     /**
+     * @param array<string, mixed> $data
+     */
+    private function applyArticleConcern(
+        Article                $article,
+        array                  $data,
+        EntityManagerInterface $em
+    ): ?JsonResponse
+    {
+        $concernType = strtolower(trim((string)($data['concernType'] ?? '')));
+        $concernId = isset($data['concernId']) ? (int)$data['concernId'] : 0;
+
+        // Backward compatibility with previous payloads.
+        if ($concernType === '') {
+            if (isset($data['bookId'])) {
+                $concernType = 'book';
+                $concernId = (int)$data['bookId'];
+            } elseif (isset($data['authorId'])) {
+                $concernType = 'author';
+                $concernId = (int)$data['authorId'];
+            }
+        }
+
+        if ($concernType === 'book' && $concernId > 0) {
+            /** @var BookRepository $bookRepository */
+            $bookRepository = $em->getRepository(Book::class);
+            $book = $bookRepository->find($concernId);
+            if (!$book) {
+                return new JsonResponse(['error' => 'Livre non trouvé'], Response::HTTP_BAD_REQUEST);
+            }
+
+            $article->setRelatedBook($book);
+            $article->setRelatedAuthor(null);
+
+            return null;
+        }
+
+        if ($concernType === 'author' && $concernId > 0) {
+            /** @var AuthorRepository $authorRepository */
+            $authorRepository = $em->getRepository(Author::class);
+            $author = $authorRepository->find($concernId);
+            if (!$author) {
+                return new JsonResponse(['error' => 'Auteur non trouvé'], Response::HTTP_BAD_REQUEST);
+            }
+
+            $article->setRelatedAuthor($author);
+            $article->setRelatedBook(null);
+
+            return null;
+        }
+
+        if ($concernType === 'none' || $concernType === '' || $concernId <= 0) {
+            $article->setRelatedBook(null);
+            $article->setRelatedAuthor(null);
+
+            return null;
+        }
+
+        return new JsonResponse(['error' => 'Type de cible invalide'], Response::HTTP_BAD_REQUEST);
+    }
+
+    /**
+     * @return array{filename: ?string, error: ?string}
+     */
+    private function uploadArticleImage(UploadedFile $imageFile): array
+    {
+        $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!in_array($imageFile->getMimeType(), $allowedMimeTypes, true)) {
+            return ['filename' => null, 'error' => 'Format d\'image non supporté'];
+        }
+
+        if ($imageFile->getSize() > 5 * 1024 * 1024) {
+            return ['filename' => null, 'error' => 'Image trop volumineuse (max 5 MB)'];
+        }
+
+        $uploadDir = $this->getParameter('kernel.project_dir') . '/public/article_images';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0775, true);
+        }
+
+        $extension = $imageFile->guessExtension() ?: 'jpg';
+        $filename = uniqid('article_img_', true) . '.' . $extension;
+
+        try {
+            $imageFile->move($uploadDir, $filename);
+        } catch (FileException $e) {
+            return ['filename' => null, 'error' => 'Erreur lors de l\'enregistrement de l\'image'];
+        }
+
+        return ['filename' => $filename, 'error' => null];
+    }
+
+    /**
+     * @return array{filename: ?string, error: ?string}
+     */
+    private function uploadArticlePdf(UploadedFile $pdfFile): array
+    {
+        if ($pdfFile->getMimeType() !== 'application/pdf') {
+            return ['filename' => null, 'error' => 'Format PDF non supporté'];
+        }
+
+        if ($pdfFile->getSize() > 10 * 1024 * 1024) {
+            return ['filename' => null, 'error' => 'PDF trop volumineux (max 10 MB)'];
+        }
+
+        $uploadDir = $this->getParameter('kernel.project_dir') . '/public/article_pdfs';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0775, true);
+        }
+
+        $filename = uniqid('article_pdf_', true) . '.pdf';
+
+        try {
+            $pdfFile->move($uploadDir, $filename);
+        } catch (FileException $e) {
+            return ['filename' => null, 'error' => 'Erreur lors de l\'enregistrement du PDF'];
+        }
+
+        return ['filename' => $filename, 'error' => null];
+    }
+
+    /**
      * Update an article
      */
     #[Route('/articles/{id}', name: 'api_library_article_update', methods: ['PUT'])]
     public function updateArticle(
-        Article $article,
-        Request $request,
+        Article                $article,
+        Request                $request,
         EntityManagerInterface $em
-    ): JsonResponse {
+    ): JsonResponse
+    {
         /** @var User $user */
         $user = $this->getUser();
         if (!$user) {
@@ -517,7 +726,7 @@ class LibraryApiController extends AbstractController
         // for multipart/form-data bodies sent with PUT. Reject such requests explicitly
         // to avoid silently ignoring fields/files.
         if ($request->isMethod('PUT')) {
-            $contentType = (string) $request->headers->get('Content-Type', '');
+            $contentType = (string)$request->headers->get('Content-Type', '');
             if (stripos($contentType, 'multipart/form-data') === 0) {
                 return new JsonResponse(
                     [
@@ -638,97 +847,20 @@ class LibraryApiController extends AbstractController
         ]);
     }
 
-    /**
-     * @param array<string, mixed> $data
-     */
-    private function applyArticleConcern(
-        Article $article,
-        array $data,
-        EntityManagerInterface $em
-    ): ?JsonResponse {
-        $concernType = strtolower(trim((string) ($data['concernType'] ?? '')));
-        $concernId = isset($data['concernId']) ? (int) $data['concernId'] : 0;
-
-        // Backward compatibility with previous payloads.
-        if ($concernType === '') {
-            if (isset($data['bookId'])) {
-                $concernType = 'book';
-                $concernId = (int) $data['bookId'];
-            } elseif (isset($data['authorId'])) {
-                $concernType = 'author';
-                $concernId = (int) $data['authorId'];
-            }
+    private function deleteArticleImageFile(string $filename): void
+    {
+        $path = $this->getParameter('kernel.project_dir') . '/public/article_images/' . $filename;
+        if (is_file($path)) {
+            @unlink($path);
         }
-
-        if ($concernType === 'book' && $concernId > 0) {
-            /** @var BookRepository $bookRepository */
-            $bookRepository = $em->getRepository(Book::class);
-            $book = $bookRepository->find($concernId);
-            if (!$book) {
-                return new JsonResponse(['error' => 'Livre non trouvé'], Response::HTTP_BAD_REQUEST);
-            }
-
-            $article->setRelatedBook($book);
-            $article->setRelatedAuthor(null);
-
-            return null;
-        }
-
-        if ($concernType === 'author' && $concernId > 0) {
-            /** @var AuthorRepository $authorRepository */
-            $authorRepository = $em->getRepository(Author::class);
-            $author = $authorRepository->find($concernId);
-            if (!$author) {
-                return new JsonResponse(['error' => 'Auteur non trouvé'], Response::HTTP_BAD_REQUEST);
-            }
-
-            $article->setRelatedAuthor($author);
-            $article->setRelatedBook(null);
-
-            return null;
-        }
-
-        if ($concernType === 'none' || $concernType === '' || $concernId <= 0) {
-            $article->setRelatedBook(null);
-            $article->setRelatedAuthor(null);
-
-            return null;
-        }
-
-        return new JsonResponse(['error' => 'Type de cible invalide'], Response::HTTP_BAD_REQUEST);
     }
 
-    /**
-     * @return array{relatedBookId:?int,relatedBookTitle:?string,relatedAuthorId:?int,relatedAuthorName:?string,concernType:string,concernId:?int,concernLabel:?string}
-     */
-    private function getArticleConcernPayload(Article $article): array
+    private function deleteArticlePdfFile(string $filename): void
     {
-        $relatedBook = $article->getRelatedBook();
-        $relatedAuthor = $article->getRelatedAuthor();
-
-        $concernType = 'none';
-        $concernId = null;
-        $concernLabel = null;
-
-        if ($relatedBook) {
-            $concernType = 'book';
-            $concernId = $relatedBook->getId();
-            $concernLabel = $relatedBook->getTitle();
-        } elseif ($relatedAuthor) {
-            $concernType = 'author';
-            $concernId = $relatedAuthor->getId();
-            $concernLabel = $relatedAuthor->getName();
+        $path = $this->getParameter('kernel.project_dir') . '/public/article_pdfs/' . $filename;
+        if (is_file($path)) {
+            @unlink($path);
         }
-
-        return [
-            'relatedBookId' => $relatedBook?->getId(),
-            'relatedBookTitle' => $relatedBook?->getTitle(),
-            'relatedAuthorId' => $relatedAuthor?->getId(),
-            'relatedAuthorName' => $relatedAuthor?->getName(),
-            'concernType' => $concernType,
-            'concernId' => $concernId,
-            'concernLabel' => $concernLabel,
-        ];
     }
 
     /**
@@ -736,9 +868,10 @@ class LibraryApiController extends AbstractController
      */
     #[Route('/articles/{id}', name: 'api_library_article_delete', methods: ['DELETE'])]
     public function deleteArticle(
-        Article $article,
+        Article                $article,
         EntityManagerInterface $em
-    ): JsonResponse {
+    ): JsonResponse
+    {
         /** @var User $user */
         $user = $this->getUser();
         if (!$user) {
@@ -762,117 +895,5 @@ class LibraryApiController extends AbstractController
         $em->flush();
 
         return new JsonResponse(['success' => true]);
-    }
-
-    private function isExternalUrl(?string $link): bool
-    {
-        return $link !== null && preg_match('/^https?:\/\//i', $link) === 1;
-    }
-
-    private function getArticleImageUrl(Article $article): ?string
-    {
-        if (!$article->getImagePath()) {
-            return null;
-        }
-
-        return self::ARTICLE_IMAGE_BASE_PATH . $article->getImagePath();
-    }
-
-    private function getArticlePdfUrl(Article $article): ?string
-    {
-        if (!$article->getPdfPath()) {
-            return null;
-        }
-
-        return self::ARTICLE_PDF_BASE_PATH . $article->getPdfPath();
-    }
-
-    private function getDerivedArticleAuthor(Article $article): ?string
-    {
-        if ($article->getRelatedAuthor()) {
-            return $article->getRelatedAuthor()?->getName();
-        }
-
-        if ($article->getRelatedBook()) {
-            return $article->getRelatedBook()?->getAuthor();
-        }
-
-        return null;
-    }
-
-    /**
-     * @return array{filename: ?string, error: ?string}
-     */
-    private function uploadArticleImage(UploadedFile $imageFile): array
-    {
-        $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-        if (!in_array($imageFile->getMimeType(), $allowedMimeTypes, true)) {
-            return ['filename' => null, 'error' => 'Format d\'image non supporté'];
-        }
-
-        if ($imageFile->getSize() > 5 * 1024 * 1024) {
-            return ['filename' => null, 'error' => 'Image trop volumineuse (max 5 MB)'];
-        }
-
-        $uploadDir = $this->getParameter('kernel.project_dir') . '/public/article_images';
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0775, true);
-        }
-
-        $extension = $imageFile->guessExtension() ?: 'jpg';
-        $filename = uniqid('article_img_', true) . '.' . $extension;
-
-        try {
-            $imageFile->move($uploadDir, $filename);
-        } catch (FileException $e) {
-            return ['filename' => null, 'error' => 'Erreur lors de l\'enregistrement de l\'image'];
-        }
-
-        return ['filename' => $filename, 'error' => null];
-    }
-
-    /**
-     * @return array{filename: ?string, error: ?string}
-     */
-    private function uploadArticlePdf(UploadedFile $pdfFile): array
-    {
-        if ($pdfFile->getMimeType() !== 'application/pdf') {
-            return ['filename' => null, 'error' => 'Format PDF non supporté'];
-        }
-
-        if ($pdfFile->getSize() > 10 * 1024 * 1024) {
-            return ['filename' => null, 'error' => 'PDF trop volumineux (max 10 MB)'];
-        }
-
-        $uploadDir = $this->getParameter('kernel.project_dir') . '/public/article_pdfs';
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0775, true);
-        }
-
-        $filename = uniqid('article_pdf_', true) . '.pdf';
-
-        try {
-            $pdfFile->move($uploadDir, $filename);
-        } catch (FileException $e) {
-            return ['filename' => null, 'error' => 'Erreur lors de l\'enregistrement du PDF'];
-        }
-
-        return ['filename' => $filename, 'error' => null];
-    }
-
-    private function deleteArticleImageFile(string $filename): void
-    {
-        $path = $this->getParameter('kernel.project_dir') . '/public/article_images/' . $filename;
-        if (is_file($path)) {
-            @unlink($path);
-        }
-    }
-
-    private function deleteArticlePdfFile(string $filename): void
-    {
-        $path = $this->getParameter('kernel.project_dir') . '/public/article_pdfs/' . $filename;
-        if (is_file($path)) {
-            @unlink($path);
-        }
     }
 }
