@@ -5,8 +5,8 @@ namespace App\DataFixtures;
 use App\Entity\Book;
 use App\Entity\User;
 use Doctrine\Bundle\FixturesBundle\Fixture;
-use Doctrine\Persistence\ObjectManager;
 use Doctrine\Common\DataFixtures\DependentFixtureInterface;
+use Doctrine\Persistence\ObjectManager;
 use Faker\Factory;
 
 class BookFixtures extends Fixture implements DependentFixtureInterface
@@ -22,7 +22,7 @@ class BookFixtures extends Fixture implements DependentFixtureInterface
             $book = new Book();
             $book->setTitle(ucfirst($faker->words($faker->numberBetween(2, 5), true)))
                 ->setAuthor($faker->firstName() . ' ' . $faker->lastName())
-                ->setLink($faker->url())
+                ->setIsbn($faker->isbn13())
                 ->setImage("https://covers.openlibrary.org/b/id/" . $faker->numberBetween(8000000, 9000000) . "-M.jpg") // Vraies images de couvertures aléatoires
                 ->setUser($user);
 
