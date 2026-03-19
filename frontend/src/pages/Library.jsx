@@ -284,6 +284,12 @@ const Library = () => {
         return items.filter((item) =>
             fields.some((f) => {
                 if (!item[f]) return false;
+
+                if (Array.isArray(item[f])) {
+                    const combinedNames = item[f].map(val => val.name || '').join(' ');
+                    return removeAccents(combinedNames.toLowerCase()).includes(q);
+                }
+
                 const val = String(item[f]).toLowerCase();
                 return removeAccents(val).includes(q);
             })
@@ -430,12 +436,19 @@ const Library = () => {
                                                         className="w-full h-40 object-cover rounded-lg"
                                                     />
                                                 </a>
-                                                <div className="p-4">
-                                                    <h3 className="text-lg font-semibold text-gray-800">{author.name}</h3>
-                                                    <p className="text-sm text-gray-600">
+
+                                                <div className="pt-3 px-1 flex flex-col">
+                                                    <h3
+                                                        className="text-base font-semibold text-gray-800 line-clamp-2 leading-tight"
+                                                        title={author.name}
+                                                    >
+                                                        {author.name}
+                                                    </h3>
+                                                    <p className="text-sm text-gray-600 mt-1">
                                                         {author.birthYear} - {author.deathYear || '...'}
                                                     </p>
                                                 </div>
+
                                                 {author.nationality && (
                                                     <img
                                                         src={`https://flagicons.lipis.dev/flags/4x3/${author.nationality}.svg`}
@@ -571,7 +584,8 @@ const Library = () => {
                                             href={article.link}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="w-2/5 text-blue-600 hover:underline"
+                                            title={article.title}
+                                            className="w-2/5 text-blue-600 hover:underline truncate pr-4"
                                         >
                                             {article.title}
                                         </a>
@@ -579,7 +593,8 @@ const Library = () => {
                                         <button
                                             type="button"
                                             onClick={() => setSelectedArticleId(article.id)}
-                                            className="w-2/5 text-left text-blue-600 hover:underline"
+                                            title={article.title}
+                                            className="w-2/5 text-left text-blue-600 hover:underline truncate pr-4"
                                         >
                                             {article.title}
                                         </button>
@@ -661,7 +676,7 @@ const Library = () => {
 
                     <div className="flex flex-wrap w-full">
                         {(() => {
-                            const searched = filterBySearch(books, ['title', 'author']);
+                            const searched = filterBySearch(books, ['title', 'authors']);
                             const filtered = filterByLetter(searched, (b) => b.title, 'books');
                             const grouped = groupByLetter(filtered, (b) => b.title);
                             return Object.keys(grouped).sort().map((letter) => (
@@ -686,9 +701,16 @@ const Library = () => {
                                                         className="w-full h-40 object-cover rounded-lg"
                                                     />
                                                 </a>
-                                                <div className="p-4">
-                                                    <h3 className="text-lg font-semibold text-gray-800">{book.title}</h3>
-                                                    <p className="text-sm text-gray-600">{book.author}</p>
+                                                <div className="pt-3 px-1 flex flex-col">
+                                                    <h3
+                                                        className="text-base font-semibold text-gray-800 line-clamp-2 leading-tight"
+                                                        title={book.title}
+                                                    >
+                                                        {book.title}
+                                                    </h3>
+                                                    <p className="text-sm text-gray-600 truncate mt-1">
+                                                        {book.authors?.map(a => a.name).join(', ') || 'Auteur inconnu'}
+                                                    </p>
                                                 </div>
                                                 {canEdit(book) && (
                                                     <div className="absolute top-2 right-2">
@@ -860,17 +882,32 @@ const Library = () => {
                                 />
                             </div>
                             <div className="mb-4">
-                                <label className="block text-gray-700 mb-2">Auteur</label>
-                                <input
-                                    type="text"
-                                    name="author"
-                                    defaultValue={scannedBook?.author || editingBook?.author || ''}
-                                    className="w-full px-3 py-2 border rounded"
+                                <label className="block text-gray-700 mb-2">Auteurs</label>
+                                <select
+                                    name="author_ids[]"
+                                    multiple
+                                    defaultValue={editingBook?.authors?.map(a => a.id) || []}
+                                    className="w-full px-3 py-2 border rounded min-h-[100px]"
                                     required
-                                />
+                                >
+                                    {authors.map((author) => (
+                                        <option key={author.id} value={author.id}>
+                                            {author.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className="text-xs text-gray-500 mt-1">Maintenez Ctrl (Windows) ou Cmd (Mac) pour
+                                    sélectionner plusieurs auteurs.</p>
+                                {/*<input*/}
+                                {/*    type="text"*/}
+                                {/*    name="author"*/}
+                                {/*    defaultValue={scannedBook?.author || editingBook?.author || ''}*/}
+                                {/*    className="w-full px-3 py-2 border rounded"*/}
+                                {/*    required*/}
+                                {/*/>*/}
                             </div>
                             <div className="mb-4">
-                                <label className="block text-gray-700 mb-2">Lien</label>
+                                <label className="block text-gray-700 mb-2">ISBN</label>
                                 <input
                                     type="text"
                                     name="isbn"

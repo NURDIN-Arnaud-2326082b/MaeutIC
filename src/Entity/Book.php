@@ -13,6 +13,8 @@
 
 namespace App\Entity;
 
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
@@ -26,8 +28,8 @@ class Book
     #[ORM\Column(length: 255)]
     private ?string $title = null;
 
-    #[ORM\Column(length: 255)]
-    private ?string $author = null;
+//    #[ORM\Column(length: 255)]
+//    private ?string $author = null;
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $isbn = null;
@@ -38,6 +40,17 @@ class Book
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: "SET NULL")]
     private ?User $user = null;
+
+    /**
+     * @var Collection<int, Author>
+     */
+    #[ORM\ManyToMany(targetEntity: Author::class, inversedBy: 'books')]
+    private Collection $authors;
+
+    public function __construct()
+    {
+        $this->authors = new ArrayCollection();
+    }
 
     public function getId(): ?int
     {
@@ -56,17 +69,17 @@ class Book
         return $this;
     }
 
-    public function getAuthor(): ?string
-    {
-        return $this->author;
-    }
-
-    public function setAuthor(string $author): static
-    {
-        $this->author = $author;
-
-        return $this;
-    }
+//    public function getAuthor(): ?string
+//    {
+//        return $this->author;
+//    }
+//
+//    public function setAuthor(string $author): static
+//    {
+//        $this->author = $author;
+//
+//        return $this;
+//    }
 
     public function getIsbn(): ?string
     {
@@ -100,6 +113,30 @@ class Book
     public function setUser(?User $user): static
     {
         $this->user = $user;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, Author>
+     */
+    public function getAuthors(): Collection
+    {
+        return $this->authors;
+    }
+
+    public function addAuthor(Author $author): static
+    {
+        if (!$this->authors->contains($author)) {
+            $this->authors->add($author);
+        }
+
+        return $this;
+    }
+
+    public function removeAuthor(Author $author): static
+    {
+        $this->authors->removeElement($author);
 
         return $this;
     }

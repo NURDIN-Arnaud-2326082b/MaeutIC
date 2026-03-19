@@ -5,8 +5,8 @@ namespace App\DataFixtures;
 use App\Entity\Author;
 use App\Entity\User;
 use Doctrine\Bundle\FixturesBundle\Fixture;
-use Doctrine\Persistence\ObjectManager;
 use Doctrine\Common\DataFixtures\DependentFixtureInterface;
+use Doctrine\Persistence\ObjectManager;
 use Faker\Factory;
 
 class AuthorFixtures extends Fixture implements DependentFixtureInterface
@@ -37,10 +37,12 @@ class AuthorFixtures extends Fixture implements DependentFixtureInterface
                 ->setImage("https://ui-avatars.com/api/?name=" . urlencode($ra['name']) . "&background=random")
                 ->setUser($getRandomUser());
             $manager->persist($author);
+
+            $this->addReference("author" . $ra['name'], $author);
         }
 
         // Quelques auteurs fictifs/générés
-        for ($i = 1; $i <= 6; $i++) {
+        for ($i = 1; $i <= 10; $i++) {
             $birth = $faker->numberBetween(1850, 1950);
             $author = new Author();
             $author->setName($faker->firstName() . ' ' . $faker->lastName())
@@ -51,6 +53,8 @@ class AuthorFixtures extends Fixture implements DependentFixtureInterface
                 ->setImage($faker->imageUrl(200, 200, 'people'))
                 ->setUser($getRandomUser());
             $manager->persist($author);
+
+            $this->addReference("author" . $i, $author);
         }
 
         $manager->flush();

@@ -28,48 +28,6 @@ class LibraryApiController extends AbstractController
     // ==================== AUTHORS ====================
 
     /**
-     * Get all authors
-     */
-    #[Route('/authors', name: 'api_library_authors', methods: ['GET'])]
-    public function getAuthors(AuthorRepository $authorRepository): JsonResponse
-    {
-        $authors = $authorRepository->findAllOrderedByName();
-
-        $authorsData = array_map(function (Author $author) {
-            return [
-                'id' => $author->getId(),
-                'name' => $author->getName(),
-                'birthYear' => $author->getBirthYear(),
-                'deathYear' => $author->getDeathYear(),
-                'nationality' => $author->getNationality(),
-                'link' => $author->getLink(),
-                'image' => $this->getAuthorImageUrl($author),
-                'userId' => $author->getUser()?->getId(),
-                'userType' => $author->getUser()?->getUserType(),
-            ];
-        }, $authors);
-
-        return new JsonResponse($authorsData);
-    }
-
-    private function getAuthorImageUrl(Author $author): string
-    {
-        $image = $author->getImage();
-
-        if (!$image) {
-            return '/images/default-profile.png';
-        }
-
-        // Si c'est déjà une URL externe (ex: générée par Faker), on la retourne telle quelle
-        if (str_starts_with($image, 'http://') || str_starts_with($image, 'https://')) {
-            return $image;
-        }
-
-        // Sinon, c'est un fichier uploadé localement
-        return '/author_images/' . $image;
-    }
-
-    /**
      * Create a new author
      */
     #[Route('/authors', name: 'api_library_author_create', methods: ['POST'])]
@@ -124,6 +82,23 @@ class LibraryApiController extends AbstractController
             'image' => $this->getAuthorImageUrl($author),
             'userId' => $author->getUser()?->getId(),
         ], Response::HTTP_CREATED);
+    }
+
+    private function getAuthorImageUrl(Author $author): string
+    {
+        $image = $author->getImage();
+
+        if (!$image) {
+            return '/images/default-profile.png';
+        }
+
+        // Si c'est déjà une URL externe (ex: générée par Faker), on la retourne telle quelle
+        if (str_starts_with($image, 'http://') || str_starts_with($image, 'https://')) {
+            return $image;
+        }
+
+        // Sinon, c'est un fichier uploadé localement
+        return '/author_images/' . $image;
     }
 
     /**
@@ -225,8 +200,6 @@ class LibraryApiController extends AbstractController
         return new JsonResponse(['success' => true]);
     }
 
-    // ==================== BOOKS ====================
-
     /**
      * Get all books
      */
@@ -239,7 +212,12 @@ class LibraryApiController extends AbstractController
             return [
                 'id' => $book->getId(),
                 'title' => $book->getTitle(),
-                'author' => $book->getAuthor(),
+                'authors' => array_map(function ($author) {
+                    return [
+                        'id' => $author->getId(),
+                        'name' => $author->getName()
+                    ];
+                }, $book->getAuthors()->toArray()),
                 'isbn' => $book->getIsbn(),
                 'image' => $book->getImage() ?: '/images/default-book.png',
                 'userId' => $book->getUser()?->getId(),
@@ -249,22 +227,31 @@ class LibraryApiController extends AbstractController
         return new JsonResponse($booksData);
     }
 
+    // ==================== BOOKS ====================
+
     /**
-     * Get a single author
+     * Get all authors
      */
-    #[Route('/authors/{id}', name: 'api_library_author', methods: ['GET'])]
-    public function getAuthor(Author $author): JsonResponse
+    #[Route('/authors', name: 'api_library_authors', methods: ['GET'])]
+    public function getAuthors(AuthorRepository $authorRepository): JsonResponse
     {
-        return new JsonResponse([
-            'id' => $author->getId(),
-            'name' => $author->getName(),
-            'birthYear' => $author->getBirthYear(),
-            'deathYear' => $author->getDeathYear(),
-            'nationality' => $author->getNationality(),
-            'link' => $author->getLink(),
-            'image' => $this->getAuthorImageUrl($author),
-            'userId' => $author->getUser()?->getId(),
-        ]);
+        $authors = $authorRepository->findAllOrderedByName();
+
+        $authorsData = array_map(function (Author $author) {
+            return [
+                'id' => $author->getId(),
+                'name' => $author->getName(),
+                'birthYear' => $author->getBirthYear(),
+                'deathYear' => $author->getDeathYear(),
+                'nationality' => $author->getNationality(),
+                'link' => $author->getLink(),
+                'image' => $this->getAuthorImageUrl($author),
+                'userId' => $author->getUser()?->getId(),
+                'userType' => $author->getUser()?->getUserType(),
+            ];
+        }, $authors);
+
+        return new JsonResponse($authorsData);
     }
 
     /**
@@ -284,9 +271,26 @@ class LibraryApiController extends AbstractController
 
         $book = new Book();
         $book->setTitle($request->request->get('title'));
-        $book->setAuthor($request->request->get('author'));
+//        $book->setAuthor($request->request->get('author'));
         $book->setIsbn($request->request->get('isbn'));
         $book->setUser($user);
+
+        $authorIds = $request->request->all('author_ids') ?? $request->request->all('author_ids[]');
+
+        if ($book->getId()) {
+            foreach ($book->getAuthors() as $author) {
+                $book->removeAuthor($author);
+            }
+        }
+
+        if (!empty($authorIds)) {
+            foreach ($authorIds as $authorId) {
+                $author = $em->getRepository(Author::class)->find($authorId);
+                if ($author) {
+                    $book->addAuthor($author);
+                }
+            }
+        }
 
         // Handle image upload
         $imageFile = $request->files->get('image');
@@ -313,7 +317,12 @@ class LibraryApiController extends AbstractController
         return new JsonResponse([
             'id' => $book->getId(),
             'title' => $book->getTitle(),
-            'author' => $book->getAuthor(),
+            'authors' => array_map(function ($author) {
+                return [
+                    'id' => $author->getId(),
+                    'name' => $author->getName()
+                ];
+            }, $book->getAuthors()->toArray()),
             'isbn' => $book->getIsbn(),
             'image' => $book->getImage() ?: '/images/default-book.png',
             'userId' => $book->getUser()?->getId(),
@@ -352,6 +361,23 @@ class LibraryApiController extends AbstractController
             $book->setIsbn($request->request->get('isbn'));
         }
 
+        $authorIds = $request->request->all('author_ids') ?? $request->request->all('author_ids[]');
+
+        if ($book->getId()) {
+            foreach ($book->getAuthors() as $author) {
+                $book->removeAuthor($author);
+            }
+        }
+
+        if (!empty($authorIds)) {
+            foreach ($authorIds as $authorId) {
+                $author = $em->getRepository(Author::class)->find($authorId);
+                if ($author) {
+                    $book->addAuthor($author);
+                }
+            }
+        }
+
         // Handle image upload
         $imageFile = $request->files->get('image');
         if ($imageFile) {
@@ -376,14 +402,17 @@ class LibraryApiController extends AbstractController
         return new JsonResponse([
             'id' => $book->getId(),
             'title' => $book->getTitle(),
-            'author' => $book->getAuthor(),
+            'authors' => array_map(function ($author) {
+                return [
+                    'id' => $author->getId(),
+                    'name' => $author->getName()
+                ];
+            }, $book->getAuthors()->toArray()),
             'isbn' => $book->getIsbn(),
             'image' => $book->getImage() ?: '/images/default-book.png',
             'userId' => $book->getUser()?->getId(),
         ]);
     }
-
-    // ==================== ARTICLES ====================
 
     /**
      * Delete a book
@@ -410,6 +439,8 @@ class LibraryApiController extends AbstractController
 
         return new JsonResponse(['success' => true]);
     }
+
+    // ==================== ARTICLES ====================
 
     /**
      * Get all articles
@@ -451,7 +482,14 @@ class LibraryApiController extends AbstractController
         }
 
         if ($article->getRelatedBook()) {
-            return $article->getRelatedBook()?->getAuthor();
+            $authors = $article->getRelatedBook()?->getAuthors();
+            if (count($authors) > 0) {
+                $names = [];
+                foreach ($authors as $a) {
+                    $names[] = $a->getName();
+                }
+                return implode(',', $names);
+            }
         }
 
         return null;
@@ -506,6 +544,24 @@ class LibraryApiController extends AbstractController
             'concernId' => $concernId,
             'concernLabel' => $concernLabel,
         ];
+    }
+
+    /**
+     * Get a single author
+     */
+    #[Route('/authors/{id}', name: 'api_library_author', methods: ['GET'])]
+    public function getAuthor(Author $author): JsonResponse
+    {
+        return new JsonResponse([
+            'id' => $author->getId(),
+            'name' => $author->getName(),
+            'birthYear' => $author->getBirthYear(),
+            'deathYear' => $author->getDeathYear(),
+            'nationality' => $author->getNationality(),
+            'link' => $author->getLink(),
+            'image' => $this->getAuthorImageUrl($author),
+            'userId' => $author->getUser()?->getId(),
+        ]);
     }
 
     /**
