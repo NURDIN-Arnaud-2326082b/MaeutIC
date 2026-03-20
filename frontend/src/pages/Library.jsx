@@ -444,9 +444,11 @@ const Library = () => {
                                                     >
                                                         {author.name}
                                                     </h3>
-                                                    <p className="text-sm text-gray-600 mt-1">
-                                                        {author.birthYear} - {author.deathYear || '...'}
-                                                    </p>
+                                                    {(author.birthYear || author.deathYear) && (
+                                                        <p className="text-sm text-gray-600 mt-1">
+                                                            {author.birthYear || '?'} - {author.deathYear || '...'}
+                                                        </p>
+                                                    )}
                                                 </div>
 
                                                 {author.nationality && (
@@ -691,16 +693,27 @@ const Library = () => {
                                                 key={book.id}
                                                 className="bg-white hover:bg-blue-50 rounded-lg overflow-hidden relative w-44 h-72 m-4 p-3"
                                             >
-                                                <a href={book.isbn ? `https://isbnsearch.org/isbn/${book.isbn}` : '#'}
-                                                   target="_blank"
-                                                   rel="noopener noreferrer">
-                                                    <img
-                                                        // src={`${BACKEND_URL}${book.image}`}
-                                                        src={resolveAssetUrl(book.image)}
-                                                        alt={book.title}
-                                                        className="w-full h-40 object-cover rounded-lg"
-                                                    />
-                                                </a>
+                                                {book.isbn ? (
+                                                    <a href={`https://isbnsearch.org/isbn/${book.isbn}`}
+                                                       target="_blank"
+                                                       rel="noopener noreferrer">
+                                                        <img
+                                                            // src={`${BACKEND_URL}${book.image}`}
+                                                            src={resolveAssetUrl(book.image)}
+                                                            alt={book.title}
+                                                            className="w-full h-40 object-cover rounded-lg"
+                                                        />
+                                                    </a>
+                                                ) : (
+                                                    <div className="pointer-events-none">
+                                                        <img
+                                                            // src={`${BACKEND_URL}${book.image}`}
+                                                            src={resolveAssetUrl(book.image)}
+                                                            alt={book.title}
+                                                            className="w-full h-40 object-cover rounded-lg"
+                                                        />
+                                                    </div>
+                                                )}
                                                 <div className="pt-3 px-1 flex flex-col">
                                                     <h3
                                                         className="text-base font-semibold text-gray-800 line-clamp-2 leading-tight"
