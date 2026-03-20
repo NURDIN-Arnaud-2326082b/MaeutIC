@@ -341,13 +341,13 @@ const Library = () => {
     return (
         <div className="flex-1 container mx-auto py-6">
             {/* Tab Navigation */}
-            <div className="flex justify-center space-x-4 mb-6">
+            <div className="flex flex-row justify-center space-x-4 mb-6 mx-4">
                 <button
                     onClick={() => {
                         setActiveTab('authors');
                         setSearchQuery('');
                     }}
-                    className={`flex-grow px-4 py-2 rounded-lg font-medium focus:outline-none focus:ring-2 ${
+                    className={`flex-1 flex-grow px-4 py-2 rounded-lg font-medium focus:outline-none focus:ring-2 ${
                         activeTab === 'authors'
                             ? 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
                             : 'bg-white/45 text-gray-700 backdrop-blur-sm shadow-lg hover:bg-gray-200/45 focus:ring-gray-400'
@@ -360,7 +360,7 @@ const Library = () => {
                         setActiveTab('articles');
                         setSearchQuery('');
                     }}
-                    className={`flex-grow px-4 py-2 rounded-lg font-medium focus:outline-none focus:ring-2 ${
+                    className={`flex-1 flex-grow px-4 py-2 rounded-lg font-medium focus:outline-none focus:ring-2 ${
                         activeTab === 'articles'
                             ? 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
                             : 'bg-white/45 text-gray-700 backdrop-blur-sm shadow-lg hover:bg-gray-200/45 focus:ring-gray-400'
@@ -373,7 +373,7 @@ const Library = () => {
                         setActiveTab('books');
                         setSearchQuery('');
                     }}
-                    className={`flex-grow px-4 py-2 rounded-lg font-medium focus:outline-none focus:ring-2 ${
+                    className={`flex-1 flex-grow px-4 py-2 rounded-lg font-medium focus:outline-none focus:ring-2 ${
                         activeTab === 'books'
                             ? 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
                             : 'bg-white/45 text-gray-700 backdrop-blur-sm shadow-lg hover:bg-gray-200/45 focus:ring-gray-400'
