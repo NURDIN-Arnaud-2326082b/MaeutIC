@@ -269,7 +269,6 @@ class LibraryApiController extends AbstractController
 
         $book = new Book();
         $book->setTitle($request->request->get('title'));
-//        $book->setAuthor($request->request->get('author'));
         $book->setIsbn($request->request->get('isbn'));
         $book->setUser($user);
 
@@ -356,9 +355,7 @@ class LibraryApiController extends AbstractController
         if ($request->request->has('title')) {
             $book->setTitle($request->request->get('title'));
         }
-        if ($request->request->has('author')) {
-            $book->setAuthor($request->request->get('author'));
-        }
+
         if ($request->request->has('isbn')) {
             $book->setIsbn($request->request->get('isbn'));
         }
