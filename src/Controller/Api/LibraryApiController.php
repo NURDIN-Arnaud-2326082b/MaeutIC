@@ -275,7 +275,7 @@ class LibraryApiController extends AbstractController
         $hasAuthorIdsField = $request->request->has('author_ids') || $request->request->has('author_ids[]');
 
         if ($hasAuthorIdsField) {
-            $authorIds = $request->request->all('author_ids') ?? $request->request->all('author_ids[]');
+            $authorIds = $request->request->all('author_ids') ?: $request->request->all('author_ids[]');
 
             if ($book->getId()) {
                 foreach ($book->getAuthors() as $author) {
@@ -363,7 +363,7 @@ class LibraryApiController extends AbstractController
         $hasAuthorIdsField = $request->request->has('author_ids') || $request->request->has('author_ids[]');
 
         if ($hasAuthorIdsField) {
-            $authorIds = $request->request->all('author_ids') ?? $request->request->all('author_ids[]');
+            $authorIds = $request->request->all('author_ids') ?: $request->request->all('author_ids[]');
 
             if ($book->getId()) {
                 foreach ($book->getAuthors() as $author) {
