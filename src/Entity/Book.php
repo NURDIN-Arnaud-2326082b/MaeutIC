@@ -28,9 +28,6 @@ class Book
     #[ORM\Column(length: 255)]
     private ?string $title = null;
 
-//    #[ORM\Column(length: 255)]
-//    private ?string $author = null;
-
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $isbn = null;
 
@@ -68,18 +65,6 @@ class Book
 
         return $this;
     }
-
-//    public function getAuthor(): ?string
-//    {
-//        return $this->author;
-//    }
-//
-//    public function setAuthor(string $author): static
-//    {
-//        $this->author = $author;
-//
-//        return $this;
-//    }
 
     public function getIsbn(): ?string
     {
