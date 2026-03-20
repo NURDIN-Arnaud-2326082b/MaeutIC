@@ -2,31 +2,40 @@
 
 namespace App\DataFixtures;
 
-use App\Entity\Taggable;
 use App\Entity\Tag;
+use App\Entity\Taggable;
 use Doctrine\Bundle\FixturesBundle\Fixture;
+use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 use Doctrine\Persistence\ObjectManager;
+use Faker\Factory;
 
-class TaggableFixtures extends Fixture
+class TaggableFixtures extends Fixture implements DependentFixtureInterface
 {
     public function load(ObjectManager $manager): void
     {
-        $entityTypes = [
-            'Article',
-            'Book',
-            'Resource',
-        ];
+        $faker = Factory::create();
+        $entityTypes = ['article', 'book', 'author'];
 
+        // On récupère tous les tags créés précédemment
         $tags = $manager->getRepository(Tag::class)->findAll();
 
-        for ($i = 1; $i <= 10; $i++) {
+        if (empty($tags)) return;
+
+        for ($i = 1; $i <= 30; $i++) {
             $taggable = new Taggable();
-            $taggable->setEntityId($i)
-                ->setEntityType($entityTypes[array_rand($entityTypes)])
-                ->setTag($tags[array_rand($tags)]);
+            // On associe un tag au hasard à une entité au hasard (IDs 1 à 14 générés dans les autres fixtures)
+            $taggable->setEntityId($faker->numberBetween(1, 14))
+                ->setEntityType($faker->randomElement($entityTypes))
+                ->setTag($faker->randomElement($tags));
+
             $manager->persist($taggable);
         }
 
         $manager->flush();
+    }
+
+    public function getDependencies(): array
+    {
+        return [TagFixtures::class];
     }
 }
