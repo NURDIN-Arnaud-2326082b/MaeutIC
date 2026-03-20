@@ -367,11 +367,10 @@ class LibraryApiController extends AbstractController
             }
 
             if (!empty($authorIds)) {
-                foreach ($authorIds as $authorId) {
-                    $author = $em->getRepository(Author::class)->find($authorId);
-                    if ($author) {
-                        $book->addAuthor($author);
-                    }
+                $authors = $em->getRepository(Author::class)->findBy(['id' => $authorIds]);
+
+                foreach ($authors as $author) {
+                    $book->addAuthor($author);
                 }
             }
         }
