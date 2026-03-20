@@ -23,8 +23,8 @@ class TaggableFixtures extends Fixture implements DependentFixtureInterface
 
         for ($i = 1; $i <= 30; $i++) {
             $taggable = new Taggable();
-            // On associe un tag au hasard à une entité au hasard (IDs 1 à 15 générés dans les autres fixtures)
-            $taggable->setEntityId($faker->numberBetween(1, 15))
+            // On associe un tag au hasard à une entité au hasard (IDs 1 à 14 générés dans les autres fixtures)
+            $taggable->setEntityId($faker->numberBetween(1, 14))
                 ->setEntityType($faker->randomElement($entityTypes))
                 ->setTag($faker->randomElement($tags));
 

@@ -275,15 +275,10 @@ class LibraryApiController extends AbstractController
         $hasAuthorIdsField = $request->request->has('author_ids') || $request->request->has('author_ids[]');
 
         if ($hasAuthorIdsField) {
-            $authorIds = $request->request->all('author_ids') ?: $request->request->all('author_ids[]');
+            $rawAuthorIds = $request->request->get('author_ids', $request->request->get('author_ids[]'));
 
-            if ($book->getId()) {
-                foreach ($book->getAuthors() as $author) {
-                    $book->removeAuthor($author);
-                }
-            }
-
-            if (!empty($authorIds)) {
+            if ($rawAuthorIds !== null && $rawAuthorIds !== '') {
+                $authorIds = is_array($rawAuthorIds) ? $rawAuthorIds : [$rawAuthorIds];
                 foreach ($authorIds as $authorId) {
                     $author = $em->getRepository(Author::class)->find($authorId);
                     if ($author) {
@@ -372,11 +367,10 @@ class LibraryApiController extends AbstractController
             }
 
             if (!empty($authorIds)) {
-                foreach ($authorIds as $authorId) {
-                    $author = $em->getRepository(Author::class)->find($authorId);
-                    if ($author) {
-                        $book->addAuthor($author);
-                    }
+                $authors = $em->getRepository(Author::class)->findBy(['id' => $authorIds]);
+
+                foreach ($authors as $author) {
+                    $book->addAuthor($author);
                 }
             }
         }
