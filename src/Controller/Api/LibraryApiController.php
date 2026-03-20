@@ -764,7 +764,7 @@ class LibraryApiController extends AbstractController
     /**
      * Update an article
      */
-    #[Route('/articles/{id}', name: 'api_library_article_update', methods: ['PUT'])]
+    #[Route('/articles/{id}', name: 'api_library_article_update', methods: ['PUT', 'POST'])]
     public function updateArticle(
         Article                $article,
         Request                $request,
