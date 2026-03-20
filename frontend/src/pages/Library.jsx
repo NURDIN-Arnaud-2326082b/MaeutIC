@@ -432,7 +432,7 @@ const Library = () => {
                                                     <img
                                                         src={resolveAssetUrl(author.image)}
                                                         alt={author.name}
-                                                        className="w-full aspect-square object-cqover rounded-lg"
+                                                        className="w-full aspect-square object-cover rounded-lg"
                                                     />
                                                 </a>
 
