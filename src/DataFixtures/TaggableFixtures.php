@@ -2,11 +2,11 @@
 
 namespace App\DataFixtures;
 
-use App\Entity\Taggable;
 use App\Entity\Tag;
+use App\Entity\Taggable;
 use Doctrine\Bundle\FixturesBundle\Fixture;
-use Doctrine\Persistence\ObjectManager;
 use Doctrine\Common\DataFixtures\DependentFixtureInterface;
+use Doctrine\Persistence\ObjectManager;
 use Faker\Factory;
 
 class TaggableFixtures extends Fixture implements DependentFixtureInterface
@@ -14,7 +14,7 @@ class TaggableFixtures extends Fixture implements DependentFixtureInterface
     public function load(ObjectManager $manager): void
     {
         $faker = Factory::create();
-        $entityTypes = ['Article', 'Book', 'Resource'];
+        $entityTypes = ['article', 'book', 'author'];
 
         // On récupère tous les tags créés précédemment
         $tags = $manager->getRepository(Tag::class)->findAll();
