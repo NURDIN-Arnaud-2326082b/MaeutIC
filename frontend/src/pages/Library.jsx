@@ -341,13 +341,13 @@ const Library = () => {
     return (
         <div className="flex-1 container mx-auto py-6">
             {/* Tab Navigation */}
-            <div className="flex justify-center space-x-4 mb-6">
+            <div className="flex flex-row justify-center space-x-4 mb-6 mx-4">
                 <button
                     onClick={() => {
                         setActiveTab('authors');
                         setSearchQuery('');
                     }}
-                    className={`flex-grow px-4 py-2 rounded-lg font-medium focus:outline-none focus:ring-2 ${
+                    className={`flex-1 flex-grow px-4 py-2 rounded-lg font-medium focus:outline-none focus:ring-2 ${
                         activeTab === 'authors'
                             ? 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
                             : 'bg-white/45 text-gray-700 backdrop-blur-sm shadow-lg hover:bg-gray-200/45 focus:ring-gray-400'
@@ -360,7 +360,7 @@ const Library = () => {
                         setActiveTab('articles');
                         setSearchQuery('');
                     }}
-                    className={`flex-grow px-4 py-2 rounded-lg font-medium focus:outline-none focus:ring-2 ${
+                    className={`flex-1 flex-grow px-4 py-2 rounded-lg font-medium focus:outline-none focus:ring-2 ${
                         activeTab === 'articles'
                             ? 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
                             : 'bg-white/45 text-gray-700 backdrop-blur-sm shadow-lg hover:bg-gray-200/45 focus:ring-gray-400'
@@ -373,7 +373,7 @@ const Library = () => {
                         setActiveTab('books');
                         setSearchQuery('');
                     }}
-                    className={`flex-grow px-4 py-2 rounded-lg font-medium focus:outline-none focus:ring-2 ${
+                    className={`flex-1 flex-grow px-4 py-2 rounded-lg font-medium focus:outline-none focus:ring-2 ${
                         activeTab === 'books'
                             ? 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
                             : 'bg-white/45 text-gray-700 backdrop-blur-sm shadow-lg hover:bg-gray-200/45 focus:ring-gray-400'
@@ -426,14 +426,13 @@ const Library = () => {
                                         {grouped[letter].map((author) => (
                                             <div
                                                 key={author.id}
-                                                className="bg-white hover:bg-blue-50 rounded-lg overflow-hidden relative w-44 h-72 m-4 p-3"
+                                                className="bg-white hover:bg-blue-50 rounded-lg overflow-hidden relative w-44 h-72 m-4 p-3 border border-gray-200 shadow-xl flex flex-col cursor-pointer transition-all duration-300 ease-in-out hover:shadow-2xl hover:-translate-y-1 hover:border-gray-300"
                                             >
                                                 <a href={author.link} target="_blank" rel="noopener noreferrer">
                                                     <img
-                                                        // src={`${BACKEND_URL}${author.image}`}
                                                         src={resolveAssetUrl(author.image)}
                                                         alt={author.name}
-                                                        className="w-full h-40 object-contain rounded-lg"
+                                                        className="w-full aspect-square object-cover rounded-lg"
                                                     />
                                                 </a>
 
@@ -459,7 +458,7 @@ const Library = () => {
                                                     />
                                                 )}
                                                 {canEdit(author) && (
-                                                    <div className="absolute top-2 right-2">
+                                                    <div className="absolute top-3 right-3">
                                                         <button
                                                             onClick={() => toggleDropdown(`author-${author.id}`)}
                                                             className="focus:outline-none px-2 py-1"
@@ -691,7 +690,7 @@ const Library = () => {
                                         {grouped[letter].map((book) => (
                                             <div
                                                 key={book.id}
-                                                className="bg-white hover:bg-blue-50 rounded-lg overflow-hidden relative w-44 h-72 m-4 p-3"
+                                                className="bg-white hover:bg-blue-50 rounded-lg overflow-hidden relative w-44 h-72 m-4 p-3 border border-gray-200 shadow-xl flex flex-col cursor-pointer transition-all duration-300 ease-in-out hover:shadow-2xl hover:-translate-y-1 hover:border-gray-300"
                                             >
                                                 {book.isbn ? (
                                                     <a href={`https://isbnsearch.org/isbn/${book.isbn}`}
@@ -701,7 +700,7 @@ const Library = () => {
                                                             // src={`${BACKEND_URL}${book.image}`}
                                                             src={resolveAssetUrl(book.image)}
                                                             alt={book.title}
-                                                            className="w-full h-40 object-cover rounded-lg"
+                                                            className="w-full h-40 object-contain rounded-lg"
                                                         />
                                                     </a>
                                                 ) : (
@@ -726,7 +725,7 @@ const Library = () => {
                                                     </p>
                                                 </div>
                                                 {canEdit(book) && (
-                                                    <div className="absolute top-2 right-2">
+                                                    <div className="absolute top-3 right-3">
                                                         <button
                                                             onClick={() => toggleDropdown(`book-${book.id}`)}
                                                             className="focus:outline-none px-2 py-1"

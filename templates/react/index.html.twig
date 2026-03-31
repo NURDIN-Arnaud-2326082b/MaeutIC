@@ -26,13 +26,15 @@
             {% endif %}
             <script type="module" src="{{ asset('react/' ~ manifest['src/main.jsx']['file']) }}"></script>
         {% else %}
-            {# Fallback: si pas de manifest, essayer le dev server #}
-            <script type="module" src="http://localhost:3000/@vite/client"></script>
-            <script type="module" src="http://localhost:3000/src/main.jsx"></script>
+            {# Keep production deterministic: never fallback to local Vite dev server. #}
+            <meta name="robots" content="noindex,nofollow">
         {% endif %}
     {% endif %}
 </head>
 <body class="min-h-screen flex flex-col">
     <div id="root"></div>
+    {% if app.environment != 'dev' and (manifest is not defined or manifest is null or manifest['src/main.jsx'] is not defined) %}
+        <noscript>Le build React est introuvable. Merci de contacter l'administrateur.</noscript>
+    {% endif %}
 </body>
 </html>

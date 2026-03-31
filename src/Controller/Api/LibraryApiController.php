@@ -390,8 +390,17 @@ class LibraryApiController extends AbstractController
             } catch (FileException $e) {
                 return new JsonResponse(['error' => 'Erreur lors de l\'upload de l\'image'], Response::HTTP_INTERNAL_SERVER_ERROR);
             }
+        } else {
+            $currentImage = $book->getImage();
+            $isbn = $book->getIsbn();
+
+            if ($isbn && (!$currentImage || str_contains($currentImage, 'covers.openlibrary.org'))) {
+                $cleanIsbn = str_replace('-', '', $isbn);
+                $book->setImage("https://covers.openlibrary.org/b/isbn/" . $cleanIsbn . "-M.jpg");
+            }
         }
 
+        $em->persist($book);
         $em->flush();
 
         return new JsonResponse([
@@ -755,7 +764,7 @@ class LibraryApiController extends AbstractController
     /**
      * Update an article
      */
-    #[Route('/articles/{id}', name: 'api_library_article_update', methods: ['PUT'])]
+    #[Route('/articles/{id}', name: 'api_library_article_update', methods: ['PUT', 'POST'])]
     public function updateArticle(
         Article                $article,
         Request                $request,

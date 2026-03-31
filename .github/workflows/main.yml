@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -11,10 +12,10 @@ jobs:
 
     steps:
       - name: Cloner le dépôt
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -23,65 +24,72 @@ jobs:
       - name: Installer les dépendances et builder le frontend React
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
         run: |
           cd frontend
           npm ci
           npm run build
           cd ..
 
-      - name: Vérifier le build React
+      - name: Versionner le Service Worker
         run: |
-          echo "=== Contenu de public/react/ ==="
-          ls -la public/react/
-          echo "=== Contenu de public/react/.vite/ ==="
-          ls -la public/react/.vite/
-          echo "=== Contenu du manifest ==="
-          cat public/react/.vite/manifest.json
-          echo "=== Assets générés ==="
-          ls -la public/react/assets/
+          bash bin/build-sw.sh
+          echo "=== Service Worker versionné ==="
+          head -n 12 public/sw.js
 
-      - name: Nettoyer public/react/ sur le serveur avant déploiement
-        uses: appleboy/ssh-action@master
+      - name: Nettoyer les dossiers applicatifs sur le serveur (sans toucher aux fichiers sensibles)
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.IONOS_HOST }}
           username: ${{ secrets.IONOS_USER }}
           password: ${{ secrets.IONOS_PASSWORD }}
           script: |
-            cd ${{ secrets.IONOS_PATH }}
-            echo "Nettoyage de public/react/ pour éviter les assets obsolètes..."
-            rm -rf public/react/assets
-            rm -rf public/react/.vite
-            echo "Nettoyage terminé."
+            set -e
+            DEPLOY_PATH="${{ secrets.IONOS_PATH }}"
+
+            if [ -z "$DEPLOY_PATH" ] || [ "$DEPLOY_PATH" = "/" ]; then
+              echo "ERREUR: IONOS_PATH est vide ou invalide."
+              exit 1
+            fi
+
+            cd "$DEPLOY_PATH"
+
+            echo "Nettoyage sélectif des dossiers versionnés (code/statique)..."
+            for dir in assets bin config frontend migrations src templates translations public/react public/js public/images; do
+              if [ -e "$dir" ]; then
+                rm -rf "$dir"
+                echo "Supprimé: $dir"
+              fi
+            done
+
+            echo "Nettoyage sélectif des fichiers racine versionnés..."
+            rm -f composer.json composer.lock importmap.php phpunit.dist.xml postcss.config.mjs tailwind.config.js
+
+            echo "Création des dossiers nécessaires..."
+            mkdir -p public/react public/js public/images var/cache var/log
+
+            echo "Nettoyage terminé. Les fichiers sensibles (.env.local, var, médias utilisateurs) sont préservés."
 
       - name: Déployer via SFTP
-        uses: appleboy/scp-action@master
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.IONOS_HOST }}
           username: ${{ secrets.IONOS_USER }}
           password: ${{ secrets.IONOS_PASSWORD }}
-          source: "assets/*, bin/*, config/*, migrations/*, public/*, src/*, templates/*, translations/*, importmap.php, ./*.json, ./*.lock"
+          source: "assets/*, bin/*, config/*, frontend/*, migrations/*, public/index.php, public/manifest.json, public/sw.js, public/check-deployment.php, public/react/*, public/js/*, public/images/*, src/*, templates/*, translations/*, composer.json, composer.lock, importmap.php, phpunit.dist.xml, postcss.config.mjs, tailwind.config.js"
           target: ${{ secrets.IONOS_PATH }}
           strip_components: 0
           overwrite: true
 
       - name: Exécuter des commandes sur IONOS (si besoin)
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.IONOS_HOST }}
           username: ${{ secrets.IONOS_USER }}
           password: ${{ secrets.IONOS_PASSWORD }}
           script: |
+            set -e
             cd ${{ secrets.IONOS_PATH }}
-            
-            # Créer .env.local avec APP_ENV=prod s'il n'existe pas
-            if [ ! -f .env.local ]; then
-              echo "Création de .env.local avec APP_ENV=prod"
-              echo "APP_ENV=prod" > .env.local
-            elif ! grep -q "APP_ENV=prod" .env.local; then
-              echo "Mise à jour de .env.local avec APP_ENV=prod"
-              sed -i '/^APP_ENV=/d' .env.local
-              echo "APP_ENV=prod" >> .env.local
-            fi
             
             # Vérifier que le build React est présent
             echo "=== Vérification du build React déployé ==="
@@ -93,23 +101,24 @@ jobs:
               exit 1
             fi
             
-            echo "Manifest React trouvé:"
-            cat public/react/.vite/manifest.json
+            # echo "Manifest React trouvé:"
+            # cat public/react/.vite/manifest.json
             
             # Installation des dépendances
-            /usr/bin/php8.3-cli ~/composer.phar install --no-dev --optimize-autoloader --no-interaction
+            /usr/bin/php8.4-cli ~/composer.phar install --no-dev --optimize-autoloader --no-interaction
             
             # Migrations
-            php bin/console doctrine:migrations:migrate --no-interaction --env=prod
+            /usr/bin/php8.4-cli bin/console doctrine:migrations:migrate --no-interaction --env=prod
+            /usr/bin/php8.4-cli bin/console tailwind:build
             
             # Cache
-            php bin/console cache:clear --env=prod --no-warmup
-            php bin/console cache:warmup --env=prod
+            /usr/bin/php8.4-cli bin/console cache:clear --env=prod --no-warmup
+            /usr/bin/php8.4-cli bin/console cache:warmup --env=prod
             
             # Permissions
-            chmod -R 755 var/cache var/log public/react
+            chmod -R 755 var/cache var/log public/react || true
             
             # Nettoyage
-            rm -f /*.tar.gz
+            rm -f ./*.tar.gz
             
             echo "Déploiement terminé avec succès!"
