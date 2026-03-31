@@ -10,6 +10,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use App\Repository\UserRepository;
 
 #[Route('/api/admin')]
 class AdminApiController extends AbstractController
@@ -159,5 +160,162 @@ class AdminApiController extends AbstractController
         $entityManager->flush();
 
         return $this->json(['message' => 'Tag supprimé avec succès']);
+    }
+
+    /**
+     * Get all banned users
+     */
+    #[Route('/banned-users', name: 'api_admin_banned_users_list', methods: ['GET'])]
+    public function getBannedUsers(UserRepository $userRepository): JsonResponse
+    {
+        /** @var \App\Entity\User|null $user */
+        $user = $this->getUser();
+        if (!$user || $user->getUserType() !== 1) {
+            return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
+        }
+
+        $bannedUsers = $userRepository->findBy(['isBanned' => true]);
+
+        $data = array_map(function($bannedUser) {
+            return [
+                'id' => $bannedUser->getId(),
+                'username' => $bannedUser->getUsername(),
+                'firstName' => $bannedUser->getFirstName(),
+                'lastName' => $bannedUser->getLastName(),
+                'email' => $bannedUser->getEmail(),
+                'profileImage' => $bannedUser->getProfileImage() ? '/profile_images/' . $bannedUser->getProfileImage() : null,
+                'affiliationLocation' => $bannedUser->getAffiliationLocation(),
+                'specialization' => $bannedUser->getSpecialization(),
+            ];
+        }, $bannedUsers);
+
+        return $this->json(['bannedUsers' => $data]);
+    }
+
+    /**
+     * Search users (for admin ban feature)
+     */
+    #[Route('/search-users', name: 'api_admin_search_users', methods: ['GET'])]
+    public function searchUsers(Request $request, UserRepository $userRepository): JsonResponse
+    {
+        /** @var \App\Entity\User|null $user */
+        $user = $this->getUser();
+        if (!$user || $user->getUserType() !== 1) {
+            return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
+        }
+
+        $query = trim($request->query->get('q', ''));
+        
+        if (empty($query)) {
+            return $this->json(['users' => []]);
+        }
+
+        // Search by username, email, first name or last name
+        $searchResults = $userRepository->createQueryBuilder('u')
+            ->where('u.username LIKE :query')
+            ->orWhere('u.email LIKE :query')
+            ->orWhere('u.firstName LIKE :query')
+            ->orWhere('u.lastName LIKE :query')
+            ->setParameter('query', '%' . $query . '%')
+            ->setMaxResults(10)
+            ->getQuery()
+            ->getResult();
+
+        $data = array_map(function($searchUser) {
+            return [
+                'id' => $searchUser->getId(),
+                'username' => $searchUser->getUsername(),
+                'firstName' => $searchUser->getFirstName(),
+                'lastName' => $searchUser->getLastName(),
+                'email' => $searchUser->getEmail(),
+                'profileImage' => $searchUser->getProfileImage() ? '/profile_images/' . $searchUser->getProfileImage() : null,
+                'affiliationLocation' => $searchUser->getAffiliationLocation(),
+                'specialization' => $searchUser->getSpecialization(),
+            ];
+        }, $searchResults);
+
+        return $this->json(['users' => $data]);
+    }
+
+    /**
+     * Ban a user
+     */
+    #[Route('/users/{id}/ban', name: 'api_admin_ban_user', methods: ['POST'])]
+    public function banUser(
+        int $id,
+        UserRepository $userRepository,
+        EntityManagerInterface $entityManager
+    ): JsonResponse {
+        /** @var \App\Entity\User|null $user */
+        $user = $this->getUser();
+        if (!$user || $user->getUserType() !== 1) {
+            return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
+        }
+
+        // Cannot ban yourself
+        if ($user->getId() === $id) {
+            return $this->json(['error' => 'Vous ne pouvez pas vous bannir vous-même'], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Cannot ban another admin
+        $targetUser = $userRepository->find($id);
+        if (!$targetUser) {
+            return $this->json(['error' => 'Utilisateur non trouvé'], Response::HTTP_NOT_FOUND);
+        }
+
+        if ($targetUser->getUserType() === 1) {
+            return $this->json(['error' => 'Vous ne pouvez pas bannir un administrateur'], Response::HTTP_BAD_REQUEST);
+        }
+
+        if ($targetUser->isBanned()) {
+            return $this->json(['error' => 'Cet utilisateur est déjà banni'], Response::HTTP_CONFLICT);
+        }
+
+        $targetUser->setIsBanned(true);
+        $entityManager->flush();
+
+        return $this->json([
+            'message' => 'Utilisateur banni avec succès',
+            'user' => [
+                'id' => $targetUser->getId(),
+                'username' => $targetUser->getUsername(),
+            ]
+        ]);
+    }
+
+    /**
+     * Unban a user
+     */
+    #[Route('/users/{id}/unban', name: 'api_admin_unban_user', methods: ['POST'])]
+    public function unbanUser(
+        int $id,
+        UserRepository $userRepository,
+        EntityManagerInterface $entityManager
+    ): JsonResponse {
+        /** @var \App\Entity\User|null $user */
+        $user = $this->getUser();
+        if (!$user || $user->getUserType() !== 1) {
+            return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
+        }
+
+        $targetUser = $userRepository->find($id);
+        if (!$targetUser) {
+            return $this->json(['error' => 'Utilisateur non trouvé'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$targetUser->isBanned()) {
+            return $this->json(['error' => 'Cet utilisateur n\'est pas banni'], Response::HTTP_CONFLICT);
+        }
+
+        $targetUser->setIsBanned(false);
+        $entityManager->flush();
+
+        return $this->json([
+            'message' => 'Utilisateur débanni avec succès',
+            'user' => [
+                'id' => $targetUser->getId(),
+                'username' => $targetUser->getUsername(),
+            ]
+        ]);
     }
 }

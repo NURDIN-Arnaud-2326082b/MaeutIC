@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getTags, createTag, updateTag, deleteTag } from '../services/adminApi'
+import api from '../services/api'
 import { useAuthStore } from '../store'
 import { useNavigate } from 'react-router-dom'
 
@@ -8,11 +9,13 @@ export default function AdminInterface() {
   const { user } = useAuthStore()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [activeTab, setActiveTab] = useState('tags')
   const [searchQuery, setSearchQuery] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createTagName, setCreateTagName] = useState('')
   const [editingTagId, setEditingTagId] = useState(null)
   const [editTagName, setEditTagName] = useState('')
+  const [banSearchQuery, setBanSearchQuery] = useState('')
 
   // Redirect if not admin
   useEffect(() => {
@@ -26,6 +29,29 @@ export default function AdminInterface() {
     queryKey: ['admin-tags', searchQuery],
     queryFn: () => getTags(searchQuery),
     enabled: user?.userType === 1
+  })
+
+  // Fetch banned users
+  const { data: bannedData, isLoading: bannedLoading } = useQuery({
+    queryKey: ['admin-banned-users'],
+    queryFn: async () => {
+      const response = await api.get('/admin/banned-users')
+      return response.data
+    },
+    enabled: user?.userType === 1
+  })
+
+  // Search users for banning
+  const { data: searchUsersData, isLoading: searchUsersLoading } = useQuery({
+    queryKey: ['admin-search-users', banSearchQuery],
+    queryFn: async () => {
+      if (!banSearchQuery.trim()) return { users: [] }
+      const response = await api.get('/admin/search-users', {
+        params: { q: banSearchQuery }
+      })
+      return response.data
+    },
+    enabled: user?.userType === 1 && banSearchQuery.trim().length > 0
   })
 
   // Create mutation
@@ -65,6 +91,36 @@ export default function AdminInterface() {
     }
   })
 
+  // Ban user mutation
+  const banUserMutation = useMutation({
+    mutationFn: async (userId) => {
+      const response = await api.post(`/admin/users/${userId}/ban`)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['admin-banned-users'])
+      alert('Utilisateur banni avec succès')
+    },
+    onError: (error) => {
+      alert(error.response?.data?.error || 'Erreur lors du bannissement')
+    }
+  })
+
+  // Unban user mutation
+  const unbanUserMutation = useMutation({
+    mutationFn: async (userId) => {
+      const response = await api.post(`/admin/users/${userId}/unban`)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['admin-banned-users'])
+      alert('Utilisateur débanni avec succès')
+    },
+    onError: (error) => {
+      alert(error.response?.data?.error || 'Erreur lors du débannissement')
+    }
+  })
+
   const handleCreateSubmit = (e) => {
     e.preventDefault()
     if (createTagName.trim()) {
@@ -95,7 +151,20 @@ export default function AdminInterface() {
     setEditTagName('')
   }
 
+  const handleBan = (userId) => {
+    if (confirm('Êtes-vous sûr de vouloir bannir cet utilisateur ?')) {
+      banUserMutation.mutate(userId)
+    }
+  }
+
+  const handleUnban = (userId) => {
+    if (confirm('Êtes-vous sûr de vouloir débannir cet utilisateur ?')) {
+      unbanUserMutation.mutate(userId)
+    }
+  }
+
   const tags = tagsData?.tags || []
+  const bannedUsers = bannedData?.bannedUsers || []
 
   if (!user || user.userType !== 1) {
     return null
@@ -103,102 +172,250 @@ export default function AdminInterface() {
 
   return (
     <div className="flex-1">
-      <div className="bg-white/45 text-gray-700 backdrop-blur-sm shadow-xl mx-auto my-5 p-4 rounded-lg max-w-lg">
-        <h1 className="text-2xl font-bold mb-4">Gestion des Tags</h1>
+      <div className="bg-white/45 text-gray-700 backdrop-blur-sm shadow-xl mx-auto my-5 p-4 rounded-lg">
+        <h1 className="text-2xl font-bold mb-4">Panneau d'Administration</h1>
 
-        <div className="flex flex-row items-center justify-between mb-4">
-          {/* Search bar */}
-          <input
-            type="text"
-            id="search-bar"
-            placeholder="Rechercher un tag"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded max-w-md"
-          />
-
-          {/* Button to open create modal */}
+        {/* Tabs */}
+        <div className="flex border-b border-gray-300 mb-4">
           <button
-            onClick={() => setShowCreateModal(true)}
-            className="ml-4 text-white bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-indigo-500 font-medium rounded-lg text-sm px-5 py-2.5 focus:outline-none whitespace-nowrap"
+            onClick={() => setActiveTab('tags')}
+            className={`px-4 py-2 font-medium ${
+              activeTab === 'tags'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-600 hover:text-gray-800'
+            }`}
           >
-            Ajouter un nouveau tag
+            Gestion des Tags
+          </button>
+          <button
+            onClick={() => setActiveTab('banned')}
+            className={`px-4 py-2 font-medium ${
+              activeTab === 'banned'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-600 hover:text-gray-800'
+            }`}
+          >
+            Utilisateurs Bannis ({bannedUsers.length})
           </button>
         </div>
 
-        {/* Tags list */}
-        <div className="flex flex-col w-auto mb-4">
-          <div className="flex flex-row justify-between text-sm max-w-xl px-4">
-            <p>Nom</p>
-            <p>Action</p>
-          </div>
+        {/* Tags Tab */}
+        {activeTab === 'tags' && (
+          <div className="max-w-lg">
+            <div className="flex flex-row items-center justify-between mb-4">
+              {/* Search bar */}
+              <input
+                type="text"
+                id="search-bar"
+                placeholder="Rechercher un tag"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded max-w-md"
+              />
 
-          {isLoading ? (
-            <div className="text-center py-4">Chargement...</div>
-          ) : tags.length > 0 ? (
-            tags.map((tag) => (
-              <div
-                key={tag.id}
-                className="bg-white hover:bg-blue-50 rounded-lg mb-1 flex flex-col justify-between"
-                id={`tag-${tag.id}`}
+              {/* Button to open create modal */}
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="ml-4 text-white bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-indigo-500 font-medium rounded-lg text-sm px-5 py-2.5 focus:outline-none whitespace-nowrap"
               >
-                <div className="flex flex-row justify-between">
-                  <p className="px-4 py-2">{tag.name}</p>
-                  <div className="px-4 py-2">
+                Ajouter un nouveau tag
+              </button>
+            </div>
+
+            {/* Tags list */}
+            <div className="flex flex-col w-auto mb-4">
+              <div className="flex flex-row justify-between text-sm max-w-xl px-4">
+                <p>Nom</p>
+                <p>Action</p>
+              </div>
+
+              {isLoading ? (
+                <div className="text-center py-4">Chargement...</div>
+              ) : tags.length > 0 ? (
+                tags.map((tag) => (
+                  <div
+                    key={tag.id}
+                    className="bg-white hover:bg-blue-50 rounded-lg mb-1 flex flex-col justify-between"
+                    id={`tag-${tag.id}`}
+                  >
+                    <div className="flex flex-row justify-between">
+                      <p className="px-4 py-2">{tag.name}</p>
+                      <div className="px-4 py-2">
+                        <button
+                          onClick={() => openEditForm(tag.id, tag.name)}
+                          className="text-blue-500 hover:underline mr-2"
+                        >
+                          Modifier
+                        </button>
+                        <button
+                          onClick={() => handleDelete(tag.id)}
+                          className="text-red-500 hover:underline"
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Inline edit form */}
+                    {editingTagId === tag.id && (
+                      <form
+                        onSubmit={(e) => handleEditSubmit(e, tag.id)}
+                        className="p-2"
+                      >
+                        <input
+                          type="text"
+                          value={editTagName}
+                          onChange={(e) => setEditTagName(e.target.value)}
+                          className="w-full p-2 border border-gray-300 rounded mb-4"
+                          autoFocus
+                        />
+                        <div className="flex flex-row items-center">
+                          <button
+                            type="submit"
+                            disabled={updateMutation.isPending}
+                            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mr-4 disabled:opacity-50"
+                          >
+                            {updateMutation.isPending ? 'Enregistrement...' : 'Enregistrer'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={closeEditForm}
+                            className="text-gray-700 hover:text-blue-600 font-medium"
+                          >
+                            Annuler
+                          </button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-4">
+                  Aucun tag trouvé pour votre recherche.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Banned Users Tab */}
+        {activeTab === 'banned' && (
+          <div className="max-w-2xl">
+            <div className="mb-6 pb-4 border-b border-gray-300">
+              <h3 className="text-lg font-semibold mb-3">Bannir un utilisateur</h3>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Rechercher un utilisateur (nom, email, username)..."
+                  value={banSearchQuery}
+                  onChange={(e) => setBanSearchQuery(e.target.value)}
+                  className="flex-1 p-2 border border-gray-300 rounded"
+                />
+              </div>
+
+              {banSearchQuery.trim().length > 0 && (
+                <div className="mt-3">
+                  {searchUsersLoading ? (
+                    <div className="text-gray-600">Recherche en cours...</div>
+                  ) : (searchUsersData?.users || []).length === 0 ? (
+                    <div className="text-gray-600">Aucun utilisateur trouvé.</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {(searchUsersData?.users || []).map((searchUser) => {
+                        const isBanned = bannedUsers.some((b) => b.id === searchUser.id)
+                        return (
+                          <div
+                            key={searchUser.id}
+                            className="flex items-center justify-between p-3 bg-gray-50 rounded border"
+                          >
+                            <div className="flex items-center gap-2 flex-1">
+                              <img
+                                src={searchUser.profileImage || '/images/default-profile.png'}
+                                alt="avatar"
+                                className="w-10 h-10 rounded-full object-cover"
+                              />
+                              <div>
+                                <div className="font-medium text-sm">
+                                  {searchUser.firstName} {searchUser.lastName}
+                                </div>
+                                <div className="text-xs text-gray-600">
+                                  @{searchUser.username}
+                                </div>
+                              </div>
+                            </div>
+                            {!isBanned && (
+                              <button
+                                onClick={() => handleBan(searchUser.id)}
+                                disabled={banUserMutation.isPending}
+                                className="ml-2 px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 disabled:opacity-50"
+                              >
+                                Bannir
+                              </button>
+                            )}
+                            {isBanned && (
+                              <span className="ml-2 px-3 py-1 bg-red-100 text-red-700 rounded text-sm">
+                                Déjà banni
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <h3 className="text-lg font-semibold mb-3">Utilisateurs actuellement bannis</h3>
+            {bannedLoading ? (
+              <div className="text-center py-4">Chargement...</div>
+            ) : bannedUsers.length === 0 ? (
+              <div className="text-center py-4 text-gray-600">
+                Aucun utilisateur banni.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {bannedUsers.map((bannedUser) => (
+                  <div
+                    key={bannedUser.id}
+                    className="flex items-center justify-between p-4 bg-white rounded border border-red-200"
+                  >
+                    <div className="flex items-center gap-3 flex-1">
+                      <img
+                        src={bannedUser.profileImage || '/images/default-profile.png'}
+                        alt="avatar"
+                        className="w-12 h-12 rounded-full object-cover"
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium">
+                          {bannedUser.firstName} {bannedUser.lastName}{' '}
+                          <span className="text-sm text-gray-500">
+                            (@{bannedUser.username})
+                          </span>
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {bannedUser.email}
+                        </div>
+                        {bannedUser.affiliationLocation && (
+                          <div className="text-sm text-gray-500">
+                            {bannedUser.affiliationLocation}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                     <button
-                      onClick={() => openEditForm(tag.id, tag.name)}
-                      className="text-blue-500 hover:underline mr-2"
+                      onClick={() => handleUnban(bannedUser.id)}
+                      disabled={unbanUserMutation.isPending}
+                      className="ml-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                     >
-                      Modifier
-                    </button>
-                    <button
-                      onClick={() => handleDelete(tag.id)}
-                      className="text-red-500 hover:underline"
-                    >
-                      Supprimer
+                      {unbanUserMutation.isPending ? '...' : 'Débannir'}
                     </button>
                   </div>
-                </div>
-
-                {/* Inline edit form */}
-                {editingTagId === tag.id && (
-                  <form
-                    onSubmit={(e) => handleEditSubmit(e, tag.id)}
-                    className="p-2"
-                  >
-                    <input
-                      type="text"
-                      value={editTagName}
-                      onChange={(e) => setEditTagName(e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded mb-4"
-                      autoFocus
-                    />
-                    <div className="flex flex-row items-center">
-                      <button
-                        type="submit"
-                        disabled={updateMutation.isPending}
-                        className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mr-4 disabled:opacity-50"
-                      >
-                        {updateMutation.isPending ? 'Enregistrement...' : 'Enregistrer'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={closeEditForm}
-                        className="text-gray-700 hover:text-blue-600 font-medium"
-                      >
-                        Annuler
-                      </button>
-                    </div>
-                  </form>
-                )}
+                ))}
               </div>
-            ))
-          ) : (
-            <div className="text-center py-4">
-              Aucun tag trouvé pour votre recherche.
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Create Modal */}

@@ -110,6 +110,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     // nom de colonne fixé pour matcher la migration qui a créé "blockedby"
     #[ORM\Column(name: 'blockedby', type: 'json', nullable: true)]
     private ?array $blockedBy = [];
+    
+    // Flag pour indiquer si le compte est banni par un admin
+    #[ORM\Column(type: 'boolean', nullable: false, options: ['default' => false])]
+    private bool $isBanned = false;
+    
     #[ORM\Column(length: 20, nullable: true)]
     private ?string $genre = null;
 
@@ -810,5 +815,28 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             'other' => 'chercheur·euse',
             default => 'chercheur·euse'
         };
+    }
+
+    /**
+     * Get the banned status of the user.
+     *
+     * @return bool
+     */
+    public function isBanned(): bool
+    {
+        return $this->isBanned;
+    }
+
+    /**
+     * Set the banned status of the user.
+     *
+     * @param bool $isBanned
+     * @return $this
+     */
+    public function setIsBanned(bool $isBanned): static
+    {
+        $this->isBanned = $isBanned;
+
+        return $this;
     }
 }
