@@ -65,6 +65,12 @@ class ForumApiController extends AbstractController
             $posts = $forum->getPosts()->toArray();
         }
 
+        // Hide posts from banned accounts for everyone.
+        $posts = array_values(array_filter($posts, function (Post $post) {
+            $postUser = $post->getUser();
+            return $postUser === null || !$postUser->isBanned();
+        }));
+
         // Filter out posts from blocked users (mutual block)
         if ($currentUser) {
             $allBlockedIds = array_merge(
@@ -90,6 +96,11 @@ class ForumApiController extends AbstractController
         $post = $this->postRepository->find($id);
         
         if (!$post) {
+            return $this->json(['error' => 'Post not found'], 404);
+        }
+
+        $author = $post->getUser();
+        if ($author && $author->isBanned()) {
             return $this->json(['error' => 'Post not found'], 404);
         }
 
@@ -449,6 +460,12 @@ class ForumApiController extends AbstractController
         if ($includeReplies) {
             $replies = $post->getReplies()->toArray();
             usort($replies, fn(Post $a, Post $b) => $a->getCreationDate() <=> $b->getCreationDate());
+
+            // Hide replies authored by banned users.
+            $replies = array_values(array_filter($replies, function (Post $reply) {
+                $replyUser = $reply->getUser();
+                return $replyUser === null || !$replyUser->isBanned();
+            }));
 
             if ($currentUser) {
                 $allBlockedIds = array_merge(

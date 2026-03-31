@@ -3,14 +3,12 @@ import { Link } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import { conversationApi } from '../services/conversationApi';
 import { chatApi } from '../services/chatApi';
-import { useAuthStore } from '../store';
 
 export default function Chat() {
   const [showGlobalChat, setShowGlobalChat] = useState(true);
   const [messageText, setMessageText] = useState('');
   const messagesEndRef = useRef(null);
   const queryClient = useQueryClient();
-  const user = useAuthStore((state) => state.user);
 
   // Récupère les conversations
   const { data: conversations, isLoading: conversationsLoading, error: conversationsError } = useQuery({
@@ -96,7 +94,7 @@ export default function Chat() {
                   ) : (
                     <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
                       <span className="text-gray-600 font-semibold">
-                        {conversation.otherUser.username[0].toUpperCase()}
+                        {(conversation.otherUser.username?.[0] || '?').toUpperCase()}
                       </span>
                     </div>
                   )}

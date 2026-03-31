@@ -34,6 +34,11 @@ class CommentApiController extends AbstractController
             return $this->json(['error' => 'Post not found'], 404);
         }
 
+        $postAuthor = $post->getUser();
+        if ($postAuthor && $postAuthor->isBanned()) {
+            return $this->json(['error' => 'Post not found'], 404);
+        }
+
         $comments = $this->commentRepository->findBy(['post' => $post], ['creationDate' => 'DESC']);
         
         $data = array_map(function(Comment $comment) {
@@ -70,6 +75,11 @@ class CommentApiController extends AbstractController
         $post = $this->postRepository->find($postId);
         
         if (!$post) {
+            return $this->json(['error' => 'Post not found'], 404);
+        }
+
+        $postAuthor = $post->getUser();
+        if ($postAuthor && $postAuthor->isBanned()) {
             return $this->json(['error' => 'Post not found'], 404);
         }
 
