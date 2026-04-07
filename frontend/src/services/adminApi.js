@@ -33,3 +33,29 @@ export const deleteTag = async (id) => {
   const response = await api.delete(`/admin/tags/${id}`)
   return response.data
 }
+
+/**
+ * Get moderation reports
+ */
+export const getReports = async (status = '') => {
+  const response = await api.get('/admin/reports', {
+    params: status ? { status } : {}
+  })
+  return response.data
+}
+
+/**
+ * Update moderation report status
+ */
+export const processReport = async (id, status, adminNote = '') => {
+  const response = await api.patch(`/admin/reports/${id}`, { status, adminNote })
+  return response.data
+}
+
+/**
+ * Apply an automated moderation action from a report
+ */
+export const autoActionReport = async (id, action, adminNote = '') => {
+  const response = await api.post(`/admin/reports/${id}/auto-action`, { action, adminNote })
+  return response.data
+}

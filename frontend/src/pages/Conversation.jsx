@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import { conversationApi } from '../services/conversationApi';
-import { useAuthStore } from '../store';
+import { createReport } from '../services/reportApi';
 
 export default function Conversation() {
   const { conversationId } = useParams();
@@ -10,7 +10,6 @@ export default function Conversation() {
   const queryClient = useQueryClient();
   const messagesEndRef = useRef(null);
   const [messageContent, setMessageContent] = useState('');
-  const user = useAuthStore((state) => state.user);
 
   // Récupère les messages avec polling toutes les 2 secondes
   const { data, isLoading, error } = useQuery({
@@ -28,6 +27,32 @@ export default function Conversation() {
       queryClient.invalidateQueries(['conversations']);
     },
   });
+
+  const reportMessageMutation = useMutation({
+    mutationFn: createReport,
+    onSuccess: () => {
+      alert('Signalement envoye avec succes');
+    },
+    onError: (error) => {
+      alert(error.response?.data?.error || 'Erreur lors du signalement');
+    },
+  });
+
+  const handleReportMessage = (messageId) => {
+    const reason = globalThis.prompt('Motif du signalement (ex: harcelement, menace, spam)');
+    if (!reason?.trim()) {
+      return;
+    }
+
+    const details = globalThis.prompt('Details (optionnel)') || '';
+
+    reportMessageMutation.mutate({
+      targetType: 'message',
+      targetId: Number(messageId),
+      reason: reason.trim(),
+      details: details.trim(),
+    });
+  };
 
   // Auto-scroll vers le bas quand de nouveaux messages arrivent
   useEffect(() => {
@@ -124,6 +149,15 @@ export default function Conversation() {
                   )}
                   <div className="break-words">{message.content}</div>
                   <div className="text-xs text-gray-600 mt-1">{message.sentAt}</div>
+                  {!message.isOwn && (
+                    <button
+                      onClick={() => handleReportMessage(message.id)}
+                      disabled={reportMessageMutation.isPending}
+                      className="mt-1 text-xs text-orange-700 hover:text-orange-900 disabled:opacity-50"
+                    >
+                      Signaler ce message
+                    </button>
+                  )}
                 </div>
               </div>
             ))

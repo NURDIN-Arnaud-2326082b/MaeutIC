@@ -2,7 +2,16 @@
 
 namespace App\Controller\Api;
 
+use App\Entity\Comment;
+use App\Entity\Message;
+use App\Entity\Post;
+use App\Entity\Report;
 use App\Entity\Tag;
+use App\Entity\User;
+use App\Repository\CommentRepository;
+use App\Repository\MessageRepository;
+use App\Repository\PostRepository;
+use App\Repository\ReportRepository;
 use App\Repository\TagRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -317,5 +326,281 @@ class AdminApiController extends AbstractController
                 'username' => $targetUser->getUsername(),
             ]
         ]);
+    }
+
+    /**
+     * List reports for moderation queue
+     */
+    #[Route('/reports', name: 'api_admin_reports_list', methods: ['GET'])]
+    public function getReports(
+        Request $request,
+        ReportRepository $reportRepository,
+        PostRepository $postRepository,
+        CommentRepository $commentRepository,
+        UserRepository $userRepository,
+        MessageRepository $messageRepository
+    ): JsonResponse {
+        /** @var User|null $user */
+        $user = $this->getUser();
+        if (!$user || $user->getUserType() !== 1) {
+            return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
+        }
+
+        $status = trim((string) $request->query->get('status', ''));
+        $criteria = [];
+        if ($status !== '') {
+            $criteria['status'] = $status;
+        }
+
+        $reports = $reportRepository->findBy($criteria, ['createdAt' => 'DESC']);
+
+        $data = array_map(function (Report $report) use ($postRepository, $commentRepository, $userRepository, $messageRepository) {
+            return [
+                'id' => $report->getId(),
+                'status' => $report->getStatus(),
+                'reason' => $report->getReason(),
+                'details' => $report->getDetails(),
+                'targetType' => $report->getTargetType(),
+                'targetId' => $report->getTargetId(),
+                'createdAt' => $report->getCreatedAt()?->format('c'),
+                'reporter' => [
+                    'id' => $report->getReporter()?->getId(),
+                    'username' => $report->getReporter()?->getUsername(),
+                ],
+                'reviewedBy' => $report->getReviewedBy() ? [
+                    'id' => $report->getReviewedBy()->getId(),
+                    'username' => $report->getReviewedBy()->getUsername(),
+                ] : null,
+                'reviewedAt' => $report->getReviewedAt()?->format('c'),
+                'adminNote' => $report->getAdminNote(),
+                'targetSummary' => $this->getTargetSummary(
+                    $report,
+                    $postRepository,
+                    $commentRepository,
+                    $userRepository,
+                    $messageRepository
+                ),
+            ];
+        }, $reports);
+
+        return $this->json(['reports' => $data]);
+    }
+
+    /**
+     * Process a report (reviewed/rejected)
+     */
+    #[Route('/reports/{id}', name: 'api_admin_reports_process', methods: ['PATCH'])]
+    public function processReport(
+        int $id,
+        Request $request,
+        ReportRepository $reportRepository,
+        EntityManagerInterface $entityManager
+    ): JsonResponse {
+        /** @var User|null $user */
+        $user = $this->getUser();
+        if (!$user || $user->getUserType() !== 1) {
+            return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
+        }
+
+        $report = $reportRepository->find($id);
+        if (!$report) {
+            return $this->json(['error' => 'Signalement non trouvé'], Response::HTTP_NOT_FOUND);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        $status = trim((string) ($data['status'] ?? ''));
+        $adminNote = trim((string) ($data['adminNote'] ?? ''));
+
+        if (!in_array($status, [Report::STATUS_REVIEWED, Report::STATUS_REJECTED], true)) {
+            return $this->json(['error' => 'Statut invalide'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $report->setStatus($status);
+        $report->setReviewedBy($user);
+        $report->setReviewedAt(new \DateTimeImmutable());
+        $report->setAdminNote($adminNote !== '' ? $adminNote : null);
+
+        $entityManager->flush();
+
+        return $this->json([
+            'message' => 'Signalement mis à jour',
+            'report' => [
+                'id' => $report->getId(),
+                'status' => $report->getStatus(),
+                'reviewedAt' => $report->getReviewedAt()?->format('c'),
+            ],
+        ]);
+    }
+
+    /**
+     * Apply an automated moderation action from a report.
+     */
+    #[Route('/reports/{id}/auto-action', name: 'api_admin_reports_auto_action', methods: ['POST'])]
+    public function autoActionFromReport(
+        int $id,
+        Request $request,
+        ReportRepository $reportRepository,
+        PostRepository $postRepository,
+        CommentRepository $commentRepository,
+        MessageRepository $messageRepository,
+        UserRepository $userRepository,
+        EntityManagerInterface $entityManager
+    ): JsonResponse {
+        /** @var User|null $user */
+        $user = $this->getUser();
+        if (!$user || $user->getUserType() !== 1) {
+            return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
+        }
+
+        $report = $reportRepository->find($id);
+        if (!$report) {
+            return $this->json(['error' => 'Signalement non trouvé'], Response::HTTP_NOT_FOUND);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        $action = trim((string) ($data['action'] ?? ''));
+        $adminNote = trim((string) ($data['adminNote'] ?? ''));
+
+        if (!in_array($action, ['delete_target', 'ban_author'], true)) {
+            return $this->json(['error' => 'Action invalide'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $targetType = $report->getTargetType();
+        $targetId = (int) $report->getTargetId();
+        $resultMessage = '';
+
+        if ($action === 'delete_target') {
+            if ($targetType === Report::TARGET_POST) {
+                $post = $postRepository->find($targetId);
+                if (!$post instanceof Post) {
+                    return $this->json(['error' => 'Post non trouvé'], Response::HTTP_NOT_FOUND);
+                }
+                $entityManager->remove($post);
+                $resultMessage = 'Post supprimé';
+            } elseif ($targetType === Report::TARGET_COMMENT) {
+                $comment = $commentRepository->find($targetId);
+                if (!$comment instanceof Comment) {
+                    return $this->json(['error' => 'Commentaire non trouvé'], Response::HTTP_NOT_FOUND);
+                }
+                $entityManager->remove($comment);
+                $resultMessage = 'Commentaire supprimé';
+            } else {
+                return $this->json(['error' => 'Suppression auto disponible uniquement pour post/commentaire'], Response::HTTP_BAD_REQUEST);
+            }
+        }
+
+        if ($action === 'ban_author') {
+            $author = null;
+
+            if ($targetType === Report::TARGET_POST) {
+                $author = $postRepository->find($targetId)?->getUser();
+            } elseif ($targetType === Report::TARGET_COMMENT) {
+                $author = $commentRepository->find($targetId)?->getUser();
+            } elseif ($targetType === Report::TARGET_MESSAGE) {
+                $author = $messageRepository->find($targetId)?->getSender();
+            } elseif ($targetType === Report::TARGET_PROFILE) {
+                $author = $userRepository->find($targetId);
+            }
+
+            if (!$author instanceof User) {
+                return $this->json(['error' => 'Auteur non trouvé'], Response::HTTP_NOT_FOUND);
+            }
+
+            if ($author->getUserType() === 1) {
+                return $this->json(['error' => 'Impossible de bannir un administrateur'], Response::HTTP_BAD_REQUEST);
+            }
+
+            if ($author->isBanned()) {
+                return $this->json(['error' => 'Auteur déjà banni'], Response::HTTP_CONFLICT);
+            }
+
+            $author->setIsBanned(true);
+            $resultMessage = 'Auteur banni';
+        }
+
+        $report->setStatus(Report::STATUS_REVIEWED);
+        $report->setReviewedBy($user);
+        $report->setReviewedAt(new \DateTimeImmutable());
+
+        $autoNote = sprintf('Auto-action: %s (%s).', $action, $resultMessage);
+        $finalNote = trim($autoNote . ' ' . $adminNote);
+        $report->setAdminNote($finalNote !== '' ? $finalNote : null);
+
+        $entityManager->flush();
+
+        return $this->json([
+            'message' => 'Action automatique appliquée',
+            'result' => $resultMessage,
+            'report' => [
+                'id' => $report->getId(),
+                'status' => $report->getStatus(),
+                'reviewedAt' => $report->getReviewedAt()?->format('c'),
+            ],
+        ]);
+    }
+
+    private function getTargetSummary(
+        Report $report,
+        PostRepository $postRepository,
+        CommentRepository $commentRepository,
+        UserRepository $userRepository,
+        MessageRepository $messageRepository
+    ): array {
+        $type = $report->getTargetType();
+        $targetId = (int) $report->getTargetId();
+
+        if ($type === Report::TARGET_POST) {
+            $post = $postRepository->find($targetId);
+            if (!$post instanceof Post) {
+                return ['exists' => false, 'label' => 'Post supprimé'];
+            }
+
+            return [
+                'exists' => true,
+                'label' => $post->getName(),
+                'author' => $post->getUser()?->getUsername(),
+            ];
+        }
+
+        if ($type === Report::TARGET_COMMENT) {
+            $comment = $commentRepository->find($targetId);
+            if (!$comment instanceof Comment) {
+                return ['exists' => false, 'label' => 'Commentaire supprimé'];
+            }
+
+            return [
+                'exists' => true,
+                'label' => mb_substr((string) $comment->getBody(), 0, 120),
+                'author' => $comment->getUser()?->getUsername(),
+            ];
+        }
+
+        if ($type === Report::TARGET_PROFILE) {
+            $targetUser = $userRepository->find($targetId);
+            if (!$targetUser instanceof User) {
+                return ['exists' => false, 'label' => 'Profil supprimé'];
+            }
+
+            return [
+                'exists' => true,
+                'label' => $targetUser->getUsername(),
+                'author' => $targetUser->getUsername(),
+            ];
+        }
+
+        if ($type === Report::TARGET_MESSAGE) {
+            $message = $messageRepository->find($targetId);
+            if (!$message instanceof Message) {
+                return ['exists' => false, 'label' => 'Message supprimé'];
+            }
+
+            return [
+                'exists' => true,
+                'label' => mb_substr((string) $message->getContent(), 0, 120),
+                'author' => $message->getSender()?->getUsername(),
+            ];
+        }
+
+        return ['exists' => false, 'label' => 'Cible inconnue'];
     }
 }

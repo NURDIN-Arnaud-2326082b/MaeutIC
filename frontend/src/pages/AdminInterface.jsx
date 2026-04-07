@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getTags, createTag, updateTag, deleteTag } from '../services/adminApi'
+import { getTags, createTag, updateTag, deleteTag, getReports, processReport, autoActionReport } from '../services/adminApi'
 import api from '../services/api'
 import { useAuthStore } from '../store'
 import { useNavigate } from 'react-router-dom'
@@ -16,6 +16,7 @@ export default function AdminInterface() {
   const [editingTagId, setEditingTagId] = useState(null)
   const [editTagName, setEditTagName] = useState('')
   const [banSearchQuery, setBanSearchQuery] = useState('')
+  const [reportsStatusFilter, setReportsStatusFilter] = useState('')
 
   // Redirect if not admin
   useEffect(() => {
@@ -52,6 +53,13 @@ export default function AdminInterface() {
       return response.data
     },
     enabled: user?.userType === 1 && banSearchQuery.trim().length > 0
+  })
+
+  // Fetch reports for moderation queue
+  const { data: reportsData, isLoading: reportsLoading } = useQuery({
+    queryKey: ['admin-reports', reportsStatusFilter],
+    queryFn: () => getReports(reportsStatusFilter),
+    enabled: user?.userType === 1
   })
 
   // Create mutation
@@ -121,6 +129,30 @@ export default function AdminInterface() {
     }
   })
 
+  // Process report mutation
+  const processReportMutation = useMutation({
+    mutationFn: ({ id, status, adminNote }) => processReport(id, status, adminNote),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['admin-reports'])
+      alert('Signalement mis à jour')
+    },
+    onError: (error) => {
+      alert(error.response?.data?.error || 'Erreur lors du traitement du signalement')
+    }
+  })
+
+  const autoActionMutation = useMutation({
+    mutationFn: ({ id, action, adminNote }) => autoActionReport(id, action, adminNote),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['admin-reports'])
+      queryClient.invalidateQueries(['admin-banned-users'])
+      alert('Action automatique appliquée')
+    },
+    onError: (error) => {
+      alert(error.response?.data?.error || 'Erreur lors de l\'action automatique')
+    }
+  })
+
   const handleCreateSubmit = (e) => {
     e.preventDefault()
     if (createTagName.trim()) {
@@ -163,8 +195,28 @@ export default function AdminInterface() {
     }
   }
 
+  const handleProcessReport = (reportId, status) => {
+    const adminNote = globalThis.prompt('Note admin (optionnel)') || ''
+    processReportMutation.mutate({ id: reportId, status, adminNote })
+  }
+
+  const handleAutoAction = (report, action) => {
+    const confirmationText = action === 'delete_target'
+      ? 'Confirmer la suppression du contenu signalé ?'
+      : 'Confirmer le bannissement de l\'auteur signalé ?'
+
+    const confirmed = globalThis.confirm(confirmationText)
+    if (!confirmed) {
+      return
+    }
+
+    const adminNote = globalThis.prompt('Note admin (optionnel)') || ''
+    autoActionMutation.mutate({ id: report.id, action, adminNote })
+  }
+
   const tags = tagsData?.tags || []
   const bannedUsers = bannedData?.bannedUsers || []
+  const reports = reportsData?.reports || []
 
   if (!user || user.userType !== 1) {
     return null
@@ -196,6 +248,16 @@ export default function AdminInterface() {
             }`}
           >
             Utilisateurs Bannis ({bannedUsers.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('reports')}
+            className={`px-4 py-2 font-medium ${
+              activeTab === 'reports'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-600 hover:text-gray-800'
+            }`}
+          >
+            Signalements ({reports.length})
           </button>
         </div>
 
@@ -410,6 +472,106 @@ export default function AdminInterface() {
                     >
                       {unbanUserMutation.isPending ? '...' : 'Débannir'}
                     </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Reports Tab */}
+        {activeTab === 'reports' && (
+          <div className="max-w-4xl">
+            <div className="flex items-center gap-3 mb-4">
+              <label htmlFor="reports-status-filter" className="text-sm font-medium text-gray-700">Filtrer par statut:</label>
+              <select
+                id="reports-status-filter"
+                value={reportsStatusFilter}
+                onChange={(e) => setReportsStatusFilter(e.target.value)}
+                className="p-2 border border-gray-300 rounded"
+              >
+                <option value="">Tous</option>
+                <option value="pending">En attente</option>
+                <option value="reviewed">Traités</option>
+                <option value="rejected">Rejetés</option>
+              </select>
+            </div>
+
+            {reportsLoading ? (
+              <div className="text-center py-4">Chargement...</div>
+            ) : reports.length === 0 ? (
+              <div className="text-center py-4 text-gray-600">Aucun signalement.</div>
+            ) : (
+              <div className="space-y-3">
+                {reports.map((report) => (
+                  <div key={report.id} className="bg-white border rounded p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="text-sm text-gray-500 mb-1">
+                          #{report.id} • {report.targetType} #{report.targetId} • {new Date(report.createdAt).toLocaleString('fr-FR')}
+                        </div>
+                        <div className="font-semibold text-gray-900">
+                          {report.reason}
+                        </div>
+                        {report.details && (
+                          <div className="text-sm text-gray-700 mt-1">{report.details}</div>
+                        )}
+                        <div className="text-sm text-gray-600 mt-2">
+                          Signalé par @{report.reporter?.username || 'inconnu'}
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">
+                          Cible: {report.targetSummary?.label || 'Inconnue'}
+                          {report.targetSummary?.author ? ` (auteur: @${report.targetSummary.author})` : ''}
+                        </div>
+                        {report.adminNote && (
+                          <div className="text-sm text-indigo-700 mt-2">Note admin: {report.adminNote}</div>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-end gap-2 min-w-[160px]">
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          report.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                          report.status === 'reviewed' ? 'bg-green-100 text-green-800' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {report.status}
+                        </span>
+
+                        {report.status === 'pending' && (
+                          <>
+                            <button
+                              onClick={() => handleProcessReport(report.id, 'reviewed')}
+                              disabled={processReportMutation.isPending}
+                              className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 disabled:opacity-50"
+                            >
+                              Marquer traité
+                            </button>
+                            <button
+                              onClick={() => handleProcessReport(report.id, 'rejected')}
+                              disabled={processReportMutation.isPending}
+                              className="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 disabled:opacity-50"
+                            >
+                              Rejeter
+                            </button>
+                            {(report.targetType === 'post' || report.targetType === 'comment') && (
+                              <button
+                                onClick={() => handleAutoAction(report, 'delete_target')}
+                                disabled={autoActionMutation.isPending}
+                                className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 disabled:opacity-50"
+                              >
+                                Supprimer contenu
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleAutoAction(report, 'ban_author')}
+                              disabled={autoActionMutation.isPending}
+                              className="px-3 py-1 bg-amber-600 text-white rounded text-sm hover:bg-amber-700 disabled:opacity-50"
+                            >
+                              Bannir auteur
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>

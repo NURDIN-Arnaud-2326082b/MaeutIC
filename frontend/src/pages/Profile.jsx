@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { userApi } from '../services/apis'
 import { conversationApi } from '../services/conversationApi'
+import { createReport } from '../services/reportApi'
 import { useAuthStore } from '../store'
 import { getNetworkStatus } from '../services/networkApi'
 
@@ -86,6 +87,32 @@ export default function Profile() {
       navigate(`/messages/${data.conversationId}`)
     },
   })
+
+  const reportProfileMutation = useMutation({
+    mutationFn: createReport,
+    onSuccess: () => {
+      alert('Signalement envoye avec succes')
+    },
+    onError: (error) => {
+      alert(error.response?.data?.error || 'Erreur lors du signalement')
+    },
+  })
+
+  const handleReportProfile = (targetUserId) => {
+    const reason = globalThis.prompt('Motif du signalement (ex: usurpation, harcelement, contenu inapproprie)')
+    if (!reason?.trim()) {
+      return
+    }
+
+    const details = globalThis.prompt('Details (optionnel)') || ''
+
+    reportProfileMutation.mutate({
+      targetType: 'profile',
+      targetId: targetUserId,
+      reason: reason.trim(),
+      details: details.trim(),
+    })
+  }
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -230,6 +257,13 @@ export default function Profile() {
                       className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition disabled:bg-blue-400 disabled:cursor-not-allowed"
                     >
                       {startConversationMutation.isPending ? 'Chargement...' : 'Envoyer un message'}
+                    </button>
+                    <button
+                      onClick={() => handleReportProfile(user.id)}
+                      disabled={reportProfileMutation.isPending}
+                      className="inline-block px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 transition disabled:opacity-50"
+                    >
+                      {reportProfileMutation.isPending ? 'Signalement...' : 'Signaler profil'}
                     </button>
                     <button
                       onClick={() => toggleNetworkMutation.mutate(user.id)}

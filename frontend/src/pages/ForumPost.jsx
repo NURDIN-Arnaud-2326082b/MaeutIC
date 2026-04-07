@@ -1,10 +1,39 @@
 import { useParams, Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { forumApi, commentApi } from '../services/apis'
 import CommentSection from '../components/CommentSection'
+import { createReport } from '../services/reportApi'
+import { useAuthStore } from '../store'
 
 export default function ForumPost() {
   const { id } = useParams()
+  const { user } = useAuthStore()
+
+  const reportMutation = useMutation({
+    mutationFn: createReport,
+    onSuccess: () => {
+      alert('Signalement envoye avec succes')
+    },
+    onError: (error) => {
+      alert(error.response?.data?.error || 'Erreur lors du signalement')
+    },
+  })
+
+  const handleReportPost = () => {
+    const reason = globalThis.prompt('Motif du signalement (ex: spam, harcelement, contenu inapproprie)')
+    if (!reason?.trim()) {
+      return
+    }
+
+    const details = globalThis.prompt('Details (optionnel)') || ''
+
+    reportMutation.mutate({
+      targetType: 'post',
+      targetId: Number(id),
+      reason: reason.trim(),
+      details: details.trim(),
+    })
+  }
 
   const { data: post, isLoading } = useQuery({
     queryKey: ['post', id],
@@ -69,6 +98,15 @@ export default function ForumPost() {
             </svg>
             J'aime ({post.likesCount || 0})
           </button>
+          {user && post.user?.id !== user.id && (
+            <button
+              onClick={handleReportPost}
+              disabled={reportMutation.isPending}
+              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
+            >
+              {reportMutation.isPending ? 'Signalement...' : 'Signaler ce post'}
+            </button>
+          )}
         </div>
 
         <CommentSection postId={id} comments={comments} />

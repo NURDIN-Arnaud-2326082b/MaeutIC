@@ -3,6 +3,7 @@ import PropTypes from 'prop-types'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { commentApi } from '../services/apis'
 import { useAuthStore } from '../store'
+import { createReport } from '../services/reportApi'
 
 export default function CommentSection({ postId, comments }) {
   const [newComment, setNewComment] = useState('')
@@ -16,6 +17,32 @@ export default function CommentSection({ postId, comments }) {
       setNewComment('')
     },
   })
+
+  const reportMutation = useMutation({
+    mutationFn: createReport,
+    onSuccess: () => {
+      alert('Signalement envoye avec succes')
+    },
+    onError: (error) => {
+      alert(error.response?.data?.error || 'Erreur lors du signalement')
+    },
+  })
+
+  const handleReportComment = (commentId) => {
+    const reason = globalThis.prompt('Motif du signalement (ex: spam, harcelement, contenu inapproprie)')
+    if (!reason?.trim()) {
+      return
+    }
+
+    const details = globalThis.prompt('Details (optionnel)') || ''
+
+    reportMutation.mutate({
+      targetType: 'comment',
+      targetId: commentId,
+      reason: reason.trim(),
+      details: details.trim(),
+    })
+  }
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -70,6 +97,15 @@ export default function CommentSection({ postId, comments }) {
                   </span>
                 </div>
                 <p className="text-gray-700">{comment.body}</p>
+                {user && comment.user?.id !== user.id && (
+                  <button
+                    onClick={() => handleReportComment(comment.id)}
+                    disabled={reportMutation.isPending}
+                    className="mt-2 text-sm text-orange-700 hover:text-orange-900 disabled:opacity-50"
+                  >
+                    Signaler
+                  </button>
+                )}
               </div>
             </div>
           </div>
