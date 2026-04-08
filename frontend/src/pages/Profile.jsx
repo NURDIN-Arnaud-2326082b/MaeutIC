@@ -114,6 +114,48 @@ export default function Profile() {
     })
   }
 
+  const handleReportPost = (targetPostId) => {
+    const reason = globalThis.prompt('Motif du signalement (ex: spam, harcelement, contenu inapproprie)')
+    if (!reason?.trim()) {
+      return
+    }
+
+    const details = globalThis.prompt('Details (optionnel)') || ''
+
+    createReportMutation.mutate({
+      targetType: 'post',
+      targetId: targetPostId,
+      reason: reason.trim(),
+      details: details.trim(),
+    })
+  }
+
+  const handleReportComment = (targetCommentId) => {
+    const reason = globalThis.prompt('Motif du signalement (ex: spam, harcelement, contenu inapproprie)')
+    if (!reason?.trim()) {
+      return
+    }
+
+    const details = globalThis.prompt('Details (optionnel)') || ''
+
+    createReportMutation.mutate({
+      targetType: 'comment',
+      targetId: targetCommentId,
+      reason: reason.trim(),
+      details: details.trim(),
+    })
+  }
+
+  const createReportMutation = useMutation({
+    mutationFn: createReport,
+    onSuccess: () => {
+      alert('Signalement envoye avec succes')
+    },
+    onError: (error) => {
+      alert(error.response?.data?.error || 'Erreur lors du signalement')
+    },
+  })
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (actionsMenuRef.current && !actionsMenuRef.current.contains(event.target)) {
@@ -401,6 +443,15 @@ export default function Profile() {
                     minute: '2-digit'
                   })}
                 </div>
+                {currentUser && !isOwnProfile && (
+                  <button
+                    onClick={() => handleReportPost(post.id)}
+                    disabled={createReportMutation.isPending}
+                    className="mt-3 text-sm text-orange-700 hover:text-orange-900 disabled:opacity-50"
+                  >
+                    Signaler ce post
+                  </button>
+                )}
               </div>
             ))}
             {(!postsData?.data || postsData.data.length === 0) && (
@@ -428,6 +479,15 @@ export default function Profile() {
                     minute: '2-digit'
                   })}
                 </div>
+                {currentUser && !isOwnProfile && (
+                  <button
+                    onClick={() => handleReportComment(comment.id)}
+                    disabled={createReportMutation.isPending}
+                    className="mt-3 text-sm text-orange-700 hover:text-orange-900 disabled:opacity-50"
+                  >
+                    Signaler ce commentaire
+                  </button>
+                )}
               </div>
             ))}
             {(!commentsData?.data || commentsData.data.length === 0) && (

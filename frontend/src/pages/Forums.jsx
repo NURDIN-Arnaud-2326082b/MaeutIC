@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { forumApi, commentApi } from '../services/apis'
+import { createReport } from '../services/reportApi'
 import { useAuthStore } from '../store'
 import { checkSensitiveContent } from '../utils/sensitiveContentDetector'
 
@@ -240,6 +241,16 @@ export default function Forums({ specialCategory = null }) {
     },
   })
 
+  const reportPostMutation = useMutation({
+    mutationFn: createReport,
+    onSuccess: () => {
+      alert('Signalement envoyé avec succès')
+    },
+    onError: (error) => {
+      alert(error.response?.data?.error || 'Erreur lors du signalement')
+    },
+  })
+
   const likeCommentMutation = useMutation({
     mutationFn: (commentId) => commentApi.likeComment(commentId),
     onSuccess: () => {
@@ -410,6 +421,22 @@ export default function Forums({ specialCategory = null }) {
     if (confirm('Êtes-vous sûr de vouloir supprimer ce post ?')) {
       deletePostMutation.mutate(postId)
     }
+  }
+
+  const handleReportPost = (postId) => {
+    const reason = globalThis.prompt('Motif du signalement (ex: spam, harcèlement, contenu inapproprié)')
+    if (!reason?.trim()) {
+      return
+    }
+
+    const details = globalThis.prompt('Détails (optionnel)') || ''
+
+    reportPostMutation.mutate({
+      targetType: 'post',
+      targetId: Number(postId),
+      reason: reason.trim(),
+      details: details.trim(),
+    })
   }
 
   const handleEditImageSelection = (e) => {
@@ -782,6 +809,15 @@ export default function Forums({ specialCategory = null }) {
                     </button>
                   </div>
                 )}
+                {isAuthenticated && user?.id !== selectedPost.user?.id && (
+                  <button
+                    onClick={() => handleReportPost(selectedPost.id)}
+                    disabled={reportPostMutation.isPending}
+                    className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 rounded text-sm"
+                  >
+                    {reportPostMutation.isPending ? 'Signalement...' : 'Signaler ce post'}
+                  </button>
+                )}
               </div>
 
               {/* Reply Form */}
@@ -1035,16 +1071,29 @@ export default function Forums({ specialCategory = null }) {
                         PDF joint
                       </a>
                     )}
-                    <div className="flex items-center justify-between text-sm text-gray-500">
-                      <div className="flex items-center">
+                    <div className="flex items-center justify-between gap-3 text-sm text-gray-500">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <span>Par {getAuthorName(post)}</span>
-                        <span className="mx-2">•</span>
+                        <span>•</span>
                         <span>{new Date(post.creationDate).toLocaleDateString('fr-FR')}</span>
-                        <span className="mx-2">•</span>
+                        <span>•</span>
                         <span>{post.commentsCount || 0} commentaires</span>
                       </div>
-                      {isAuthenticated && (user?.id === post.user?.id || user?.userType === 1) && (
-                        <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
+                        {isAuthenticated && user?.id !== post.user?.id && (
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault()
+                              handleReportPost(post.id)
+                            }}
+                            disabled={reportPostMutation.isPending}
+                            className="text-orange-600 hover:text-orange-800 text-xs font-medium disabled:opacity-50"
+                          >
+                            Signaler ce post
+                          </button>
+                        )}
+                        {isAuthenticated && (user?.id === post.user?.id || user?.userType === 1) && (
+                          <>
                           <button
                             onClick={(e) => {
                               e.preventDefault()
@@ -1063,8 +1112,9 @@ export default function Forums({ specialCategory = null }) {
                           >
                             Supprimer
                           </button>
-                        </div>
-                      )}
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))

@@ -3,12 +3,15 @@ import { Link } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import { conversationApi } from '../services/conversationApi';
 import { chatApi } from '../services/chatApi';
+import { createReport } from '../services/reportApi';
+import { useAuthStore } from '../store';
 
 export default function Chat() {
   const [showGlobalChat, setShowGlobalChat] = useState(true);
   const [messageText, setMessageText] = useState('');
   const messagesEndRef = useRef(null);
   const queryClient = useQueryClient();
+  const currentUser = useAuthStore((state) => state.user);
 
   // Récupère les conversations
   const { data: conversations, isLoading: conversationsLoading, error: conversationsError } = useQuery({
@@ -33,6 +36,32 @@ export default function Chat() {
     },
   });
 
+  const reportGlobalMessageMutation = useMutation({
+    mutationFn: createReport,
+    onSuccess: () => {
+      alert('Signalement envoye avec succes');
+    },
+    onError: (error) => {
+      alert(error.response?.data?.error || 'Erreur lors du signalement');
+    },
+  });
+
+  const handleReportGlobalMessage = (messageId) => {
+    const reason = globalThis.prompt('Motif du signalement (ex: spam, harcelement, menace)');
+    if (!reason?.trim()) {
+      return;
+    }
+
+    const details = globalThis.prompt('Details (optionnel)') || '';
+
+    reportGlobalMessageMutation.mutate({
+      targetType: 'message',
+      targetId: messageId,
+      reason: reason.trim(),
+      details: details.trim(),
+    });
+  };
+
   // Auto-scroll vers le bas quand de nouveaux messages arrivent
   useEffect(() => {
     if (messagesEndRef.current && showGlobalChat) {
@@ -49,6 +78,84 @@ export default function Chat() {
   };
 
   const accessibleConversations = conversations?.filter(c => !c.isBlocked) || [];
+
+  let conversationsPanel = null;
+  if (conversationsLoading) {
+    conversationsPanel = <div className="py-4 text-gray-500">Chargement...</div>;
+  } else if (conversationsError) {
+    conversationsPanel = <div className="py-4 text-red-500">Erreur</div>;
+  } else if (accessibleConversations.length === 0) {
+    conversationsPanel = <div className="py-4 text-gray-500">Aucune conversation.</div>;
+  } else {
+    conversationsPanel = accessibleConversations.map((conversation) => (
+      <li key={conversation.id} className="py-4 flex items-center justify-between list-none">
+        <Link
+          to={`/messages/${conversation.id}`}
+          className="flex items-center gap-3 p-1 w-full hover:bg-blue-50 hover:text-blue-900"
+        >
+          {conversation.otherUser.profileImage ? (
+            <img
+              src={conversation.otherUser.profileImage}
+              alt={conversation.otherUser.username}
+              className="w-10 h-10 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
+              <span className="text-gray-600 font-semibold">
+                {(conversation.otherUser.username?.[0] || '?').toUpperCase()}
+              </span>
+            </div>
+          )}
+          <span className="font-semibold">{conversation.otherUser.username}</span>
+        </Link>
+      </li>
+    ));
+  }
+
+  let globalMessagesPanel = null;
+  if (messagesLoading) {
+    globalMessagesPanel = <div className="text-gray-500">Chargement...</div>;
+  } else if (!globalMessages || globalMessages.length === 0) {
+    globalMessagesPanel = <div className="text-gray-500">Aucun message.</div>;
+  } else {
+    globalMessagesPanel = globalMessages.map((msg) => (
+      <div key={msg.id} className="flex justify-start mb-4">
+        <div className="px-4 py-2">
+          <div className="flex flex-row items-center">
+            {msg.sender ? (
+              <Link
+                to={`/profile/${msg.sender.username}`}
+                className="flex flex-row items-center mr-3"
+              >
+                <img
+                  src={msg.sender.profileImage ? `/profile_images/${msg.sender.profileImage}` : '/images/default-profile.png'}
+                  alt="Profil"
+                  className="w-10 h-10 mr-3 rounded-full"
+                />
+                <div className="text-sm font-semibold">{msg.sender.username}</div>
+              </Link>
+            ) : (
+              <div className="flex flex-row items-center mr-3">
+                <img src="/images/default-profile.png" alt="Profil" className="w-10 h-10 mr-3 rounded-full" />
+                <div className="text-sm font-semibold text-gray-500">Ancien utilisateur</div>
+              </div>
+            )}
+            <div className="text-xs text-gray-400 mt-1">{msg.sentAt}</div>
+          </div>
+          <div className="ml-[52px]">{msg.content}</div>
+          {currentUser && msg.sender?.username !== currentUser.username && (
+            <button
+              onClick={() => handleReportGlobalMessage(msg.id)}
+              disabled={reportGlobalMessageMutation.isPending}
+              className="mt-1 ml-[52px] text-xs text-orange-700 hover:text-orange-900 disabled:opacity-50"
+            >
+              Signaler ce message
+            </button>
+          )}
+        </div>
+      </div>
+    ));
+  }
 
   return (
     <div className="flex-1 flex flex-row w-full text-gray-700 min-h-0 max-h-[calc(100vh-80px)]">
@@ -72,37 +179,7 @@ export default function Chat() {
           <h2 className="text-2xl">Conversations</h2>
         </div>
         <div className="ml-2 mb-2">
-          {conversationsLoading ? (
-            <div className="py-4 text-gray-500">Chargement...</div>
-          ) : conversationsError ? (
-            <div className="py-4 text-red-500">Erreur</div>
-          ) : accessibleConversations.length === 0 ? (
-            <div className="py-4 text-gray-500">Aucune conversation.</div>
-          ) : (
-            accessibleConversations.map((conversation) => (
-              <li key={conversation.id} className="py-4 flex items-center justify-between list-none">
-                <Link
-                  to={`/messages/${conversation.id}`}
-                  className="flex items-center gap-3 p-1 w-full hover:bg-blue-50 hover:text-blue-900"
-                >
-                  {conversation.otherUser.profileImage ? (
-                    <img
-                      src={conversation.otherUser.profileImage}
-                      alt={conversation.otherUser.username}
-                      className="w-10 h-10 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
-                      <span className="text-gray-600 font-semibold">
-                        {(conversation.otherUser.username?.[0] || '?').toUpperCase()}
-                      </span>
-                    </div>
-                  )}
-                  <span className="font-semibold">{conversation.otherUser.username}</span>
-                </Link>
-              </li>
-            ))
-          )}
+          {conversationsPanel}
         </div>
       </div>
 
@@ -115,40 +192,7 @@ export default function Chat() {
 
             {/* Chat messages */}
             <div className="flex-1 overflow-y-auto mb-2 px-2 min-h-0">
-              {messagesLoading ? (
-                <div className="text-gray-500">Chargement...</div>
-              ) : !globalMessages || globalMessages.length === 0 ? (
-                <div className="text-gray-500">Aucun message.</div>
-              ) : (
-                globalMessages.map((msg, index) => (
-                  <div key={index} className="flex justify-start mb-4">
-                    <div className="px-4 py-2">
-                      <div className="flex flex-row items-center">
-                        {msg.sender ? (
-                          <Link
-                            to={`/profile/${msg.sender.username}`}
-                            className="flex flex-row items-center mr-3"
-                          >
-                            <img
-                              src={msg.sender.profileImage ? `/profile_images/${msg.sender.profileImage}` : '/images/default-profile.png'}
-                              alt="Profil"
-                              className="w-10 h-10 mr-3 rounded-full"
-                            />
-                            <div className="text-sm font-semibold">{msg.sender.username}</div>
-                          </Link>
-                        ) : (
-                          <div className="flex flex-row items-center mr-3">
-                            <img src="/images/default-profile.png" alt="Profil" className="w-10 h-10 mr-3 rounded-full" />
-                            <div className="text-sm font-semibold text-gray-500">Ancien utilisateur</div>
-                          </div>
-                        )}
-                        <div className="text-xs text-gray-400 mt-1">{msg.sentAt}</div>
-                      </div>
-                      <div className="ml-[52px]">{msg.content}</div>
-                    </div>
-                  </div>
-                ))
-              )}
+              {globalMessagesPanel}
               <div ref={messagesEndRef} />
             </div>
 

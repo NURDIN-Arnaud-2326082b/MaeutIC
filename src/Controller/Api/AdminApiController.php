@@ -475,6 +475,8 @@ class AdminApiController extends AbstractController
                 if (!$post instanceof Post) {
                     return $this->json(['error' => 'Post non trouvé'], Response::HTTP_NOT_FOUND);
                 }
+                $this->deletePostAttachments($post);
+                $this->deletePostDependencies($post, $entityManager);
                 $entityManager->remove($post);
                 $resultMessage = 'Post supprimé';
             } elseif ($targetType === Report::TARGET_COMMENT) {
@@ -484,8 +486,15 @@ class AdminApiController extends AbstractController
                 }
                 $entityManager->remove($comment);
                 $resultMessage = 'Commentaire supprimé';
+            } elseif ($targetType === Report::TARGET_MESSAGE) {
+                $message = $messageRepository->find($targetId);
+                if (!$message instanceof Message) {
+                    return $this->json(['error' => 'Message non trouvé'], Response::HTTP_NOT_FOUND);
+                }
+                $entityManager->remove($message);
+                $resultMessage = 'Message supprimé';
             } else {
-                return $this->json(['error' => 'Suppression auto disponible uniquement pour post/commentaire'], Response::HTTP_BAD_REQUEST);
+                return $this->json(['error' => 'Suppression auto disponible uniquement pour post/commentaire/message'], Response::HTTP_BAD_REQUEST);
             }
         }
 
@@ -537,6 +546,44 @@ class AdminApiController extends AbstractController
                 'reviewedAt' => $report->getReviewedAt()?->format('c'),
             ],
         ]);
+    }
+
+    private function deletePostDependencies(Post $post, EntityManagerInterface $entityManager): void
+    {
+        foreach ($post->getReplies() as $reply) {
+            if ($reply instanceof Post) {
+                $this->deletePostAttachments($reply);
+                $this->deletePostDependencies($reply, $entityManager);
+                $entityManager->remove($reply);
+            }
+        }
+
+        foreach ($post->getComments() as $comment) {
+            if ($comment instanceof Comment) {
+                $entityManager->remove($comment);
+            }
+        }
+    }
+
+    private function deletePostAttachments(Post $post): void
+    {
+        $publicDirectory = dirname(__DIR__, 3) . '/public';
+
+        $imagePath = $post->getImagePath();
+        if (is_string($imagePath) && $imagePath !== '') {
+            $imageFile = sprintf('%s/post_images/%s', $publicDirectory, $imagePath);
+            if (is_file($imageFile)) {
+                @unlink($imageFile);
+            }
+        }
+
+        $pdfPath = $post->getPdfPath();
+        if (is_string($pdfPath) && $pdfPath !== '') {
+            $pdfFile = sprintf('%s/post_pdfs/%s', $publicDirectory, $pdfPath);
+            if (is_file($pdfFile)) {
+                @unlink($pdfFile);
+            }
+        }
     }
 
     private function getTargetSummary(

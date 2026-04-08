@@ -52,7 +52,7 @@ class Post
     #[ORM\ManyToMany(targetEntity: User::class, mappedBy: 'subscribedPosts')]
     private Collection $subscribedUsers;
 
-    #[ORM\OneToMany(mappedBy: 'post', targetEntity: Comment::class)]
+    #[ORM\OneToMany(mappedBy: 'post', targetEntity: Comment::class, cascade: ['remove'], orphanRemoval: true)]
     private Collection $comments;
 
     #[ORM\OneToMany(mappedBy: 'post', targetEntity: PostLike::class, cascade: ['remove'])]
