@@ -1,17 +1,35 @@
+import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { forumApi, commentApi } from '../services/apis'
 import CommentSection from '../components/CommentSection'
 import { createReport } from '../services/reportApi'
+import ReportModal from '../components/ReportModal'
 import { useAuthStore } from '../store'
 
 export default function ForumPost() {
   const { id } = useParams()
   const { user } = useAuthStore()
+  const [reportModalOpen, setReportModalOpen] = useState(false)
+  const [reportReason, setReportReason] = useState('')
+  const [reportCustomReason, setReportCustomReason] = useState('')
+  const [reportDetails, setReportDetails] = useState('')
+
+  const REPORT_REASON_LABELS = {
+    spam: 'Spam',
+    harassment: 'Harcèlement',
+    inappropriate_content: 'Contenu inapproprié',
+    impersonation: "Usurpation d'identité", 
+    other: 'Autre',
+  }
 
   const reportMutation = useMutation({
     mutationFn: createReport,
     onSuccess: () => {
+      setReportModalOpen(false)
+      setReportReason('')
+      setReportCustomReason('')
+      setReportDetails('')
       alert('Signalement envoye avec succes')
     },
     onError: (error) => {
@@ -19,19 +37,22 @@ export default function ForumPost() {
     },
   })
 
-  const handleReportPost = () => {
-    const reason = globalThis.prompt('Motif du signalement (ex: spam, harcelement, contenu inapproprie)')
-    if (!reason?.trim()) {
+  const handleReportPost = (event) => {
+    event.preventDefault()
+
+    const reasonText = reportReason === 'other'
+      ? reportCustomReason.trim()
+      : REPORT_REASON_LABELS[reportReason]
+
+    if (!reasonText) {
       return
     }
-
-    const details = globalThis.prompt('Details (optionnel)') || ''
 
     reportMutation.mutate({
       targetType: 'post',
       targetId: Number(id),
-      reason: reason.trim(),
-      details: details.trim(),
+      reason: reasonText,
+      details: reportDetails.trim(),
     })
   }
 
@@ -100,7 +121,7 @@ export default function ForumPost() {
           </button>
           {user && post.user?.id !== user.id && (
             <button
-              onClick={handleReportPost}
+              onClick={() => setReportModalOpen(true)}
               disabled={reportMutation.isPending}
               className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
             >
@@ -111,6 +132,21 @@ export default function ForumPost() {
 
         <CommentSection postId={id} comments={comments} />
       </div>
+
+      <ReportModal
+        open={reportModalOpen}
+        title="Signaler ce post"
+        targetLabel={post?.name ? `Cible: ${post.name}` : ''}
+        reason={reportReason}
+        customReason={reportCustomReason}
+        details={reportDetails}
+        submitting={reportMutation.isPending}
+        onClose={() => setReportModalOpen(false)}
+        onReasonChange={setReportReason}
+        onCustomReasonChange={setReportCustomReason}
+        onDetailsChange={setReportDetails}
+        onSubmit={handleReportPost}
+      />
     </div>
   )
 }

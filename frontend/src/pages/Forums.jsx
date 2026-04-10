@@ -3,11 +3,20 @@ import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { forumApi, commentApi } from '../services/apis'
 import { createReport } from '../services/reportApi'
+import ReportModal from '../components/ReportModal'
 import { useAuthStore } from '../store'
 import { checkSensitiveContent } from '../utils/sensitiveContentDetector'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
 const BACKEND_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '')
+
+const REPORT_REASON_LABELS = {
+  spam: 'Spam',
+  harassment: 'Harcèlement',
+  inappropriate_content: 'Contenu inapproprié',
+  impersonation: "Usurpation d'identité",
+  other: 'Autre',
+}
 
 const getRandomAnonymousId = () => {
   const letters = 'abcdefghijklmnopqrstuvwxyz'
@@ -42,6 +51,11 @@ export default function Forums({ specialCategory = null }) {
   const [newPostPdf, setNewPostPdf] = useState(null)
   const [selectedForumId, setSelectedForumId] = useState(null)
   const [preventionAlerts, setPreventionAlerts] = useState([])
+  const [reportModalOpen, setReportModalOpen] = useState(false)
+  const [reportTarget, setReportTarget] = useState(null)
+  const [reportReason, setReportReason] = useState('')
+  const [reportCustomReason, setReportCustomReason] = useState('')
+  const [reportDetails, setReportDetails] = useState('')
   
   // Edit post states
   const [showEditModal, setShowEditModal] = useState(false)
@@ -244,6 +258,11 @@ export default function Forums({ specialCategory = null }) {
   const reportPostMutation = useMutation({
     mutationFn: createReport,
     onSuccess: () => {
+      setReportModalOpen(false)
+      setReportTarget(null)
+      setReportReason('')
+      setReportCustomReason('')
+      setReportDetails('')
       alert('Signalement envoyé avec succès')
     },
     onError: (error) => {
@@ -423,19 +442,45 @@ export default function Forums({ specialCategory = null }) {
     }
   }
 
-  const handleReportPost = (postId) => {
-    const reason = globalThis.prompt('Motif du signalement (ex: spam, harcèlement, contenu inapproprié)')
-    if (!reason?.trim()) {
+  const openReportModal = (targetType, targetId, targetLabel) => {
+    setReportTarget({ targetType, targetId, targetLabel })
+    setReportReason('')
+    setReportCustomReason('')
+    setReportDetails('')
+    setReportModalOpen(true)
+  }
+
+  const closeReportModal = () => {
+    if (reportPostMutation.isPending) {
       return
     }
 
-    const details = globalThis.prompt('Détails (optionnel)') || ''
+    setReportModalOpen(false)
+    setReportTarget(null)
+    setReportReason('')
+    setReportCustomReason('')
+    setReportDetails('')
+  }
+
+  const handleReportSubmit = (event) => {
+    event.preventDefault()
+    if (!reportTarget) {
+      return
+    }
+
+    const reasonText = reportReason === 'other'
+      ? reportCustomReason.trim()
+      : REPORT_REASON_LABELS[reportReason]
+
+    if (!reasonText) {
+      return
+    }
 
     reportPostMutation.mutate({
-      targetType: 'post',
-      targetId: Number(postId),
-      reason: reason.trim(),
-      details: details.trim(),
+      targetType: reportTarget.targetType,
+      targetId: Number(reportTarget.targetId),
+      reason: reasonText,
+      details: reportDetails.trim(),
     })
   }
 
@@ -811,7 +856,7 @@ export default function Forums({ specialCategory = null }) {
                 )}
                 {isAuthenticated && user?.id !== selectedPost.user?.id && (
                   <button
-                    onClick={() => handleReportPost(selectedPost.id)}
+                    onClick={() => openReportModal('post', selectedPost.id, selectedPost.name)}
                     disabled={reportPostMutation.isPending}
                     className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 rounded text-sm"
                   >
@@ -1084,7 +1129,7 @@ export default function Forums({ specialCategory = null }) {
                           <button
                             onClick={(e) => {
                               e.preventDefault()
-                              handleReportPost(post.id)
+                              openReportModal('post', post.id, post.name)
                             }}
                             disabled={reportPostMutation.isPending}
                             className="text-orange-600 hover:text-orange-800 text-xs font-medium disabled:opacity-50"
@@ -1445,6 +1490,21 @@ export default function Forums({ specialCategory = null }) {
           </div>
         </div>
       )}
+
+      <ReportModal
+        open={reportModalOpen}
+        title="Signaler un post"
+        targetLabel={reportTarget?.targetLabel ? `Cible: ${reportTarget.targetLabel}` : ''}
+        reason={reportReason}
+        customReason={reportCustomReason}
+        details={reportDetails}
+        submitting={reportPostMutation.isPending}
+        onClose={closeReportModal}
+        onReasonChange={setReportReason}
+        onCustomReasonChange={setReportCustomReason}
+        onDetailsChange={setReportDetails}
+        onSubmit={handleReportSubmit}
+      />
 
       <style>{`
         .custom-scrollbar::-webkit-scrollbar {

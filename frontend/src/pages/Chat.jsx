@@ -4,11 +4,17 @@ import { useState, useEffect, useRef } from 'react';
 import { conversationApi } from '../services/conversationApi';
 import { chatApi } from '../services/chatApi';
 import { createReport } from '../services/reportApi';
+import ReportModal from '../components/ReportModal';
 import { useAuthStore } from '../store';
 
 export default function Chat() {
   const [showGlobalChat, setShowGlobalChat] = useState(true);
   const [messageText, setMessageText] = useState('');
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState(null);
+  const [reportReason, setReportReason] = useState('');
+  const [reportCustomReason, setReportCustomReason] = useState('');
+  const [reportDetails, setReportDetails] = useState('');
   const messagesEndRef = useRef(null);
   const queryClient = useQueryClient();
   const currentUser = useAuthStore((state) => state.user);
@@ -39,6 +45,11 @@ export default function Chat() {
   const reportGlobalMessageMutation = useMutation({
     mutationFn: createReport,
     onSuccess: () => {
+      setReportModalOpen(false);
+      setReportTarget(null);
+      setReportReason('');
+      setReportCustomReason('');
+      setReportDetails('');
       alert('Signalement envoye avec succes');
     },
     onError: (error) => {
@@ -46,19 +57,42 @@ export default function Chat() {
     },
   });
 
-  const handleReportGlobalMessage = (messageId) => {
-    const reason = globalThis.prompt('Motif du signalement (ex: spam, harcelement, menace)');
-    if (!reason?.trim()) {
+  const REPORT_REASON_LABELS = {
+    spam: 'Spam',
+    harassment: 'Harcèlement',
+    inappropriate_content: 'Contenu inapproprié',
+    impersonation: "Usurpation d'identité",
+    other: 'Autre',
+  };
+
+  const openReportModal = (messageId, messageContent) => {
+    setReportTarget({ messageId, messageContent });
+    setReportReason('');
+    setReportCustomReason('');
+    setReportDetails('');
+    setReportModalOpen(true);
+  };
+
+  const handleReportGlobalMessage = (event) => {
+    event.preventDefault();
+
+    if (!reportTarget) {
       return;
     }
 
-    const details = globalThis.prompt('Details (optionnel)') || '';
+    const reasonText = reportReason === 'other'
+      ? reportCustomReason.trim()
+      : REPORT_REASON_LABELS[reportReason];
+
+    if (!reasonText) {
+      return;
+    }
 
     reportGlobalMessageMutation.mutate({
       targetType: 'message',
-      targetId: messageId,
-      reason: reason.trim(),
-      details: details.trim(),
+      targetId: reportTarget.messageId,
+      reason: reasonText,
+      details: reportDetails.trim(),
     });
   };
 
@@ -145,7 +179,7 @@ export default function Chat() {
           <div className="ml-[52px]">{msg.content}</div>
           {currentUser && msg.sender?.username !== currentUser.username && (
             <button
-              onClick={() => handleReportGlobalMessage(msg.id)}
+              onClick={() => openReportModal(msg.id, msg.content)}
               disabled={reportGlobalMessageMutation.isPending}
               className="mt-1 ml-[52px] text-xs text-orange-700 hover:text-orange-900 disabled:opacity-50"
             >
@@ -218,6 +252,21 @@ export default function Chat() {
           </>
         ) : null}
       </div>
+
+      <ReportModal
+        open={reportModalOpen}
+        title="Signaler un message"
+        targetLabel={reportTarget?.messageContent ? `Message: ${reportTarget.messageContent}` : ''}
+        reason={reportReason}
+        customReason={reportCustomReason}
+        details={reportDetails}
+        submitting={reportGlobalMessageMutation.isPending}
+        onClose={() => setReportModalOpen(false)}
+        onReasonChange={setReportReason}
+        onCustomReasonChange={setReportCustomReason}
+        onDetailsChange={setReportDetails}
+        onSubmit={handleReportGlobalMessage}
+      />
     </div>
   );
 }

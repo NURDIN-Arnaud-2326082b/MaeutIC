@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import { conversationApi } from '../services/conversationApi';
 import { createReport } from '../services/reportApi';
+import ReportModal from '../components/ReportModal';
 
 export default function Conversation() {
   const { conversationId } = useParams();
@@ -10,6 +11,19 @@ export default function Conversation() {
   const queryClient = useQueryClient();
   const messagesEndRef = useRef(null);
   const [messageContent, setMessageContent] = useState('');
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState(null);
+  const [reportReason, setReportReason] = useState('');
+  const [reportCustomReason, setReportCustomReason] = useState('');
+  const [reportDetails, setReportDetails] = useState('');
+
+  const REPORT_REASON_LABELS = {
+    spam: 'Spam',
+    harassment: 'Harcèlement',
+    inappropriate_content: 'Contenu inapproprié',
+    impersonation: "Usurpation d'identité",
+    other: 'Autre',
+  };
 
   // Récupère les messages avec polling toutes les 2 secondes
   const { data, isLoading, error } = useQuery({
@@ -31,6 +45,11 @@ export default function Conversation() {
   const reportMessageMutation = useMutation({
     mutationFn: createReport,
     onSuccess: () => {
+      setReportModalOpen(false);
+      setReportTarget(null);
+      setReportReason('');
+      setReportCustomReason('');
+      setReportDetails('');
       alert('Signalement envoye avec succes');
     },
     onError: (error) => {
@@ -38,19 +57,34 @@ export default function Conversation() {
     },
   });
 
-  const handleReportMessage = (messageId) => {
-    const reason = globalThis.prompt('Motif du signalement (ex: harcelement, menace, spam)');
-    if (!reason?.trim()) {
+  const openReportModal = (messageId, messageContent) => {
+    setReportTarget({ messageId, messageContent });
+    setReportReason('');
+    setReportCustomReason('');
+    setReportDetails('');
+    setReportModalOpen(true);
+  };
+
+  const handleReportMessage = (event) => {
+    event.preventDefault();
+
+    if (!reportTarget) {
       return;
     }
 
-    const details = globalThis.prompt('Details (optionnel)') || '';
+    const reasonText = reportReason === 'other'
+      ? reportCustomReason.trim()
+      : REPORT_REASON_LABELS[reportReason];
+
+    if (!reasonText) {
+      return;
+    }
 
     reportMessageMutation.mutate({
       targetType: 'message',
-      targetId: Number(messageId),
-      reason: reason.trim(),
-      details: details.trim(),
+      targetId: Number(reportTarget.messageId),
+      reason: reasonText,
+      details: reportDetails.trim(),
     });
   };
 
@@ -151,7 +185,7 @@ export default function Conversation() {
                   <div className="text-xs text-gray-600 mt-1">{message.sentAt}</div>
                   {!message.isOwn && (
                     <button
-                      onClick={() => handleReportMessage(message.id)}
+                      onClick={() => openReportModal(message.id, message.content)}
                       disabled={reportMessageMutation.isPending}
                       className="mt-1 text-xs text-orange-700 hover:text-orange-900 disabled:opacity-50"
                     >
@@ -186,6 +220,21 @@ export default function Conversation() {
           </button>
         </div>
       </form>
+
+      <ReportModal
+        open={reportModalOpen}
+        title="Signaler un message"
+        targetLabel={reportTarget?.messageContent ? `Message: ${reportTarget.messageContent}` : ''}
+        reason={reportReason}
+        customReason={reportCustomReason}
+        details={reportDetails}
+        submitting={reportMessageMutation.isPending}
+        onClose={() => setReportModalOpen(false)}
+        onReasonChange={setReportReason}
+        onCustomReasonChange={setReportCustomReason}
+        onDetailsChange={setReportDetails}
+        onSubmit={handleReportMessage}
+      />
     </div>
   );
 }
