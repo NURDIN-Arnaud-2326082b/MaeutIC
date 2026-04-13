@@ -4,6 +4,7 @@ namespace App\Controller\Api;
 
 use App\Entity\Comment;
 use App\Entity\Message;
+use App\Entity\Notification;
 use App\Entity\Post;
 use App\Entity\Report;
 use App\Entity\Tag;
@@ -468,6 +469,8 @@ class AdminApiController extends AbstractController
         $targetType = $report->getTargetType();
         $targetId = (int) $report->getTargetId();
         $resultMessage = '';
+        $contentAuthor = null;
+        $removedContentType = null;
 
         if ($action === 'delete_target') {
             if ($targetType === Report::TARGET_POST) {
@@ -475,6 +478,8 @@ class AdminApiController extends AbstractController
                 if (!$post instanceof Post) {
                     return $this->json(['error' => 'Post non trouvé'], Response::HTTP_NOT_FOUND);
                 }
+                $contentAuthor = $post->getUser();
+                $removedContentType = 'publication';
                 $this->deletePostAttachments($post);
                 $this->deletePostDependencies($post, $entityManager);
                 $entityManager->remove($post);
@@ -484,6 +489,8 @@ class AdminApiController extends AbstractController
                 if (!$comment instanceof Comment) {
                     return $this->json(['error' => 'Commentaire non trouvé'], Response::HTTP_NOT_FOUND);
                 }
+                $contentAuthor = $comment->getUser();
+                $removedContentType = 'commentaire';
                 $entityManager->remove($comment);
                 $resultMessage = 'Commentaire supprimé';
             } elseif ($targetType === Report::TARGET_MESSAGE) {
@@ -491,10 +498,22 @@ class AdminApiController extends AbstractController
                 if (!$message instanceof Message) {
                     return $this->json(['error' => 'Message non trouvé'], Response::HTTP_NOT_FOUND);
                 }
+                $contentAuthor = $message->getSender();
+                $removedContentType = 'message';
                 $entityManager->remove($message);
                 $resultMessage = 'Message supprimé';
             } else {
                 return $this->json(['error' => 'Suppression auto disponible uniquement pour post/commentaire/message'], Response::HTTP_BAD_REQUEST);
+            }
+
+            if ($contentAuthor instanceof User && is_string($removedContentType)) {
+                $this->createModerationWarningNotification(
+                    $entityManager,
+                    $contentAuthor,
+                    $user,
+                    $report,
+                    $removedContentType
+                );
             }
         }
 
@@ -546,6 +565,38 @@ class AdminApiController extends AbstractController
                 'reviewedAt' => $report->getReviewedAt()?->format('c'),
             ],
         ]);
+    }
+
+    private function createModerationWarningNotification(
+        EntityManagerInterface $entityManager,
+        User $recipient,
+        User $admin,
+        Report $report,
+        string $contentType
+    ): void {
+        $reason = trim((string) $report->getReason());
+        if ($reason === '') {
+            $reason = 'non précisé';
+        }
+
+        $notification = new Notification();
+        $notification->setType('moderation_warning');
+        $notification->setSender($admin);
+        $notification->setRecipient($recipient);
+        $notification->setStatus('pending');
+        $notification->setData([
+            'message' => sprintf(
+                'Votre %s a été supprimé suite à un signalement. Motif : %s.',
+                $contentType,
+                $reason
+            ),
+            'reportId' => $report->getId(),
+            'targetType' => $report->getTargetType(),
+            'targetId' => $report->getTargetId(),
+            'reason' => $reason,
+        ]);
+
+        $entityManager->persist($notification);
     }
 
     private function deletePostDependencies(Post $post, EntityManagerInterface $entityManager): void
