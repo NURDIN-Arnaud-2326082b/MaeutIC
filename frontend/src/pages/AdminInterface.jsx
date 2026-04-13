@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getTags, createTag, updateTag, deleteTag, getReports, processReport, autoActionReport } from '../services/adminApi'
 import api from '../services/api'
 import { useAuthStore } from '../store'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 export default function AdminInterface() {
   const { user } = useAuthStore()
@@ -217,6 +217,25 @@ export default function AdminInterface() {
   const tags = tagsData?.tags || []
   const bannedUsers = bannedData?.bannedUsers || []
   const reports = reportsData?.reports || []
+
+  const getReportedPostPath = (targetSummary) => {
+    if (!targetSummary?.postId || !targetSummary?.forumCategory) {
+      return null
+    }
+
+    const encodedCategory = encodeURIComponent(targetSummary.forumCategory)
+    if (targetSummary.forumSpecial === 'methodology') {
+      return `/methodology-forums/${encodedCategory}/${targetSummary.postId}`
+    }
+    if (targetSummary.forumSpecial === 'detente') {
+      return `/detente-forums/${encodedCategory}/${targetSummary.postId}`
+    }
+    if (targetSummary.forumSpecial === 'administratif') {
+      return `/administratif-forums/${encodedCategory}/${targetSummary.postId}`
+    }
+
+    return `/forums/${encodedCategory}/${targetSummary.postId}`
+  }
 
   if (!user || user.userType !== 1) {
     return null
@@ -520,7 +539,21 @@ export default function AdminInterface() {
                           Signalé par @{report.reporter?.username || 'inconnu'}
                         </div>
                         <div className="text-sm text-gray-600 mt-1">
-                          Cible: {report.targetSummary?.label || 'Inconnue'}
+                          Cible:{' '}
+                          {report.targetType === 'post' && report.targetSummary?.exists && getReportedPostPath(report.targetSummary) ? (
+                            <Link
+                              to={getReportedPostPath(report.targetSummary)}
+                              className="text-blue-700 hover:text-blue-900 underline"
+                            >
+                              {report.targetSummary?.label || 'Inconnue'}
+                            </Link>
+                          ) : report.targetType === 'message' ? (
+                            <span className="block mt-1 whitespace-pre-wrap break-words text-gray-700">
+                              {report.targetSummary?.label || 'Inconnue'}
+                            </span>
+                          ) : (
+                            report.targetSummary?.label || 'Inconnue'
+                          )}
                           {report.targetSummary?.author ? ` (auteur: @${report.targetSummary.author})` : ''}
                         </div>
                         {report.adminNote && (

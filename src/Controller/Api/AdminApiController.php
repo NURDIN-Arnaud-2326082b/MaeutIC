@@ -653,9 +653,14 @@ class AdminApiController extends AbstractController
                 return ['exists' => false, 'label' => 'Post supprimé'];
             }
 
+            $forum = $post->getForum();
+
             return [
                 'exists' => true,
                 'label' => $post->getName(),
+                'postId' => $post->getId(),
+                'forumCategory' => $forum?->getTitle(),
+                'forumSpecial' => $forum?->getSpecial(),
                 'author' => $post->getUser()?->getUsername(),
             ];
         }
@@ -692,9 +697,14 @@ class AdminApiController extends AbstractController
                 return ['exists' => false, 'label' => 'Message supprimé'];
             }
 
+            $messageContent = trim((string) $message->getContent());
+            if ($messageContent === '') {
+                $messageContent = '[message vide]';
+            }
+
             return [
                 'exists' => true,
-                'label' => mb_substr((string) $message->getContent(), 0, 120),
+                'label' => $messageContent,
                 'author' => $message->getSender()?->getUsername(),
             ];
         }
