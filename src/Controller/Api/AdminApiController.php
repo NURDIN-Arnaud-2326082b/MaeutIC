@@ -7,12 +7,16 @@ use App\Entity\Message;
 use App\Entity\Notification;
 use App\Entity\Post;
 use App\Entity\Report;
+use App\Entity\Article;
+use App\Entity\Resource;
 use App\Entity\Tag;
 use App\Entity\User;
+use App\Repository\ArticleRepository;
 use App\Repository\CommentRepository;
 use App\Repository\MessageRepository;
 use App\Repository\PostRepository;
 use App\Repository\ReportRepository;
+use App\Repository\ResourceRepository;
 use App\Repository\TagRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -339,7 +343,9 @@ class AdminApiController extends AbstractController
         PostRepository $postRepository,
         CommentRepository $commentRepository,
         UserRepository $userRepository,
-        MessageRepository $messageRepository
+        MessageRepository $messageRepository,
+        ArticleRepository $articleRepository,
+        ResourceRepository $resourceRepository
     ): JsonResponse {
         /** @var User|null $user */
         $user = $this->getUser();
@@ -355,7 +361,7 @@ class AdminApiController extends AbstractController
 
         $reports = $reportRepository->findBy($criteria, ['createdAt' => 'DESC']);
 
-        $data = array_map(function (Report $report) use ($postRepository, $commentRepository, $userRepository, $messageRepository) {
+        $data = array_map(function (Report $report) use ($postRepository, $commentRepository, $userRepository, $messageRepository, $articleRepository, $resourceRepository) {
             return [
                 'id' => $report->getId(),
                 'status' => $report->getStatus(),
@@ -379,7 +385,9 @@ class AdminApiController extends AbstractController
                     $postRepository,
                     $commentRepository,
                     $userRepository,
-                    $messageRepository
+                    $messageRepository,
+                    $articleRepository,
+                    $resourceRepository
                 ),
             ];
         }, $reports);
@@ -445,6 +453,8 @@ class AdminApiController extends AbstractController
         CommentRepository $commentRepository,
         MessageRepository $messageRepository,
         UserRepository $userRepository,
+        ArticleRepository $articleRepository,
+        ResourceRepository $resourceRepository,
         EntityManagerInterface $entityManager
     ): JsonResponse {
         /** @var User|null $user */
@@ -502,8 +512,27 @@ class AdminApiController extends AbstractController
                 $removedContentType = 'message';
                 $entityManager->remove($message);
                 $resultMessage = 'Message supprimé';
+            } elseif ($targetType === Report::TARGET_ARTICLE) {
+                $article = $articleRepository->find($targetId);
+                if (!$article instanceof Article) {
+                    return $this->json(['error' => 'Article non trouvé'], Response::HTTP_NOT_FOUND);
+                }
+                $contentAuthor = $article->getUser();
+                $removedContentType = 'article';
+                $this->deleteArticleAttachments($article);
+                $entityManager->remove($article);
+                $resultMessage = 'Article supprimé';
+            } elseif ($targetType === Report::TARGET_RESOURCE) {
+                $resource = $resourceRepository->find($targetId);
+                if (!$resource instanceof Resource) {
+                    return $this->json(['error' => 'Ressource non trouvée'], Response::HTTP_NOT_FOUND);
+                }
+                $contentAuthor = $resource->getUser();
+                $removedContentType = 'ressource';
+                $entityManager->remove($resource);
+                $resultMessage = 'Ressource supprimée';
             } else {
-                return $this->json(['error' => 'Suppression auto disponible uniquement pour post/commentaire/message'], Response::HTTP_BAD_REQUEST);
+                return $this->json(['error' => 'Suppression auto disponible uniquement pour post/commentaire/message/article/ressource'], Response::HTTP_BAD_REQUEST);
             }
 
             if ($contentAuthor instanceof User && is_string($removedContentType)) {
@@ -528,6 +557,10 @@ class AdminApiController extends AbstractController
                 $author = $messageRepository->find($targetId)?->getSender();
             } elseif ($targetType === Report::TARGET_PROFILE) {
                 $author = $userRepository->find($targetId);
+            } elseif ($targetType === Report::TARGET_ARTICLE) {
+                $author = $articleRepository->find($targetId)?->getUser();
+            } elseif ($targetType === Report::TARGET_RESOURCE) {
+                $author = $resourceRepository->find($targetId)?->getUser();
             }
 
             if (!$author instanceof User) {
@@ -637,12 +670,35 @@ class AdminApiController extends AbstractController
         }
     }
 
+    private function deleteArticleAttachments(Article $article): void
+    {
+        $publicDirectory = dirname(__DIR__, 3) . '/public';
+
+        $imagePath = $article->getImagePath();
+        if (is_string($imagePath) && $imagePath !== '') {
+            $imageFile = sprintf('%s/article_images/%s', $publicDirectory, $imagePath);
+            if (is_file($imageFile)) {
+                @unlink($imageFile);
+            }
+        }
+
+        $pdfPath = $article->getPdfPath();
+        if (is_string($pdfPath) && $pdfPath !== '') {
+            $pdfFile = sprintf('%s/article_pdfs/%s', $publicDirectory, $pdfPath);
+            if (is_file($pdfFile)) {
+                @unlink($pdfFile);
+            }
+        }
+    }
+
     private function getTargetSummary(
         Report $report,
         PostRepository $postRepository,
         CommentRepository $commentRepository,
         UserRepository $userRepository,
-        MessageRepository $messageRepository
+        MessageRepository $messageRepository,
+        ArticleRepository $articleRepository,
+        ResourceRepository $resourceRepository
     ): array {
         $type = $report->getTargetType();
         $targetId = (int) $report->getTargetId();
@@ -706,6 +762,32 @@ class AdminApiController extends AbstractController
                 'exists' => true,
                 'label' => $messageContent,
                 'author' => $message->getSender()?->getUsername(),
+            ];
+        }
+
+        if ($type === Report::TARGET_ARTICLE) {
+            $article = $articleRepository->find($targetId);
+            if (!$article instanceof Article) {
+                return ['exists' => false, 'label' => 'Article supprimé'];
+            }
+
+            return [
+                'exists' => true,
+                'label' => $article->getTitle(),
+                'author' => $article->getUser()?->getUsername(),
+            ];
+        }
+
+        if ($type === Report::TARGET_RESOURCE) {
+            $resource = $resourceRepository->find($targetId);
+            if (!$resource instanceof Resource) {
+                return ['exists' => false, 'label' => 'Ressource supprimée'];
+            }
+
+            return [
+                'exists' => true,
+                'label' => $resource->getTitle(),
+                'author' => $resource->getUser()?->getUsername(),
             ];
         }
 

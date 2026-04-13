@@ -19,6 +19,8 @@ class Report
     public const TARGET_COMMENT = 'comment';
     public const TARGET_PROFILE = 'profile';
     public const TARGET_MESSAGE = 'message';
+    public const TARGET_ARTICLE = 'article';
+    public const TARGET_RESOURCE = 'resource';
 
     #[ORM\Id]
     #[ORM\GeneratedValue]

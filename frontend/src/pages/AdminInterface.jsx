@@ -585,13 +585,19 @@ export default function AdminInterface() {
                             >
                               Rejeter
                             </button>
-                            {(report.targetType === 'post' || report.targetType === 'comment' || report.targetType === 'message') && (
+                            {(report.targetType === 'post' || report.targetType === 'comment' || report.targetType === 'message' || report.targetType === 'article' || report.targetType === 'resource') && (
                               <button
                                 onClick={() => handleAutoAction(report, 'delete_target')}
                                 disabled={autoActionMutation.isPending}
                                 className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 disabled:opacity-50"
                               >
-                                {report.targetType === 'message' ? 'Supprimer message' : 'Supprimer contenu'}
+                                {report.targetType === 'message'
+                                  ? 'Supprimer message'
+                                  : report.targetType === 'article'
+                                    ? 'Supprimer article'
+                                    : report.targetType === 'resource'
+                                      ? 'Supprimer ressource'
+                                      : 'Supprimer contenu'}
                               </button>
                             )}
                             <button
