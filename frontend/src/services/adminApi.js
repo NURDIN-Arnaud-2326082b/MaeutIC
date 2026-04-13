@@ -45,6 +45,14 @@ export const getReports = async (status = '') => {
 }
 
 /**
+ * Get posts flagged with sensitive content
+ */
+export const getSensitivePosts = async () => {
+  const response = await api.get('/admin/sensitive-posts')
+  return response.data
+}
+
+/**
  * Update moderation report status
  */
 export const processReport = async (id, status, adminNote = '') => {

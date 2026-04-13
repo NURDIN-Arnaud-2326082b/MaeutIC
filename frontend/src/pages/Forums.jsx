@@ -578,12 +578,18 @@ export default function Forums({ specialCategory = null }) {
   const handleCreatePost = (e) => {
     e.preventDefault()
     const forumId = selectedForumId || currentForum?.id || forums[0]?.id
+    const sensitiveWarningsPayload = preventionAlerts.map((warning) => ({
+      message: warning.message,
+      link: warning.link || null,
+    }))
 
     if (newPostImage || newPostPdf) {
       const formData = new FormData()
       formData.append('name', newPostTitle)
       formData.append('description', newPostDescription)
       formData.append('forumId', String(forumId))
+      formData.append('hasSensitiveContent', preventionAlerts.length > 0 ? '1' : '0')
+      formData.append('sensitiveContentWarnings', JSON.stringify(sensitiveWarningsPayload))
       if (newPostImage) {
         formData.append('image', newPostImage)
       }
@@ -597,7 +603,9 @@ export default function Forums({ specialCategory = null }) {
     createPostMutation.mutate({
       name: newPostTitle,
       description: newPostDescription,
-      forumId
+      forumId,
+      hasSensitiveContent: preventionAlerts.length > 0,
+      sensitiveContentWarnings: sensitiveWarningsPayload,
     })
   }
 

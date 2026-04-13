@@ -396,6 +396,49 @@ class AdminApiController extends AbstractController
     }
 
     /**
+     * List posts flagged as sensitive content
+     */
+    #[Route('/sensitive-posts', name: 'api_admin_sensitive_posts_list', methods: ['GET'])]
+    public function getSensitivePosts(PostRepository $postRepository): JsonResponse
+    {
+        /** @var User|null $user */
+        $user = $this->getUser();
+        if (!$user || $user->getUserType() !== 1) {
+            return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
+        }
+
+        $posts = $postRepository->findBy(['hasSensitiveContent' => true], ['creationDate' => 'DESC']);
+
+        $data = array_map(function (Post $post) {
+            $forum = $post->getForum();
+            $author = $post->getUser();
+
+            return [
+                'id' => $post->getId(),
+                'postId' => $post->getId(),
+                'name' => $post->getName(),
+                'description' => $post->getDescription(),
+                'createdAt' => $post->getCreationDate()?->format('c'),
+                'forumCategory' => $forum?->getTitle(),
+                'forumSpecial' => $forum?->getSpecial(),
+                'author' => $author?->getUsername(),
+                'hasSensitiveContent' => $post->hasSensitiveContent(),
+                'sensitiveContentWarnings' => $post->getSensitiveContentWarnings() ?? [],
+                'targetSummary' => [
+                    'exists' => true,
+                    'postId' => $post->getId(),
+                    'forumCategory' => $forum?->getTitle(),
+                    'forumSpecial' => $forum?->getSpecial(),
+                    'label' => $post->getName(),
+                    'author' => $author?->getUsername(),
+                ],
+            ];
+        }, $posts);
+
+        return $this->json(['posts' => $data]);
+    }
+
+    /**
      * Process a report (reviewed/rejected)
      */
     #[Route('/reports/{id}', name: 'api_admin_reports_process', methods: ['PATCH'])]

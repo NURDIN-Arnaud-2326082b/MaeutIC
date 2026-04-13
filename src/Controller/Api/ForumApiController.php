@@ -134,6 +134,8 @@ class ForumApiController extends AbstractController
         $name = trim((string)($data['name'] ?? ''));
         $description = trim((string)($data['description'] ?? ''));
         $forumId = (int)($data['forumId'] ?? 0);
+        $hasSensitiveContent = filter_var($data['hasSensitiveContent'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $sensitiveContentWarnings = $this->decodeSensitiveWarnings($data['sensitiveContentWarnings'] ?? null);
 
         $forum = $forumId > 0 ? $this->forumRepository->find($forumId) : null;
         
@@ -172,6 +174,8 @@ class ForumApiController extends AbstractController
         $post->setUser($this->getUser());
         $post->setCreationDate(new \DateTime());
         $post->setLastActivity(new \DateTime());
+        $post->setHasSensitiveContent($hasSensitiveContent);
+        $post->setSensitiveContentWarnings($sensitiveContentWarnings);
 
         // Handle parent post (for replies)
         if (isset($data['parentId'])) {
@@ -190,6 +194,7 @@ class ForumApiController extends AbstractController
             'id' => $post->getId(),
             'imageUrl' => $this->getPostImageUrl($post),
             'pdfUrl' => $this->getPostPdfUrl($post),
+            'hasSensitiveContent' => $post->hasSensitiveContent(),
         ], 201);
     }
 
@@ -455,6 +460,8 @@ class ForumApiController extends AbstractController
             'parentId' => $parentPost?->getId(),
             'parentPost' => $this->serializeParentPost($parentPost),
             'repliesCount' => $post->getReplies()->count(),
+            'hasSensitiveContent' => $post->hasSensitiveContent(),
+            'sensitiveContentWarnings' => $post->getSensitiveContentWarnings() ?? [],
         ];
 
         if ($includeReplies) {
@@ -556,5 +563,19 @@ class ForumApiController extends AbstractController
         if (is_file($path)) {
             @unlink($path);
         }
+    }
+
+    private function decodeSensitiveWarnings(mixed $warnings): array
+    {
+        if (is_array($warnings)) {
+            return $warnings;
+        }
+
+        if (!is_string($warnings) || trim($warnings) === '') {
+            return [];
+        }
+
+        $decoded = json_decode($warnings, true);
+        return is_array($decoded) ? $decoded : [];
     }
 }

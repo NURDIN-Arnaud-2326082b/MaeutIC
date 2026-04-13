@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getTags, createTag, updateTag, deleteTag, getReports, processReport, autoActionReport } from '../services/adminApi'
+import { getTags, createTag, updateTag, deleteTag, getReports, getSensitivePosts, processReport, autoActionReport } from '../services/adminApi'
 import api from '../services/api'
 import { useAuthStore } from '../store'
 import { Link, useNavigate } from 'react-router-dom'
@@ -59,6 +59,13 @@ export default function AdminInterface() {
   const { data: reportsData, isLoading: reportsLoading } = useQuery({
     queryKey: ['admin-reports', reportsStatusFilter],
     queryFn: () => getReports(reportsStatusFilter),
+    enabled: user?.userType === 1
+  })
+
+  // Fetch sensitive posts for moderation queue
+  const { data: sensitivePostsData, isLoading: sensitivePostsLoading } = useQuery({
+    queryKey: ['admin-sensitive-posts'],
+    queryFn: () => getSensitivePosts(),
     enabled: user?.userType === 1
   })
 
@@ -217,6 +224,7 @@ export default function AdminInterface() {
   const tags = tagsData?.tags || []
   const bannedUsers = bannedData?.bannedUsers || []
   const reports = reportsData?.reports || []
+  const sensitivePosts = sensitivePostsData?.posts || []
 
   const getReportedPostPath = (targetSummary) => {
     if (!targetSummary?.postId || !targetSummary?.forumCategory) {
@@ -235,6 +243,14 @@ export default function AdminInterface() {
     }
 
     return `/forums/${encodedCategory}/${targetSummary.postId}`
+  }
+
+  const getSensitivePostPath = (post) => {
+    if (!post?.targetSummary) {
+      return null
+    }
+
+    return getReportedPostPath(post.targetSummary)
   }
 
   if (!user || user.userType !== 1) {
@@ -277,6 +293,16 @@ export default function AdminInterface() {
             }`}
           >
             Signalements ({reports.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('sensitive')}
+            className={`px-4 py-2 font-medium ${
+              activeTab === 'sensitive'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-600 hover:text-gray-800'
+            }`}
+          >
+            Contenu sensible ({sensitivePosts.length})
           </button>
         </div>
 
@@ -613,6 +639,71 @@ export default function AdminInterface() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Sensitive Content Tab */}
+        {activeTab === 'sensitive' && (
+          <div className="max-w-5xl">
+            {sensitivePostsLoading ? (
+              <div className="text-center py-4">Chargement...</div>
+            ) : sensitivePosts.length === 0 ? (
+              <div className="text-center py-4 text-gray-600">Aucun contenu sensible détecté.</div>
+            ) : (
+              <div className="space-y-3">
+                {sensitivePosts.map((post) => {
+                  const postPath = getSensitivePostPath(post)
+                  return (
+                    <div key={post.id} className="bg-white border rounded p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="text-sm text-gray-500 mb-1">
+                            #{post.id} • {post.forumSpecial || 'forum'} • {new Date(post.createdAt).toLocaleString('fr-FR')}
+                          </div>
+                          <div className="font-semibold text-gray-900">
+                            {postPath ? (
+                              <Link to={postPath} className="text-blue-700 hover:text-blue-900 underline">
+                                {post.name}
+                              </Link>
+                            ) : (
+                              post.name
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-700 mt-1 whitespace-pre-wrap break-words">
+                            {post.description}
+                          </div>
+                          <div className="text-sm text-gray-600 mt-2">
+                            Auteur: @{post.author || 'inconnu'}
+                          </div>
+                          {post.sensitiveContentWarnings?.length > 0 && (
+                            <div className="mt-3 space-y-1">
+                              {post.sensitiveContentWarnings.map((warning, index) => (
+                                <div key={index} className="rounded bg-yellow-50 border border-yellow-200 px-3 py-2 text-sm text-yellow-800">
+                                  {warning.message}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-col items-end gap-2 min-w-[160px]">
+                          <span className="px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                            signalé
+                          </span>
+                          {postPath && (
+                            <Link
+                              to={postPath}
+                              className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                            >
+                              Voir le post
+                            </Link>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>

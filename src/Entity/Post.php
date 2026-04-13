@@ -74,6 +74,12 @@ class Post
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $pdfPath = null;
 
+    #[ORM\Column(type: Types::BOOLEAN, options: ['default' => false])]
+    private bool $hasSensitiveContent = false;
+
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $sensitiveContentWarnings = null;
+
     public function __construct()
     {
         $this->subscribedUsers = new ArrayCollection();
@@ -321,6 +327,30 @@ class Post
     public function setPdfPath(?string $pdfPath): static
     {
         $this->pdfPath = $pdfPath;
+
+        return $this;
+    }
+
+    public function hasSensitiveContent(): bool
+    {
+        return $this->hasSensitiveContent;
+    }
+
+    public function setHasSensitiveContent(bool $hasSensitiveContent): static
+    {
+        $this->hasSensitiveContent = $hasSensitiveContent;
+
+        return $this;
+    }
+
+    public function getSensitiveContentWarnings(): ?array
+    {
+        return $this->sensitiveContentWarnings;
+    }
+
+    public function setSensitiveContentWarnings(?array $sensitiveContentWarnings): static
+    {
+        $this->sensitiveContentWarnings = $sensitiveContentWarnings;
 
         return $this;
     }
