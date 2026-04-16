@@ -2,6 +2,8 @@
 
 namespace App\Controller\Api;
 
+use App\Entity\Conversation;
+use App\Entity\DataAccessRequest;
 use App\Entity\Comment;
 use App\Entity\Message;
 use App\Entity\Notification;
@@ -11,8 +13,10 @@ use App\Entity\Article;
 use App\Entity\Resource;
 use App\Entity\Tag;
 use App\Entity\User;
+use App\Entity\UserQuestions;
 use App\Repository\ArticleRepository;
 use App\Repository\CommentRepository;
+use App\Repository\DataAccessRequestRepository;
 use App\Repository\MessageRepository;
 use App\Repository\PostRepository;
 use App\Repository\ReportRepository;
@@ -25,6 +29,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use App\Repository\UserRepository;
+use App\Service\EmailService;
 
 #[Route('/api/admin')]
 class AdminApiController extends AbstractController
@@ -439,6 +444,162 @@ class AdminApiController extends AbstractController
     }
 
     /**
+     * List RGPD data-access requests.
+     */
+    #[Route('/data-access-requests', name: 'api_admin_data_access_requests_list', methods: ['GET'])]
+    public function getDataAccessRequests(
+        Request $request,
+        DataAccessRequestRepository $dataAccessRequestRepository
+    ): JsonResponse {
+        /** @var User|null $user */
+        $user = $this->getUser();
+        if (!$user || $user->getUserType() !== 1) {
+            return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
+        }
+
+        $status = trim((string) $request->query->get('status', ''));
+        $criteria = [];
+        if ($status !== '') {
+            $criteria['status'] = $status;
+        }
+
+        $requests = $dataAccessRequestRepository->findBy($criteria, ['createdAt' => 'DESC']);
+
+        $data = array_map(static function (DataAccessRequest $dataAccessRequest): array {
+            return [
+                'id' => $dataAccessRequest->getId(),
+                'status' => $dataAccessRequest->getStatus(),
+                'createdAt' => $dataAccessRequest->getCreatedAt()?->format('c'),
+                'processedAt' => $dataAccessRequest->getProcessedAt()?->format('c'),
+                'adminNote' => $dataAccessRequest->getAdminNote(),
+                'requester' => [
+                    'id' => $dataAccessRequest->getRequester()?->getId(),
+                    'username' => $dataAccessRequest->getRequester()?->getUsername(),
+                    'email' => $dataAccessRequest->getRequester()?->getEmail(),
+                    'firstName' => $dataAccessRequest->getRequester()?->getFirstName(),
+                    'lastName' => $dataAccessRequest->getRequester()?->getLastName(),
+                ],
+                'processedBy' => $dataAccessRequest->getProcessedBy() ? [
+                    'id' => $dataAccessRequest->getProcessedBy()?->getId(),
+                    'username' => $dataAccessRequest->getProcessedBy()?->getUsername(),
+                ] : null,
+            ];
+        }, $requests);
+
+        return $this->json(['requests' => $data]);
+    }
+
+    /**
+     * Process RGPD data-access request.
+     */
+    #[Route('/data-access-requests/{id}', name: 'api_admin_data_access_requests_process', methods: ['PATCH'])]
+    public function processDataAccessRequest(
+        int $id,
+        Request $request,
+        DataAccessRequestRepository $dataAccessRequestRepository,
+        EntityManagerInterface $entityManager,
+        EmailService $emailService
+    ): JsonResponse {
+        /** @var User|null $user */
+        $user = $this->getUser();
+        if (!$user || $user->getUserType() !== 1) {
+            return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
+        }
+
+        $dataAccessRequest = $dataAccessRequestRepository->find($id);
+        if (!$dataAccessRequest instanceof DataAccessRequest) {
+            return $this->json(['error' => 'Demande non trouvée'], Response::HTTP_NOT_FOUND);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        $status = trim((string) ($data['status'] ?? ''));
+        $adminNote = trim((string) ($data['adminNote'] ?? ''));
+        $previousStatus = $dataAccessRequest->getStatus();
+
+        if (!in_array($status, [DataAccessRequest::STATUS_PROCESSED, DataAccessRequest::STATUS_REJECTED], true)) {
+            return $this->json(['error' => 'Statut invalide'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $dataAccessRequest->setStatus($status);
+        $dataAccessRequest->setProcessedBy($user);
+        $dataAccessRequest->setProcessedAt(new \DateTimeImmutable());
+        $dataAccessRequest->setAdminNote($adminNote !== '' ? $adminNote : null);
+
+        $requester = $dataAccessRequest->getRequester();
+        if ($requester instanceof User && $previousStatus !== $status) {
+            $this->createDataAccessRequestStatusNotification(
+                $entityManager,
+                $requester,
+                $user,
+                $dataAccessRequest,
+                $status
+            );
+        }
+
+        $entityManager->flush();
+
+        // Send email with exported data if request was approved
+        if ($status === DataAccessRequest::STATUS_PROCESSED) {
+            try {
+                $requester = $dataAccessRequest->getRequester();
+                if ($requester instanceof User) {
+                    $exportData = $this->buildUserDataExport($requester, $entityManager);
+                    $emailService->sendDataExportEmail($requester, $exportData);
+                }
+            } catch (\Exception $e) {
+                // Log error but don't fail the request
+                error_log('Error sending RGPD data export email: ' . $e->getMessage());
+            }
+        }
+
+        return $this->json([
+            'message' => 'Demande mise à jour',
+            'request' => [
+                'id' => $dataAccessRequest->getId(),
+                'status' => $dataAccessRequest->getStatus(),
+                'processedAt' => $dataAccessRequest->getProcessedAt()?->format('c'),
+            ],
+        ]);
+    }
+
+    /**
+     * Export user data for a data-access request.
+     */
+    #[Route('/data-access-requests/{id}/data', name: 'api_admin_data_access_requests_data', methods: ['GET'])]
+    public function getDataAccessRequestData(
+        int $id,
+        DataAccessRequestRepository $dataAccessRequestRepository,
+        EntityManagerInterface $entityManager
+    ): JsonResponse {
+        /** @var User|null $user */
+        $user = $this->getUser();
+        if (!$user || $user->getUserType() !== 1) {
+            return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
+        }
+
+        $dataAccessRequest = $dataAccessRequestRepository->find($id);
+        if (!$dataAccessRequest instanceof DataAccessRequest) {
+            return $this->json(['error' => 'Demande non trouvée'], Response::HTTP_NOT_FOUND);
+        }
+
+        $requester = $dataAccessRequest->getRequester();
+        if (!$requester instanceof User) {
+            return $this->json(['error' => 'Utilisateur lié introuvable'], Response::HTTP_NOT_FOUND);
+        }
+
+        return $this->json([
+            'request' => [
+                'id' => $dataAccessRequest->getId(),
+                'status' => $dataAccessRequest->getStatus(),
+                'createdAt' => $dataAccessRequest->getCreatedAt()?->format('c'),
+                'processedAt' => $dataAccessRequest->getProcessedAt()?->format('c'),
+                'adminNote' => $dataAccessRequest->getAdminNote(),
+            ],
+            'data' => $this->buildUserDataExport($requester, $entityManager),
+        ]);
+    }
+
+    /**
      * Process a report (reviewed/rejected)
      */
     #[Route('/reports/{id}', name: 'api_admin_reports_process', methods: ['PATCH'])]
@@ -685,6 +846,32 @@ class AdminApiController extends AbstractController
         $entityManager->persist($notification);
     }
 
+    private function createDataAccessRequestStatusNotification(
+        EntityManagerInterface $entityManager,
+        User $recipient,
+        User $admin,
+        DataAccessRequest $dataAccessRequest,
+        string $status
+    ): void {
+        $message = $status === DataAccessRequest::STATUS_PROCESSED
+            ? 'Votre demande d\'accès à vos données RGPD a été acceptée. Un email avec le fichier JSON vous a été envoyé.'
+            : 'Votre demande d\'accès à vos données RGPD a été refusée. Consultez la note d\'administration pour plus de détails.';
+
+        $notification = new Notification();
+        $notification->setType('data_access_request_update');
+        $notification->setSender($admin);
+        $notification->setRecipient($recipient);
+        $notification->setStatus('unread');
+        $notification->setData([
+            'message' => $message,
+            'requestId' => $dataAccessRequest->getId(),
+            'decision' => $status,
+            'adminNote' => $dataAccessRequest->getAdminNote(),
+        ]);
+
+        $entityManager->persist($notification);
+    }
+
     private function deletePostDependencies(Post $post, EntityManagerInterface $entityManager): void
     {
         foreach ($post->getReplies() as $reply) {
@@ -845,5 +1032,135 @@ class AdminApiController extends AbstractController
         }
 
         return ['exists' => false, 'label' => 'Cible inconnue'];
+    }
+
+    private function buildUserDataExport(User $user, EntityManagerInterface $entityManager): array
+    {
+        $posts = $entityManager->getRepository(Post::class)->findBy(['user' => $user], ['creationDate' => 'DESC']);
+        $comments = $entityManager->getRepository(Comment::class)->findBy(['user' => $user], ['creationDate' => 'DESC']);
+        $articles = $entityManager->getRepository(Article::class)->findBy(['user' => $user], ['id' => 'DESC']);
+        $resources = $entityManager->getRepository(Resource::class)->findBy(['user' => $user], ['id' => 'DESC']);
+        $messages = $entityManager->getRepository(Message::class)->findBy(['sender' => $user], ['sentAt' => 'DESC']);
+        $notifications = $entityManager->getRepository(Notification::class)->findBy(['recipient' => $user], ['createdAt' => 'DESC']);
+        $questions = $entityManager->getRepository(UserQuestions::class)->findBy(['user' => $user]);
+        $reports = $entityManager->getRepository(Report::class)->findBy(['reporter' => $user], ['createdAt' => 'DESC']);
+
+        $conversations = $entityManager->getRepository(Conversation::class)->createQueryBuilder('c')
+            ->where('c.user1 = :user OR c.user2 = :user')
+            ->setParameter('user', $user)
+            ->orderBy('c.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+
+        return [
+            'exportedAt' => (new \DateTimeImmutable())->format('c'),
+            'user' => [
+                'id' => $user->getId(),
+                'username' => $user->getUsername(),
+                'email' => $user->getEmail(),
+                'firstName' => $user->getFirstName(),
+                'lastName' => $user->getLastName(),
+                'affiliationLocation' => $user->getAffiliationLocation(),
+                'specialization' => $user->getSpecialization(),
+                'researchTopic' => $user->getResearchTopic(),
+                'researcherTitle' => $user->getResearcherTitle(),
+                'genre' => $user->getGenre(),
+                'roles' => $user->getRoles(),
+                'network' => $user->getNetwork(),
+                'blocked' => $user->getBlocked(),
+                'blockedBy' => $user->getBlockedBy(),
+                'isBanned' => $user->isBanned(),
+            ],
+            'posts' => array_map(static function (Post $post): array {
+                return [
+                    'id' => $post->getId(),
+                    'name' => $post->getName(),
+                    'description' => $post->getDescription(),
+                    'creationDate' => $post->getCreationDate()?->format('c'),
+                    'lastActivity' => $post->getLastActivity()?->format('c'),
+                    'forumId' => $post->getForum()?->getId(),
+                    'forumTitle' => $post->getForum()?->getTitle(),
+                    'isReply' => $post->getIsReply(),
+                ];
+            }, $posts),
+            'comments' => array_map(static function (Comment $comment): array {
+                return [
+                    'id' => $comment->getId(),
+                    'body' => $comment->getBody(),
+                    'creationDate' => $comment->getCreationDate()?->format('c'),
+                    'postId' => $comment->getPost()?->getId(),
+                ];
+            }, $comments),
+            'articles' => array_map(static function (Article $article): array {
+                return [
+                    'id' => $article->getId(),
+                    'title' => $article->getTitle(),
+                    'link' => $article->getLink(),
+                    'content' => $article->getContent(),
+                    'relatedBookId' => $article->getRelatedBook()?->getId(),
+                    'relatedAuthorId' => $article->getRelatedAuthor()?->getId(),
+                ];
+            }, $articles),
+            'resources' => array_map(static function (Resource $resource): array {
+                return [
+                    'id' => $resource->getId(),
+                    'title' => $resource->getTitle(),
+                    'description' => $resource->getDescription(),
+                    'link' => $resource->getLink(),
+                    'page' => $resource->getPage(),
+                ];
+            }, $resources),
+            'messages' => array_map(static function (Message $message): array {
+                return [
+                    'id' => $message->getId(),
+                    'content' => $message->getContent(),
+                    'sentAt' => $message->getSentAt()?->format('c'),
+                    'conversationId' => $message->getConversation()?->getId(),
+                ];
+            }, $messages),
+            'conversations' => array_map(static function (Conversation $conversation) use ($user): array {
+                $otherParticipant = $conversation->getUser1()?->getId() === $user->getId()
+                    ? $conversation->getUser2()
+                    : $conversation->getUser1();
+
+                return [
+                    'id' => $conversation->getId(),
+                    'user1Id' => $conversation->getUser1()?->getId(),
+                    'user2Id' => $conversation->getUser2()?->getId(),
+                    'otherParticipant' => $otherParticipant ? [
+                        'id' => $otherParticipant->getId(),
+                        'username' => $otherParticipant->getUsername(),
+                    ] : null,
+                ];
+            }, $conversations),
+            'notifications' => array_map(static function (Notification $notification): array {
+                return [
+                    'id' => $notification->getId(),
+                    'type' => $notification->getType(),
+                    'status' => $notification->getStatus(),
+                    'isRead' => $notification->isRead(),
+                    'createdAt' => $notification->getCreatedAt()->format('c'),
+                    'data' => $notification->getData(),
+                ];
+            }, $notifications),
+            'userQuestions' => array_map(static function (UserQuestions $question): array {
+                return [
+                    'id' => $question->getId(),
+                    'question' => $question->getQuestion(),
+                    'answer' => $question->getAnswer(),
+                ];
+            }, $questions),
+            'reportsCreated' => array_map(static function (Report $report): array {
+                return [
+                    'id' => $report->getId(),
+                    'targetType' => $report->getTargetType(),
+                    'targetId' => $report->getTargetId(),
+                    'reason' => $report->getReason(),
+                    'details' => $report->getDetails(),
+                    'status' => $report->getStatus(),
+                    'createdAt' => $report->getCreatedAt()?->format('c'),
+                ];
+            }, $reports),
+        ];
     }
 }

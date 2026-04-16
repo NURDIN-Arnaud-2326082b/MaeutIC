@@ -53,6 +53,32 @@ export const getSensitivePosts = async () => {
 }
 
 /**
+ * Get RGPD data-access requests for admins
+ */
+export const getDataAccessRequests = async (status = '') => {
+  const response = await api.get('/admin/data-access-requests', {
+    params: status ? { status } : {}
+  })
+  return response.data
+}
+
+/**
+ * Process RGPD data-access request status
+ */
+export const processDataAccessRequest = async (id, status, adminNote = '') => {
+  const response = await api.patch(`/admin/data-access-requests/${id}`, { status, adminNote })
+  return response.data
+}
+
+/**
+ * Fetch JSON export for one RGPD request
+ */
+export const getDataAccessRequestData = async (id) => {
+  const response = await api.get(`/admin/data-access-requests/${id}/data`)
+  return response.data
+}
+
+/**
  * Update moderation report status
  */
 export const processReport = async (id, status, adminNote = '') => {

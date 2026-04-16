@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getTags, createTag, updateTag, deleteTag, getReports, getSensitivePosts, processReport, autoActionReport } from '../services/adminApi'
+import { getTags, createTag, updateTag, deleteTag, getReports, getSensitivePosts, getDataAccessRequests, processDataAccessRequest, getDataAccessRequestData, processReport, autoActionReport } from '../services/adminApi'
 import api from '../services/api'
 import { useAuthStore } from '../store'
 import { Link, useNavigate } from 'react-router-dom'
@@ -17,6 +17,8 @@ export default function AdminInterface() {
   const [editTagName, setEditTagName] = useState('')
   const [banSearchQuery, setBanSearchQuery] = useState('')
   const [reportsStatusFilter, setReportsStatusFilter] = useState('')
+  const [dataAccessStatusFilter, setDataAccessStatusFilter] = useState('')
+  const [dataExportPreview, setDataExportPreview] = useState(null)
 
   // Redirect if not admin
   useEffect(() => {
@@ -66,6 +68,13 @@ export default function AdminInterface() {
   const { data: sensitivePostsData, isLoading: sensitivePostsLoading } = useQuery({
     queryKey: ['admin-sensitive-posts'],
     queryFn: () => getSensitivePosts(),
+    enabled: user?.userType === 1
+  })
+
+  // Fetch RGPD requests
+  const { data: dataAccessRequestsData, isLoading: dataAccessRequestsLoading } = useQuery({
+    queryKey: ['admin-data-access-requests', dataAccessStatusFilter],
+    queryFn: () => getDataAccessRequests(dataAccessStatusFilter),
     enabled: user?.userType === 1
   })
 
@@ -160,6 +169,17 @@ export default function AdminInterface() {
     }
   })
 
+  const processDataAccessMutation = useMutation({
+    mutationFn: ({ id, status, adminNote }) => processDataAccessRequest(id, status, adminNote),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['admin-data-access-requests'])
+      alert('Demande RGPD mise à jour')
+    },
+    onError: (error) => {
+      alert(error.response?.data?.error || 'Erreur lors du traitement de la demande RGPD')
+    }
+  })
+
   const handleCreateSubmit = (e) => {
     e.preventDefault()
     if (createTagName.trim()) {
@@ -221,10 +241,25 @@ export default function AdminInterface() {
     autoActionMutation.mutate({ id: report.id, action, adminNote })
   }
 
+  const handleProcessDataAccessRequest = (requestId, status) => {
+    const adminNote = globalThis.prompt('Note admin (optionnel)') || ''
+    processDataAccessMutation.mutate({ id: requestId, status, adminNote })
+  }
+
+  const handlePreviewDataExport = async (requestId) => {
+    try {
+      const payload = await getDataAccessRequestData(requestId)
+      setDataExportPreview(payload)
+    } catch (error) {
+      alert(error.response?.data?.error || 'Impossible de récupérer les données JSON')
+    }
+  }
+
   const tags = tagsData?.tags || []
   const bannedUsers = bannedData?.bannedUsers || []
   const reports = reportsData?.reports || []
   const sensitivePosts = sensitivePostsData?.posts || []
+  const dataAccessRequests = dataAccessRequestsData?.requests || []
 
   const getReportedPostPath = (targetSummary) => {
     if (!targetSummary?.postId || !targetSummary?.forumCategory) {
@@ -303,6 +338,16 @@ export default function AdminInterface() {
             }`}
           >
             Contenu sensible ({sensitivePosts.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('gdpr')}
+            className={`px-4 py-2 font-medium ${
+              activeTab === 'gdpr'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-600 hover:text-gray-800'
+            }`}
+          >
+            Données RGPD ({dataAccessRequests.length})
           </button>
         </div>
 
@@ -704,6 +749,105 @@ export default function AdminInterface() {
                     </div>
                   )
                 })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* GDPR Data Access Tab */}
+        {activeTab === 'gdpr' && (
+          <div className="max-w-5xl">
+            <div className="flex items-center gap-3 mb-4">
+              <label htmlFor="gdpr-status-filter" className="text-sm font-medium text-gray-700">Filtrer par statut:</label>
+              <select
+                id="gdpr-status-filter"
+                value={dataAccessStatusFilter}
+                onChange={(e) => setDataAccessStatusFilter(e.target.value)}
+                className="p-2 border border-gray-300 rounded"
+              >
+                <option value="">Tous</option>
+                <option value="pending">En attente</option>
+                <option value="processed">Traités</option>
+                <option value="rejected">Rejetés</option>
+              </select>
+            </div>
+
+            {dataAccessRequestsLoading ? (
+              <div className="text-center py-4">Chargement...</div>
+            ) : dataAccessRequests.length === 0 ? (
+              <div className="text-center py-4 text-gray-600">Aucune demande RGPD.</div>
+            ) : (
+              <div className="space-y-3">
+                {dataAccessRequests.map((request) => (
+                  <div key={request.id} className="bg-white border rounded p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="text-sm text-gray-500 mb-1">
+                          Demande #{request.id} • {new Date(request.createdAt).toLocaleString('fr-FR')}
+                        </div>
+                        <div className="font-semibold text-gray-900">
+                          @{request.requester?.username || 'inconnu'} ({request.requester?.email || 'email inconnu'})
+                        </div>
+                        <div className="text-sm text-gray-700 mt-1">
+                          {request.requester?.firstName} {request.requester?.lastName}
+                        </div>
+                        {request.adminNote && (
+                          <div className="text-sm text-indigo-700 mt-2">Note admin: {request.adminNote}</div>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-end gap-2 min-w-[200px]">
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                          request.status === 'processed' ? 'bg-green-100 text-green-800' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {request.status}
+                        </span>
+                        <button
+                          onClick={() => handlePreviewDataExport(request.id)}
+                          className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                        >
+                          Voir JSON
+                        </button>
+                        {request.status === 'pending' && (
+                          <>
+                            <button
+                              onClick={() => handleProcessDataAccessRequest(request.id, 'processed')}
+                              disabled={processDataAccessMutation.isPending}
+                              className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 disabled:opacity-50"
+                            >
+                              Marquer traité
+                            </button>
+                            <button
+                              onClick={() => handleProcessDataAccessRequest(request.id, 'rejected')}
+                              disabled={processDataAccessMutation.isPending}
+                              className="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 disabled:opacity-50"
+                            >
+                              Rejeter
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {dataExportPreview && (
+              <div className="mt-6 rounded border border-gray-300 bg-white p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-gray-900">Aperçu JSON - Demande #{dataExportPreview.request?.id}</h3>
+                  <button
+                    onClick={() => setDataExportPreview(null)}
+                    className="text-sm text-gray-600 hover:text-gray-900"
+                  >
+                    Fermer
+                  </button>
+                </div>
+                <pre className="text-xs bg-gray-50 border rounded p-3 overflow-auto max-h-[420px]">
+                  {JSON.stringify(dataExportPreview, null, 2)}
+                </pre>
               </div>
             )}
           </div>
