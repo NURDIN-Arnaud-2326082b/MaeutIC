@@ -524,6 +524,7 @@ class AdminApiController extends AbstractController
         $resultMessage = '';
         $contentAuthor = null;
         $removedContentType = null;
+        $cleanedPendingReportsCount = 0;
 
         if ($action === 'delete_target') {
             if ($targetType === Report::TARGET_POST) {
@@ -587,6 +588,14 @@ class AdminApiController extends AbstractController
                     $removedContentType
                 );
             }
+
+            // Keep the current report as reviewed trace, but purge other pending
+            // reports targeting the same deleted content.
+            $cleanedPendingReportsCount = $reportRepository->deletePendingByTargetExceptId(
+                (string) $targetType,
+                $targetId,
+                (int) $report->getId()
+            );
         }
 
         if ($action === 'ban_author') {
@@ -635,6 +644,7 @@ class AdminApiController extends AbstractController
         return $this->json([
             'message' => 'Action automatique appliquée',
             'result' => $resultMessage,
+            'cleanedPendingReports' => $cleanedPendingReportsCount,
             'report' => [
                 'id' => $report->getId(),
                 'status' => $report->getStatus(),

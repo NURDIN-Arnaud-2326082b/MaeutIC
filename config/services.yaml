@@ -32,3 +32,7 @@ services:
             $corsAllowOrigin: '%env(CORS_ALLOW_ORIGIN)%'
         tags:
             - { name: kernel.event_subscriber }
+
+    App\EventListener\ReportTargetCleanupSubscriber:
+        tags:
+            - { name: doctrine.event_subscriber }

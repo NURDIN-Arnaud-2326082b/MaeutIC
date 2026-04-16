@@ -12,4 +12,20 @@ class ReportRepository extends ServiceEntityRepository
     {
         parent::__construct($registry, Report::class);
     }
+
+    public function deletePendingByTargetExceptId(string $targetType, int $targetId, int $excludedReportId): int
+    {
+        return $this->createQueryBuilder('r')
+            ->delete()
+            ->andWhere('r.targetType = :targetType')
+            ->andWhere('r.targetId = :targetId')
+            ->andWhere('r.status = :status')
+            ->andWhere('r.id != :excludedReportId')
+            ->setParameter('targetType', $targetType)
+            ->setParameter('targetId', $targetId)
+            ->setParameter('status', Report::STATUS_PENDING)
+            ->setParameter('excludedReportId', $excludedReportId)
+            ->getQuery()
+            ->execute();
+    }
 }
