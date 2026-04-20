@@ -512,6 +512,9 @@ class AdminApiController extends AbstractController
         }
 
         $data = json_decode($request->getContent(), true);
+        if (!is_array($data)) {
+            return $this->json(['error' => 'JSON invalide'], Response::HTTP_BAD_REQUEST);
+        }
         $status = trim((string) ($data['status'] ?? ''));
         $adminNote = trim((string) ($data['adminNote'] ?? ''));
         $previousStatus = $dataAccessRequest->getStatus();

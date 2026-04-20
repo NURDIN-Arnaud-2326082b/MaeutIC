@@ -124,6 +124,10 @@ class AuthApiController extends AbstractController
             $data = json_decode($request->getContent(), true);
         }
 
+        if (!is_array($data)) {
+            return $this->json(['error' => 'JSON invalide'], Response::HTTP_BAD_REQUEST);
+        }
+
         // Validation - utiliser 'plainPassword' si c'est du FormData, sinon 'password'
         $passwordField = isset($data['plainPassword']) ? 'plainPassword' : 'password';
 
