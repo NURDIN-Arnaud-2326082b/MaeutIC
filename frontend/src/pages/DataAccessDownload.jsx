@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import apiClient from '../services/api'
+import apiClient, { downloadResponseBlob, extractApiErrorMessage } from '../services/api'
 
 export default function DataAccessDownload() {
   const { requestId } = useParams()
@@ -20,28 +20,18 @@ export default function DataAccessDownload() {
 
     const run = async () => {
       try {
+        const fallbackFilename = `maeutic-data-export-${requestId}.json`
         const response = await apiClient.get(`/privacy/data-access-requests/${requestId}/download`, {
           params: { token },
           responseType: 'blob',
         })
 
-        const contentDisposition = response.headers['content-disposition'] || ''
-        const match = contentDisposition.match(/filename="?([^";]+)"?/i)
-        const filename = match?.[1] || `maeutic-data-export-${requestId}.json`
-
-        const blob = new Blob([response.data], { type: 'application/json' })
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = filename
-        document.body.appendChild(a)
-        a.click()
-        a.remove()
-        window.URL.revokeObjectURL(url)
+        downloadResponseBlob(response, fallbackFilename)
 
         setIsDone(true)
       } catch (err) {
-        setError(err?.response?.data?.error || 'Téléchargement impossible. Vérifie que tu es connecté(e) et que le lien est encore valide.')
+        const apiError = await extractApiErrorMessage(err?.response?.data)
+        setError(apiError || 'Téléchargement impossible. Vérifie que tu es connecté(e) et que le lien est encore valide.')
       } finally {
         setIsLoading(false)
       }
