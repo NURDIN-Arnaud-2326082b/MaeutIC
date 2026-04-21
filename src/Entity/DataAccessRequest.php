@@ -39,6 +39,12 @@ class DataAccessRequest
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $adminNote = null;
 
+    #[ORM\Column(length: 64, nullable: true)]
+    private ?string $downloadTokenHash = null;
+
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $downloadTokenExpiresAt = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -112,6 +118,30 @@ class DataAccessRequest
     public function setAdminNote(?string $adminNote): static
     {
         $this->adminNote = $adminNote;
+
+        return $this;
+    }
+
+    public function getDownloadTokenHash(): ?string
+    {
+        return $this->downloadTokenHash;
+    }
+
+    public function setDownloadTokenHash(?string $downloadTokenHash): static
+    {
+        $this->downloadTokenHash = $downloadTokenHash;
+
+        return $this;
+    }
+
+    public function getDownloadTokenExpiresAt(): ?\DateTimeImmutable
+    {
+        return $this->downloadTokenExpiresAt;
+    }
+
+    public function setDownloadTokenExpiresAt(?\DateTimeImmutable $downloadTokenExpiresAt): static
+    {
+        $this->downloadTokenExpiresAt = $downloadTokenExpiresAt;
 
         return $this;
     }

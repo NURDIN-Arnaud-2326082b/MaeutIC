@@ -7,7 +7,13 @@
     
     <p>Nous vous confirmons que votre demande d'accès à vos données personnelles conformément au RGPD a été <strong>traitée avec succès</strong>.</p>
     
-    <p>Un fichier JSON contenant l'ensemble de vos données personnelles en notre possession est <strong>joint à cet email</strong>.</p>
+    <p>Pour des raisons de sécurité, vos données ne sont pas envoyées en pièce jointe. Elles sont disponibles via un <strong>lien de téléchargement temporaire</strong>.</p>
+
+    <p style="text-align: center; margin: 30px 0;">
+        <a href="{{ dataExportUrl }}" class="button">Télécharger mes données</a>
+    </p>
+
+    <p>Ce lien nécessite que vous soyez connecté(e) à votre compte Maieutic et expire le <strong>{{ expiresAt|date('d/m/Y à H:i') }}</strong>.</p>
     
     <h3 style="color: #1e293b; margin-top: 30px; font-size: 18px;">Contenu de l'export</h3>
     
@@ -25,7 +31,7 @@
     
     <h3 style="color: #1e293b; margin-top: 30px; font-size: 18px;">Prochaines étapes</h3>
     
-    <p>Vous pouvez consulter le fichier JSON attaché à tout moment. Si vous avez des questions concernant vos données ou souhaitez exercer d'autres droits (rectification, suppression), <strong>contactez notre équipe de modération</strong>.</p>
+    <p>Si vous avez des questions concernant vos données ou souhaitez exercer d'autres droits (rectification, suppression), <strong>contactez notre équipe de modération</strong>.</p>
     
     <p style="margin-top: 35px; font-size: 14px; color: #666;">
         <strong>Date de traitement :</strong> {{ exportDate }}<br>

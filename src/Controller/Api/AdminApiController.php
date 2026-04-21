@@ -541,18 +541,29 @@ class AdminApiController extends AbstractController
 
         $entityManager->flush();
 
-        // Send email with exported data if request was approved
+        // Send secure download link by email if request was approved
         if ($status === DataAccessRequest::STATUS_PROCESSED) {
             try {
                 $requester = $dataAccessRequest->getRequester();
                 if ($requester instanceof User) {
-                    $exportData = $this->buildUserDataExport($requester, $entityManager);
-                    $emailService->sendDataExportEmail($requester, $exportData);
+                    $rawToken = bin2hex(random_bytes(32));
+                    $expiresAt = new \DateTimeImmutable('+48 hours');
+
+                    $dataAccessRequest->setDownloadTokenHash(hash('sha256', $rawToken));
+                    $dataAccessRequest->setDownloadTokenExpiresAt($expiresAt);
+                    $entityManager->flush();
+
+                    $emailService->sendDataExportLinkEmail($requester, $dataAccessRequest, $rawToken, $expiresAt);
                 }
             } catch (\Exception $e) {
                 // Log error but don't fail the request
                 error_log('Error sending RGPD data export email: ' . $e->getMessage());
             }
+        } else {
+            // Invalidate any previous download token when request is rejected
+            $dataAccessRequest->setDownloadTokenHash(null);
+            $dataAccessRequest->setDownloadTokenExpiresAt(null);
+            $entityManager->flush();
         }
 
         return $this->json([

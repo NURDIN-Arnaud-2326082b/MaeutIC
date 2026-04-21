@@ -2,36 +2,48 @@
 
 namespace App\Service;
 
+use App\Entity\DataAccessRequest;
 use App\Entity\User;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Component\Mailer\MailerInterface;
-use Symfony\Component\Mime\Part\DataPart;
 
 class EmailService
 {
-    public function __construct(private MailerInterface $mailer) {}
+    public function __construct(
+        private MailerInterface $mailer,
+        private string $mailerFrom,
+        private string $frontendUrl
+    ) {}
 
     /**
-     * Send RGPD data export email to user
+     * Send RGPD data export link email to user
      */
-    public function sendDataExportEmail(User $recipient, array $exportData): void
+    public function sendDataExportLinkEmail(
+        User $recipient,
+        DataAccessRequest $request,
+        string $rawToken,
+        \DateTimeImmutable $expiresAt
+    ): void
     {
-        $jsonData = json_encode($exportData, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-        
+        $baseUrl = rtrim($this->frontendUrl, '/');
+        $downloadUrl = sprintf(
+            '%s/privacy/data-access-download/%d?token=%s',
+            $baseUrl,
+            $request->getId(),
+            urlencode($rawToken)
+        );
+
         $email = (new TemplatedEmail())
-            ->from('noreply@maeutic.local')
+            ->from($this->mailerFrom)
             ->to($recipient->getEmail())
             ->subject('Vos données MaeutIC - Demande d\'accès RGPD')
             ->htmlTemplate('email/data_export.html.twig')
             ->context([
                 'recipientName' => $recipient->getFirstName() ?: $recipient->getUsername(),
                 'exportDate' => (new \DateTimeImmutable())->format('d/m/Y'),
+                'expiresAt' => $expiresAt,
+                'dataExportUrl' => $downloadUrl,
             ]);
-
-        // Attach JSON file
-        $email->addPart(
-            new DataPart($jsonData, 'maeutic-data-export.json', 'application/json')
-        );
 
         $this->mailer->send($email);
     }

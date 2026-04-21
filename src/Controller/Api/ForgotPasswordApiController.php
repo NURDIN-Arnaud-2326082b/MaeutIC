@@ -196,11 +196,12 @@ class ForgotPasswordApiController extends AbstractController
     private function sendResetEmail(MailerInterface $mailer, $user, string $token): void
     {
         // Generate frontend URL (React app)
-        $frontendUrl = $_ENV['FRONTEND_URL'] ?? 'http://localhost:3000';
+        $frontendUrl = (string) $this->getParameter('app.frontend_url');
         $resetUrl = $frontendUrl . '/reset-password/' . $token;
+        $mailerFrom = (string) $this->getParameter('app.mailer_from');
 
         $email = (new Email())
-            ->from('contact@maieutic-projet.fr')
+            ->from($mailerFrom)
             ->to($user->getEmail())
             ->subject('Réinitialisation de votre mot de passe - Maieutic')
             ->html($this->renderView('email/reset_password.html.twig', [

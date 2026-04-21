@@ -19,6 +19,7 @@ import Conversation from './pages/Conversation'
 import Methodology from './pages/Methodology'
 import Chill from './pages/Chill'
 import Administrative from './pages/Administrative'
+import DataAccessDownload from './pages/DataAccessDownload'
 import MethodologyForums from './pages/MethodologyForums'
 import DetenteForums from './pages/DetenteForums'
 import AdministratifForums from './pages/AdministratifForums'
@@ -68,6 +69,7 @@ function App() {
         <Route path="profile/:username" element={<Profile />} />
         <Route path="profile-edit" element={<ProfileEdit />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="privacy/data-access-download/:requestId" element={<DataAccessDownload />} />
         
         {/* Messages */}
         <Route path="messages/:conversationId" element={<Conversation />} />
