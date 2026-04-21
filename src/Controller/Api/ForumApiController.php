@@ -65,6 +65,12 @@ class ForumApiController extends AbstractController
             $posts = $forum->getPosts()->toArray();
         }
 
+        // Hide posts from banned accounts for everyone.
+        $posts = array_values(array_filter($posts, function (Post $post) {
+            $postUser = $post->getUser();
+            return $postUser === null || !$postUser->isBanned();
+        }));
+
         // Filter out posts from blocked users (mutual block)
         if ($currentUser) {
             $allBlockedIds = array_merge(
@@ -90,6 +96,11 @@ class ForumApiController extends AbstractController
         $post = $this->postRepository->find($id);
         
         if (!$post) {
+            return $this->json(['error' => 'Post not found'], 404);
+        }
+
+        $author = $post->getUser();
+        if ($author && $author->isBanned()) {
             return $this->json(['error' => 'Post not found'], 404);
         }
 
@@ -123,6 +134,8 @@ class ForumApiController extends AbstractController
         $name = trim((string)($data['name'] ?? ''));
         $description = trim((string)($data['description'] ?? ''));
         $forumId = (int)($data['forumId'] ?? 0);
+        $hasSensitiveContent = filter_var($data['hasSensitiveContent'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $sensitiveContentWarnings = $this->decodeSensitiveWarnings($data['sensitiveContentWarnings'] ?? null);
 
         $forum = $forumId > 0 ? $this->forumRepository->find($forumId) : null;
         
@@ -161,6 +174,8 @@ class ForumApiController extends AbstractController
         $post->setUser($this->getUser());
         $post->setCreationDate(new \DateTime());
         $post->setLastActivity(new \DateTime());
+        $post->setHasSensitiveContent($hasSensitiveContent);
+        $post->setSensitiveContentWarnings($sensitiveContentWarnings);
 
         // Handle parent post (for replies)
         if (isset($data['parentId'])) {
@@ -179,6 +194,7 @@ class ForumApiController extends AbstractController
             'id' => $post->getId(),
             'imageUrl' => $this->getPostImageUrl($post),
             'pdfUrl' => $this->getPostPdfUrl($post),
+            'hasSensitiveContent' => $post->hasSensitiveContent(),
         ], 201);
     }
 
@@ -444,11 +460,19 @@ class ForumApiController extends AbstractController
             'parentId' => $parentPost?->getId(),
             'parentPost' => $this->serializeParentPost($parentPost),
             'repliesCount' => $post->getReplies()->count(),
+            'hasSensitiveContent' => $post->hasSensitiveContent(),
+            'sensitiveContentWarnings' => $post->getSensitiveContentWarnings() ?? [],
         ];
 
         if ($includeReplies) {
             $replies = $post->getReplies()->toArray();
             usort($replies, fn(Post $a, Post $b) => $a->getCreationDate() <=> $b->getCreationDate());
+
+            // Hide replies authored by banned users.
+            $replies = array_values(array_filter($replies, function (Post $reply) {
+                $replyUser = $reply->getUser();
+                return $replyUser === null || !$replyUser->isBanned();
+            }));
 
             if ($currentUser) {
                 $allBlockedIds = array_merge(
@@ -539,5 +563,19 @@ class ForumApiController extends AbstractController
         if (is_file($path)) {
             @unlink($path);
         }
+    }
+
+    private function decodeSensitiveWarnings(mixed $warnings): array
+    {
+        if (is_array($warnings)) {
+            return $warnings;
+        }
+
+        if (!is_string($warnings) || trim($warnings) === '') {
+            return [];
+        }
+
+        $decoded = json_decode($warnings, true);
+        return is_array($decoded) ? $decoded : [];
     }
 }

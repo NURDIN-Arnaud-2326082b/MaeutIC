@@ -37,6 +37,7 @@ class MapsApiController extends AbstractController
 
         if ($currentUser) {
             $friends = $networkService->getUserNetwork($currentUser);
+            $friends = $this->filterOutBannedUsers($friends);
             $friendIds = array_map(fn($friend) => $friend->getId(), $friends);
             
             // Filter out blocked users
@@ -58,12 +59,14 @@ class MapsApiController extends AbstractController
 
             // Filter recommended users
             $recommendedUsers = array_values(array_filter($recommendedUsers, fn($u) => !$currentUser->isBlocked($u->getId()) && !$currentUser->isBlockedBy($u->getId())));
+            $recommendedUsers = $this->filterOutBannedUsers($recommendedUsers);
 
             if (count($recommendedUsers) < 40 && count($nonFriendUsers) > 0) {
                 $usedIds = array_merge($friendIds, [$currentUser->getId()], array_map(fn($u) => $u->getId(), $recommendedUsers));
                 $availableUsers = array_filter($nonFriendUsers, function ($user) use ($usedIds) {
                     return !in_array($user->getId(), $usedIds);
                 });
+                $availableUsers = $this->filterOutBannedUsers($availableUsers);
 
                 $needed = 40 - count($recommendedUsers);
                 $randomUsers = array_slice($availableUsers, 0, min($needed, count($availableUsers)));
@@ -88,9 +91,11 @@ class MapsApiController extends AbstractController
             
             // Filter out blocked users
             $usersToDisplay = $this->filterOutBlockedUsers($usersToDisplay, $currentUser);
+            $usersToDisplay = $this->filterOutBannedUsers($usersToDisplay);
         } else {
             // For non-authenticated users
             $usersToDisplay = $userRepository->findPaginated(1, self::MAX_USERS_DISPLAY);
+            $usersToDisplay = $this->filterOutBannedUsers($usersToDisplay);
         }
 
         // Format users for JSON
@@ -175,10 +180,12 @@ class MapsApiController extends AbstractController
 
         if ($currentUser) {
             $friends = $networkService->getUserNetwork($currentUser);
+            $friends = $this->filterOutBannedUsers($friends);
             $friendIds = array_map(fn($friend) => $friend->getId(), $friends);
         }
 
         $searchedUsers = $userRepository->findBySearchQuery($searchQuery, 200);
+        $searchedUsers = $this->filterOutBannedUsers($searchedUsers);
         $totalUsers = count($searchedUsers);
 
         $offset = ($page - 1) * $limit;
@@ -296,10 +303,12 @@ class MapsApiController extends AbstractController
 
         if ($currentUser) {
             $friends = $networkService->getUserNetwork($currentUser);
+            $friends = $this->filterOutBannedUsers($friends);
             $friendIds = array_map(fn($friend) => $friend->getId(), $friends);
         }
 
         $taggedUsers = $userRepository->findByTaggableQuestion1Tags($tagIds, 200);
+        $taggedUsers = $this->filterOutBannedUsers($taggedUsers);
         $totalUsers = count($taggedUsers);
 
         $offset = ($page - 1) * $limit;
@@ -383,6 +392,16 @@ class MapsApiController extends AbstractController
 
         return array_values(array_filter($users, function ($user) use ($currentUser) {
             return !$currentUser->isBlocked($user->getId()) && !$currentUser->isBlockedBy($user->getId());
+        }));
+    }
+
+    /**
+     * Filter out banned users from user collections.
+     */
+    private function filterOutBannedUsers(array $users): array
+    {
+        return array_values(array_filter($users, function ($user) {
+            return !$user->isBanned();
         }));
     }
 }

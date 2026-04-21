@@ -2,7 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import { conversationApi } from '../services/conversationApi';
-import { useAuthStore } from '../store';
+import { createReport } from '../services/reportApi';
+import ReportModal from '../components/ReportModal';
 
 export default function Conversation() {
   const { conversationId } = useParams();
@@ -10,7 +11,19 @@ export default function Conversation() {
   const queryClient = useQueryClient();
   const messagesEndRef = useRef(null);
   const [messageContent, setMessageContent] = useState('');
-  const user = useAuthStore((state) => state.user);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState(null);
+  const [reportReason, setReportReason] = useState('');
+  const [reportCustomReason, setReportCustomReason] = useState('');
+  const [reportDetails, setReportDetails] = useState('');
+
+  const REPORT_REASON_LABELS = {
+    spam: 'Spam',
+    harassment: 'Harcèlement',
+    inappropriate_content: 'Contenu inapproprié',
+    impersonation: "Usurpation d'identité",
+    other: 'Autre',
+  };
 
   // Récupère les messages avec polling toutes les 2 secondes
   const { data, isLoading, error } = useQuery({
@@ -28,6 +41,52 @@ export default function Conversation() {
       queryClient.invalidateQueries(['conversations']);
     },
   });
+
+  const reportMessageMutation = useMutation({
+    mutationFn: createReport,
+    onSuccess: () => {
+      setReportModalOpen(false);
+      setReportTarget(null);
+      setReportReason('');
+      setReportCustomReason('');
+      setReportDetails('');
+      alert('Signalement envoye avec succes');
+    },
+    onError: (error) => {
+      alert(error.response?.data?.error || 'Erreur lors du signalement');
+    },
+  });
+
+  const openReportModal = (messageId, messageContent) => {
+    setReportTarget({ messageId, messageContent });
+    setReportReason('');
+    setReportCustomReason('');
+    setReportDetails('');
+    setReportModalOpen(true);
+  };
+
+  const handleReportMessage = (event) => {
+    event.preventDefault();
+
+    if (!reportTarget) {
+      return;
+    }
+
+    const reasonText = reportReason === 'other'
+      ? reportCustomReason.trim()
+      : REPORT_REASON_LABELS[reportReason];
+
+    if (!reasonText) {
+      return;
+    }
+
+    reportMessageMutation.mutate({
+      targetType: 'message',
+      targetId: Number(reportTarget.messageId),
+      reason: reasonText,
+      details: reportDetails.trim(),
+    });
+  };
 
   // Auto-scroll vers le bas quand de nouveaux messages arrivent
   useEffect(() => {
@@ -124,6 +183,15 @@ export default function Conversation() {
                   )}
                   <div className="break-words">{message.content}</div>
                   <div className="text-xs text-gray-600 mt-1">{message.sentAt}</div>
+                  {!message.isOwn && (
+                    <button
+                      onClick={() => openReportModal(message.id, message.content)}
+                      disabled={reportMessageMutation.isPending}
+                      className="mt-1 text-xs text-orange-700 hover:text-orange-900 disabled:opacity-50"
+                    >
+                      Signaler ce message
+                    </button>
+                  )}
                 </div>
               </div>
             ))
@@ -152,6 +220,21 @@ export default function Conversation() {
           </button>
         </div>
       </form>
+
+      <ReportModal
+        open={reportModalOpen}
+        title="Signaler un message"
+        targetLabel={reportTarget?.messageContent ? `Message: ${reportTarget.messageContent}` : ''}
+        reason={reportReason}
+        customReason={reportCustomReason}
+        details={reportDetails}
+        submitting={reportMessageMutation.isPending}
+        onClose={() => setReportModalOpen(false)}
+        onReasonChange={setReportReason}
+        onCustomReasonChange={setReportCustomReason}
+        onDetailsChange={setReportDetails}
+        onSubmit={handleReportMessage}
+      />
     </div>
   );
 }
