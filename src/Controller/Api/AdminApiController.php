@@ -553,7 +553,9 @@ class AdminApiController extends AbstractController
                     $dataAccessRequest->setDownloadTokenExpiresAt($expiresAt);
                     $entityManager->flush();
 
-                    $emailService->sendDataExportLinkEmail($requester, $dataAccessRequest, $rawToken, $expiresAt);
+                    if ($_ENV['MAILER_DSN'] !== 'null://null') {
+                        $emailService->sendDataExportLinkEmail($requester, $dataAccessRequest, $rawToken, $expiresAt);
+                    }
                 }
             } catch (\Exception $e) {
                 // Log error but don't fail the request
