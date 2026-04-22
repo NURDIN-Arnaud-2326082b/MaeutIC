@@ -22,14 +22,6 @@ export default function Profile() {
   const actionsMenuRef = useRef(null)
   const queryClient = useQueryClient()
 
-  const REPORT_REASON_LABELS = {
-    spam: 'Spam',
-    harassment: 'Harcèlement',
-    inappropriate_content: 'Contenu inapproprié',
-    impersonation: "Usurpation d'identité",
-    other: 'Autre',
-  }
-
   const { data: profileData, isLoading } = useQuery({
     queryKey: ['profile', username],
     queryFn: () => userApi.getProfile(username),
@@ -132,18 +124,17 @@ export default function Profile() {
       return
     }
 
-    const reasonText = reportReason === 'other'
-      ? reportCustomReason.trim()
-      : REPORT_REASON_LABELS[reportReason]
+    const customReasonText = reportCustomReason.trim()
 
-    if (!reasonText) {
+    if (!reportReason || (reportReason === 'other' && !customReasonText)) {
       return
     }
 
     createReportMutation.mutate({
       targetType: reportTarget.targetType,
       targetId: reportTarget.targetId,
-      reason: reasonText,
+      reasonCode: reportReason,
+      customReason: customReasonText,
       details: reportDetails.trim(),
     })
   }

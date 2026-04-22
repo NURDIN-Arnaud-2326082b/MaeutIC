@@ -19,6 +19,7 @@ use Symfony\Component\Routing\Attribute\Route;
 final class ConversationApiController extends AbstractController
 {
     private const BANNED_DISPLAY_NAME = 'utilisateur banni';
+    private const DELETED_DISPLAY_NAME = 'utilisateur supprimé';
     private const DEFAULT_PROFILE_IMAGE = '/images/default-profile.png';
 
     private function serializeConversationUser(\App\Entity\User $user): array
@@ -120,20 +121,28 @@ final class ConversationApiController extends AbstractController
             'otherUser' => $this->serializeConversationUser($other),
             'messages' => array_map(function (Message $message) use ($user) {
                 $sender = $message->getSender();
-                $senderName = $sender->getUsername();
-                if ($sender->isBanned()) {
-                    $senderName = self::BANNED_DISPLAY_NAME;
+                $senderId = $sender?->getId();
+                $isOwn = false;
+
+                if ($sender === null) {
+                    $senderName = self::DELETED_DISPLAY_NAME;
+                } else {
+                    $senderName = $sender->getUsername();
+                    if ($sender->isBanned()) {
+                        $senderName = self::BANNED_DISPLAY_NAME;
+                    }
+                    $isOwn = $sender === $user;
                 }
 
                 return [
                     'id' => $message->getId(),
                     'content' => $message->getContent(),
                     'sender' => [
-                        'id' => $sender->getId(),
+                        'id' => $senderId,
                         'username' => $senderName,
                     ],
                     'sentAt' => $message->getSentAt()->format('d/m/Y H:i'),
-                    'isOwn' => $sender === $user,
+                    'isOwn' => $isOwn,
                 ];
             }, $messages),
         ];

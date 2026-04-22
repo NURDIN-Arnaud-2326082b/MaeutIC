@@ -27,14 +27,6 @@ export default function ResourcePage({
   const isAuthenticated = !!user
   const isAdmin = user?.userType === 1
 
-  const REPORT_REASON_LABELS = {
-    spam: 'Spam',
-    harassment: 'Harcèlement',
-    inappropriate_content: 'Contenu inapproprié',
-    impersonation: "Usurpation d'identité",
-    other: 'Autre',
-  }
-
   // Normalize forumLinks to always be an array
   const normalizedForumLinks = forumLinks 
     ? (Array.isArray(forumLinks) ? forumLinks : [forumLinks])
@@ -149,18 +141,17 @@ export default function ResourcePage({
       return
     }
 
-    const reasonText = reportReason === 'other'
-      ? reportCustomReason.trim()
-      : REPORT_REASON_LABELS[reportReason]
+    const customReasonText = reportCustomReason.trim()
 
-    if (!reasonText) {
+    if (!reportReason || (reportReason === 'other' && !customReasonText)) {
       return
     }
 
     reportMutation.mutate({
       targetType: 'resource',
       targetId: Number(reportTarget.id),
-      reason: reasonText,
+      reasonCode: reportReason,
+      customReason: customReasonText,
       details: reportDetails.trim(),
     })
   }

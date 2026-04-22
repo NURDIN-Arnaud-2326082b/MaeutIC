@@ -48,14 +48,6 @@ const Library = () => {
     const [reportCustomReason, setReportCustomReason] = useState('');
     const [reportDetails, setReportDetails] = useState('');
 
-    const REPORT_REASON_LABELS = {
-        spam: 'Spam',
-        harassment: 'Harcelement',
-        inappropriate_content: 'Contenu inapproprie',
-        impersonation: "Usurpation d'identite",
-        other: 'Autre',
-    };
-
     const handleBookFound = ({title, author, image}) => {
         setScannedBook({title, author, imageUrl: image});
         setShowScanner(false);
@@ -274,18 +266,17 @@ const Library = () => {
             return;
         }
 
-        const reasonText = reportReason === 'other'
-            ? reportCustomReason.trim()
-            : REPORT_REASON_LABELS[reportReason];
+        const customReasonText = reportCustomReason.trim();
 
-        if (!reasonText) {
+        if (!reportReason || (reportReason === 'other' && !customReasonText)) {
             return;
         }
 
         reportMutation.mutate({
             targetType: 'article',
             targetId: Number(reportTarget.id),
-            reason: reasonText,
+            reasonCode: reportReason,
+            customReason: customReasonText,
             details: reportDetails.trim(),
         });
     };

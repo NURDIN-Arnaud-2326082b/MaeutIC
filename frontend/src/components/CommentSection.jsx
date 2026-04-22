@@ -16,14 +16,6 @@ export default function CommentSection({ postId, comments }) {
   const { user } = useAuthStore()
   const queryClient = useQueryClient()
 
-  const REPORT_REASON_LABELS = {
-    spam: 'Spam',
-    harassment: 'Harcèlement',
-    inappropriate_content: 'Contenu inapproprié',
-    impersonation: "Usurpation d'identité",
-    other: 'Autre',
-  }
-
   const createCommentMutation = useMutation({
     mutationFn: (comment) => commentApi.createComment({ postId, ...comment }),
     onSuccess: () => {
@@ -58,18 +50,17 @@ export default function CommentSection({ postId, comments }) {
   const handleReportComment = (event) => {
     event.preventDefault()
 
-    const reasonText = reportReason === 'other'
-      ? reportCustomReason.trim()
-      : REPORT_REASON_LABELS[reportReason]
+    const customReasonText = reportCustomReason.trim()
 
-    if (!reasonText || reportCommentId === null) {
+    if (!reportReason || (reportReason === 'other' && !customReasonText) || reportCommentId === null) {
       return
     }
 
     reportMutation.mutate({
       targetType: 'comment',
       targetId: reportCommentId,
-      reason: reasonText,
+      reasonCode: reportReason,
+      customReason: customReasonText,
       details: reportDetails.trim(),
     })
   }

@@ -10,14 +10,6 @@ import { checkSensitiveContent } from '../utils/sensitiveContentDetector'
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
 const BACKEND_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '')
 
-const REPORT_REASON_LABELS = {
-  spam: 'Spam',
-  harassment: 'Harcèlement',
-  inappropriate_content: 'Contenu inapproprié',
-  impersonation: "Usurpation d'identité",
-  other: 'Autre',
-}
-
 const getRandomAnonymousId = () => {
   const letters = 'abcdefghijklmnopqrstuvwxyz'
   const randomLetter = () => letters[Math.floor(Math.random() * letters.length)]
@@ -468,18 +460,17 @@ export default function Forums({ specialCategory = null }) {
       return
     }
 
-    const reasonText = reportReason === 'other'
-      ? reportCustomReason.trim()
-      : REPORT_REASON_LABELS[reportReason]
+    const customReasonText = reportCustomReason.trim()
 
-    if (!reasonText) {
+    if (!reportReason || (reportReason === 'other' && !customReasonText)) {
       return
     }
 
     reportPostMutation.mutate({
       targetType: reportTarget.targetType,
       targetId: Number(reportTarget.targetId),
-      reason: reasonText,
+      reasonCode: reportReason,
+      customReason: customReasonText,
       details: reportDetails.trim(),
     })
   }

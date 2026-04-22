@@ -17,14 +17,6 @@ export default function Conversation() {
   const [reportCustomReason, setReportCustomReason] = useState('');
   const [reportDetails, setReportDetails] = useState('');
 
-  const REPORT_REASON_LABELS = {
-    spam: 'Spam',
-    harassment: 'Harcèlement',
-    inappropriate_content: 'Contenu inapproprié',
-    impersonation: "Usurpation d'identité",
-    other: 'Autre',
-  };
-
   // Récupère les messages avec polling toutes les 2 secondes
   const { data, isLoading, error } = useQuery({
     queryKey: ['conversation', conversationId],
@@ -72,18 +64,17 @@ export default function Conversation() {
       return;
     }
 
-    const reasonText = reportReason === 'other'
-      ? reportCustomReason.trim()
-      : REPORT_REASON_LABELS[reportReason];
+    const customReasonText = reportCustomReason.trim();
 
-    if (!reasonText) {
+    if (!reportReason || (reportReason === 'other' && !customReasonText)) {
       return;
     }
 
     reportMessageMutation.mutate({
       targetType: 'message',
       targetId: Number(reportTarget.messageId),
-      reason: reasonText,
+      reasonCode: reportReason,
+      customReason: customReasonText,
       details: reportDetails.trim(),
     });
   };

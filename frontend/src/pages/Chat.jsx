@@ -57,14 +57,6 @@ export default function Chat() {
     },
   });
 
-  const REPORT_REASON_LABELS = {
-    spam: 'Spam',
-    harassment: 'Harcèlement',
-    inappropriate_content: 'Contenu inapproprié',
-    impersonation: "Usurpation d'identité",
-    other: 'Autre',
-  };
-
   const openReportModal = (messageId, messageContent) => {
     setReportTarget({ messageId, messageContent });
     setReportReason('');
@@ -80,18 +72,17 @@ export default function Chat() {
       return;
     }
 
-    const reasonText = reportReason === 'other'
-      ? reportCustomReason.trim()
-      : REPORT_REASON_LABELS[reportReason];
+    const customReasonText = reportCustomReason.trim();
 
-    if (!reasonText) {
+    if (!reportReason || (reportReason === 'other' && !customReasonText)) {
       return;
     }
 
     reportGlobalMessageMutation.mutate({
       targetType: 'message',
       targetId: reportTarget.messageId,
-      reason: reasonText,
+      reasonCode: reportReason,
+      customReason: customReasonText,
       details: reportDetails.trim(),
     });
   };

@@ -24,6 +24,14 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/api/reports')]
 class ReportApiController extends AbstractController
 {
+    private const REASON_LABELS = [
+        'spam' => 'Spam',
+        'harassment' => 'Harcèlement',
+        'inappropriate_content' => 'Contenu inapproprié',
+        'impersonation' => "Usurpation d'identité",
+        'other' => 'Autre',
+    ];
+
     #[Route('', name: 'api_reports_create', methods: ['POST'])]
     public function create(
         Request $request,
@@ -48,7 +56,7 @@ class ReportApiController extends AbstractController
         }
         $targetType = strtolower(trim((string) ($data['targetType'] ?? '')));
         $targetId = (int) ($data['targetId'] ?? 0);
-        $reason = trim((string) ($data['reason'] ?? ''));
+        $reason = $this->resolveReason($data);
         $details = trim((string) ($data['details'] ?? ''));
 
         $allowedTypes = [
@@ -60,7 +68,7 @@ class ReportApiController extends AbstractController
             Report::TARGET_RESOURCE,
         ];
 
-        if (!in_array($targetType, $allowedTypes, true) || $targetId <= 0 || $reason === '') {
+        if (!in_array($targetType, $allowedTypes, true) || $targetId <= 0 || !is_string($reason) || $reason === '') {
             return $this->json(['error' => 'Payload de signalement invalide'], Response::HTTP_BAD_REQUEST);
         }
 
@@ -143,5 +151,39 @@ class ReportApiController extends AbstractController
             Report::TARGET_RESOURCE => (($resourceRepository->find($targetId)?->getUser()?->getId()) === $currentUser->getId()),
             default => false,
         };
+    }
+
+    private function resolveReason(array $data): ?string
+    {
+        $reasonCode = strtolower(trim((string) ($data['reasonCode'] ?? '')));
+        $customReason = trim((string) ($data['customReason'] ?? ''));
+
+        if ($reasonCode !== '') {
+            if ($reasonCode === 'other') {
+                return $customReason !== '' ? $customReason : null;
+            }
+
+            return self::REASON_LABELS[$reasonCode] ?? null;
+        }
+
+        // Backward compatibility with legacy clients that still send a free-text reason.
+        $legacyReason = trim((string) ($data['reason'] ?? ''));
+        if ($legacyReason === '') {
+            return null;
+        }
+
+        $legacyKey = strtolower($legacyReason);
+        $legacyAliases = [
+            'spam' => self::REASON_LABELS['spam'],
+            'harcelement' => self::REASON_LABELS['harassment'],
+            'harcèlement' => self::REASON_LABELS['harassment'],
+            'contenu inapproprie' => self::REASON_LABELS['inappropriate_content'],
+            'contenu inapproprié' => self::REASON_LABELS['inappropriate_content'],
+            "usurpation d'identite" => self::REASON_LABELS['impersonation'],
+            "usurpation d'identité" => self::REASON_LABELS['impersonation'],
+            'autre' => self::REASON_LABELS['other'],
+        ];
+
+        return $legacyAliases[$legacyKey] ?? $legacyReason;
     }
 }
