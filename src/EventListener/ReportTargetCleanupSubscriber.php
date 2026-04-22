@@ -50,13 +50,36 @@ class ReportTargetCleanupSubscriber implements EventSubscriber
             return;
         }
 
+        // If a report on the same target is being updated in this flush (e.g. admin auto-action),
+        // skip SQL cleanup for that target to avoid deleting the row before Doctrine UPDATE runs.
+        $targetsWithReportUpdate = [];
+        foreach ($unitOfWork->getScheduledEntityUpdates() as $entity) {
+            if (!$entity instanceof Report) {
+                continue;
+            }
+
+            $reportTargetType = $entity->getTargetType();
+            $reportTargetId = (int) $entity->getTargetId();
+            if ($reportTargetType === '' || $reportTargetId <= 0) {
+                continue;
+            }
+
+            $key = sprintf('%s:%d', $reportTargetType, $reportTargetId);
+            $targetsWithReportUpdate[$key] = true;
+        }
+
         $connection = $entityManager->getConnection();
-        foreach ($targetsToCleanup as [$targetType, $targetId]) {
+        foreach ($targetsToCleanup as $key => [$targetType, $targetId]) {
+            if (isset($targetsWithReportUpdate[$key])) {
+                continue;
+            }
+
             $connection->executeStatement(
-                'DELETE FROM report WHERE target_type = :targetType AND target_id = :targetId',
+                'DELETE FROM report WHERE target_type = :targetType AND target_id = :targetId AND status = :status',
                 [
                     'targetType' => $targetType,
                     'targetId' => $targetId,
+                    'status' => Report::STATUS_PENDING,
                 ]
             );
         }

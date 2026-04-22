@@ -36,7 +36,7 @@ class EmailService
         $email = (new TemplatedEmail())
             ->from($this->mailerFrom)
             ->to($recipient->getEmail())
-            ->subject('Vos données MaeutIC - Demande d\'accès RGPD')
+            ->subject('Vos données MaieutIC - Demande d\'accès RGPD')
             ->htmlTemplate('email/data_export.html.twig')
             ->context([
                 'recipientName' => $recipient->getFirstName() ?: $recipient->getUsername(),
