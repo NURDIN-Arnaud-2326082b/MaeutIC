@@ -3,9 +3,16 @@ import PropTypes from 'prop-types'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { commentApi } from '../services/apis'
 import { useAuthStore } from '../store'
+import { createReport } from '../services/reportApi'
+import ReportModal from './ReportModal'
 
 export default function CommentSection({ postId, comments }) {
   const [newComment, setNewComment] = useState('')
+  const [reportModalOpen, setReportModalOpen] = useState(false)
+  const [reportCommentId, setReportCommentId] = useState(null)
+  const [reportReason, setReportReason] = useState('')
+  const [reportCustomReason, setReportCustomReason] = useState('')
+  const [reportDetails, setReportDetails] = useState('')
   const { user } = useAuthStore()
   const queryClient = useQueryClient()
 
@@ -16,6 +23,47 @@ export default function CommentSection({ postId, comments }) {
       setNewComment('')
     },
   })
+
+  const reportMutation = useMutation({
+    mutationFn: createReport,
+    onSuccess: () => {
+      setReportModalOpen(false)
+      setReportCommentId(null)
+      setReportReason('')
+      setReportCustomReason('')
+      setReportDetails('')
+      alert('Signalement envoye avec succes')
+    },
+    onError: (error) => {
+      alert(error.response?.data?.error || 'Erreur lors du signalement')
+    },
+  })
+
+  const openReportModal = (commentId) => {
+    setReportCommentId(commentId)
+    setReportReason('')
+    setReportCustomReason('')
+    setReportDetails('')
+    setReportModalOpen(true)
+  }
+
+  const handleReportComment = (event) => {
+    event.preventDefault()
+
+    const customReasonText = reportCustomReason.trim()
+
+    if (!reportReason || (reportReason === 'other' && !customReasonText) || reportCommentId === null) {
+      return
+    }
+
+    reportMutation.mutate({
+      targetType: 'comment',
+      targetId: reportCommentId,
+      reasonCode: reportReason,
+      customReason: customReasonText,
+      details: reportDetails.trim(),
+    })
+  }
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -70,11 +118,35 @@ export default function CommentSection({ postId, comments }) {
                   </span>
                 </div>
                 <p className="text-gray-700">{comment.body}</p>
+                {user && comment.user?.id !== user.id && (
+                  <button
+                    onClick={() => openReportModal(comment.id)}
+                    disabled={reportMutation.isPending}
+                    className="mt-2 text-sm text-orange-700 hover:text-orange-900 disabled:opacity-50"
+                  >
+                    Signaler
+                  </button>
+                )}
               </div>
             </div>
           </div>
         ))}
       </div>
+
+      <ReportModal
+        open={reportModalOpen}
+        title="Signaler un commentaire"
+        targetLabel={reportCommentId ? 'Cible: commentaire signalé' : ''}
+        reason={reportReason}
+        customReason={reportCustomReason}
+        details={reportDetails}
+        submitting={reportMutation.isPending}
+        onClose={() => setReportModalOpen(false)}
+        onReasonChange={setReportReason}
+        onCustomReasonChange={setReportCustomReason}
+        onDetailsChange={setReportDetails}
+        onSubmit={handleReportComment}
+      />
     </div>
   )
 }

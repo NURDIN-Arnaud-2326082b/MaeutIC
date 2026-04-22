@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../store'
 import { getResources, createResource, updateResource, deleteResource } from '../services/resourceApi'
+import { createReport } from '../services/reportApi'
+import ReportModal from './ReportModal'
 
 export default function ResourcePage({ 
   page, 
@@ -16,6 +18,11 @@ export default function ResourcePage({
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingResource, setEditingResource] = useState(null)
   const [formData, setFormData] = useState({ title: '', description: '', link: '' })
+  const [reportModalOpen, setReportModalOpen] = useState(false)
+  const [reportTarget, setReportTarget] = useState(null)
+  const [reportReason, setReportReason] = useState('')
+  const [reportCustomReason, setReportCustomReason] = useState('')
+  const [reportDetails, setReportDetails] = useState('')
 
   const isAuthenticated = !!user
   const isAdmin = user?.userType === 1
@@ -57,6 +64,21 @@ export default function ResourcePage({
     mutationFn: (id) => deleteResource(page, id),
     onSuccess: () => {
       queryClient.invalidateQueries(['resources', page])
+    }
+  })
+
+  const reportMutation = useMutation({
+    mutationFn: createReport,
+    onSuccess: () => {
+      setReportModalOpen(false)
+      setReportTarget(null)
+      setReportReason('')
+      setReportCustomReason('')
+      setReportDetails('')
+      alert('Signalement envoye avec succes')
+    },
+    onError: (error) => {
+      alert(error.response?.data?.error || 'Erreur lors du signalement')
     }
   })
 
@@ -102,6 +124,36 @@ export default function ResourcePage({
       link: resource.link
     })
     setShowEditModal(true)
+  }
+
+  const openReportModal = (resource) => {
+    setReportTarget(resource)
+    setReportReason('')
+    setReportCustomReason('')
+    setReportDetails('')
+    setReportModalOpen(true)
+  }
+
+  const handleReportSubmit = (event) => {
+    event.preventDefault()
+
+    if (!reportTarget) {
+      return
+    }
+
+    const customReasonText = reportCustomReason.trim()
+
+    if (!reportReason || (reportReason === 'other' && !customReasonText)) {
+      return
+    }
+
+    reportMutation.mutate({
+      targetType: 'resource',
+      targetId: Number(reportTarget.id),
+      reasonCode: reportReason,
+      customReason: customReasonText,
+      details: reportDetails.trim(),
+    })
   }
 
   const extractYoutubeId = (url) => {
@@ -190,6 +242,18 @@ export default function ResourcePage({
                         Voir la ressource
                       </a>
                     </>
+                  )}
+
+                  {isAuthenticated && !canManageResource(resource) && (
+                    <button
+                      onClick={() => openReportModal(resource)}
+                      disabled={reportMutation.isPending}
+                      className="absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded bg-orange-100 text-orange-700 hover:bg-orange-200 disabled:opacity-50 transition"
+                      title="Signaler cette ressource"
+                      aria-label="Signaler cette ressource"
+                    >
+                      🚩
+                    </button>
                   )}
 
                   {canManageResource(resource) && (
@@ -330,6 +394,21 @@ export default function ResourcePage({
           </div>
         </div>
       )}
+
+      <ReportModal
+        open={reportModalOpen}
+        title="Signaler une ressource"
+        targetLabel={reportTarget?.title ? `Cible: ${reportTarget.title}` : ''}
+        reason={reportReason}
+        customReason={reportCustomReason}
+        details={reportDetails}
+        submitting={reportMutation.isPending}
+        onClose={() => setReportModalOpen(false)}
+        onReasonChange={setReportReason}
+        onCustomReasonChange={setReportCustomReason}
+        onDetailsChange={setReportDetails}
+        onSubmit={handleReportSubmit}
+      />
     </div>
   )
 }

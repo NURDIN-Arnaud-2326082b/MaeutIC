@@ -32,7 +32,7 @@ class NetworkApiController extends AbstractController
 
         foreach ($networkIds as $memberId) {
             $member = $userRepository->find($memberId);
-            if ($member) {
+            if ($member && !$member->isBanned()) {
                 $networkMembers[] = [
                     'id' => $member->getId(),
                     'username' => $member->getUsername(),

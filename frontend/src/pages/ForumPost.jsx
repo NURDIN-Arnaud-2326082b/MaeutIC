@@ -1,10 +1,51 @@
+import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { forumApi, commentApi } from '../services/apis'
 import CommentSection from '../components/CommentSection'
+import { createReport } from '../services/reportApi'
+import ReportModal from '../components/ReportModal'
+import { useAuthStore } from '../store'
 
 export default function ForumPost() {
   const { id } = useParams()
+  const { user } = useAuthStore()
+  const [reportModalOpen, setReportModalOpen] = useState(false)
+  const [reportReason, setReportReason] = useState('')
+  const [reportCustomReason, setReportCustomReason] = useState('')
+  const [reportDetails, setReportDetails] = useState('')
+
+  const reportMutation = useMutation({
+    mutationFn: createReport,
+    onSuccess: () => {
+      setReportModalOpen(false)
+      setReportReason('')
+      setReportCustomReason('')
+      setReportDetails('')
+      alert('Signalement envoye avec succes')
+    },
+    onError: (error) => {
+      alert(error.response?.data?.error || 'Erreur lors du signalement')
+    },
+  })
+
+  const handleReportPost = (event) => {
+    event.preventDefault()
+
+    const customReasonText = reportCustomReason.trim()
+
+    if (!reportReason || (reportReason === 'other' && !customReasonText)) {
+      return
+    }
+
+    reportMutation.mutate({
+      targetType: 'post',
+      targetId: Number(id),
+      reasonCode: reportReason,
+      customReason: customReasonText,
+      details: reportDetails.trim(),
+    })
+  }
 
   const { data: post, isLoading } = useQuery({
     queryKey: ['post', id],
@@ -69,10 +110,34 @@ export default function ForumPost() {
             </svg>
             J'aime ({post.likesCount || 0})
           </button>
+          {user && post.user?.id !== user.id && (
+            <button
+              onClick={() => setReportModalOpen(true)}
+              disabled={reportMutation.isPending}
+              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
+            >
+              {reportMutation.isPending ? 'Signalement...' : 'Signaler ce post'}
+            </button>
+          )}
         </div>
 
         <CommentSection postId={id} comments={comments} />
       </div>
+
+      <ReportModal
+        open={reportModalOpen}
+        title="Signaler ce post"
+        targetLabel={post?.name ? `Cible: ${post.name}` : ''}
+        reason={reportReason}
+        customReason={reportCustomReason}
+        details={reportDetails}
+        submitting={reportMutation.isPending}
+        onClose={() => setReportModalOpen(false)}
+        onReasonChange={setReportReason}
+        onCustomReasonChange={setReportCustomReason}
+        onDetailsChange={setReportDetails}
+        onSubmit={handleReportPost}
+      />
     </div>
   )
 }

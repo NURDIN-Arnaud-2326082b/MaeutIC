@@ -12,7 +12,6 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
-use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 #[Route('/api')]
@@ -34,13 +33,19 @@ class AuthApiController extends AbstractController
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        // Trouver l'utilisateur par username
-        $user = $userRepository->findOneBy(['username' => $data['username']]);
+        // Trouver l'utilisateur par username (sans sensibilité à la casse)
+        $user = $userRepository->findOneByUsernameInsensitive((string) $data['username']);
 
         if (!$user) {
             return $this->json([
                 'error' => 'Invalid credentials'
             ], Response::HTTP_UNAUTHORIZED);
+        }
+
+        if ($user->isBanned()) {
+            return $this->json([
+                'error' => 'Ce compte est banni et ne peut plus se connecter'
+            ], Response::HTTP_FORBIDDEN);
         }
 
         // Vérifier le mot de passe
@@ -119,6 +124,10 @@ class AuthApiController extends AbstractController
             $data = json_decode($request->getContent(), true);
         }
 
+        if (!is_array($data)) {
+            return $this->json(['error' => 'JSON invalide'], Response::HTTP_BAD_REQUEST);
+        }
+
         // Validation - utiliser 'plainPassword' si c'est du FormData, sinon 'password'
         $passwordField = isset($data['plainPassword']) ? 'plainPassword' : 'password';
 
@@ -130,22 +139,41 @@ class AuthApiController extends AbstractController
             ], 400);
         }
 
+        $email = trim((string) ($data['email'] ?? ''));
+        $username = isset($data['username']) ? trim((string) $data['username']) : '';
+
+        if ($email === '') {
+            return $this->json(['error' => 'Email and password required'], 400);
+        }
+
         // Check if email already exists
-        if ($userRepository->findOneBy(['email' => $data['email']])) {
-            return $this->json(['error' => 'Email already exists'], 400);
+        $emailOwner = $userRepository->findOneByEmailInsensitive($email);
+        if ($emailOwner) {
+            return $this->json([
+                'error' => $emailOwner->isBanned()
+                    ? 'Impossible de créer un compte avec l\'adresse email d\'un compte banni'
+                    : 'Email already exists'
+            ], 400);
         }
 
         // Check if username already exists
-        if (isset($data['username']) && $userRepository->findOneBy(['username' => $data['username']])) {
-            return $this->json(['error' => 'Username already exists'], 400);
+        if ($username !== '') {
+            $usernameOwner = $userRepository->findOneByUsernameInsensitive($username);
+            if ($usernameOwner) {
+                return $this->json([
+                    'error' => $usernameOwner->isBanned()
+                        ? 'Impossible de créer un compte avec le nom d\'utilisateur d\'un compte banni'
+                        : 'Username already exists'
+                ], 400);
+            }
         }
 
         // Create user
         $user = new User();
-        $user->setEmail($data['email']);
+        $user->setEmail($email);
 
-        if (isset($data['username'])) {
-            $user->setUsername($data['username']);
+        if ($username !== '') {
+            $user->setUsername($username);
         }
         if (isset($data['firstName'])) {
             $user->setFirstName($data['firstName']);
@@ -172,7 +200,6 @@ class AuthApiController extends AbstractController
         // Gérer l'upload de photo de profil
         $profileImageFile = $request->files->get('profileImage');
         if ($profileImageFile) {
-            $originalFilename = pathinfo($profileImageFile->getClientOriginalName(), PATHINFO_FILENAME);
             // Créer un nom de fichier sécurisé
             $newFilename = uniqid() . '.' . $profileImageFile->guessExtension();
 
@@ -279,11 +306,18 @@ class AuthApiController extends AbstractController
             return new JsonResponse(['available' => true]);
         }
 
-        $user = $userRepository->findOneBy(['email' => $email]);
+        $user = $userRepository->findOneByEmailInsensitive((string) $email);
+
+        $message = 'Adresse email disponible';
+        if ($user) {
+            $message = $user->isBanned()
+                ? 'Cette adresse email est réservée par un compte banni et ne peut pas être réutilisée'
+                : 'Cette adresse email est déjà utilisée';
+        }
 
         return new JsonResponse([
             'available' => $user === null,
-            'message' => $user ? 'Cette adresse email est déjà utilisée' : 'Adresse email disponible'
+            'message' => $message
         ]);
     }
 
@@ -296,11 +330,18 @@ class AuthApiController extends AbstractController
             return new JsonResponse(['available' => true]);
         }
 
-        $user = $userRepository->findOneBy(['username' => $username]);
+        $user = $userRepository->findOneByUsernameInsensitive((string) $username);
+
+        $message = 'Nom d\'utilisateur disponible';
+        if ($user) {
+            $message = $user->isBanned()
+                ? 'Ce nom d\'utilisateur est réservé par un compte banni et ne peut pas être réutilisé'
+                : 'Ce nom d\'utilisateur est déjà pris';
+        }
 
         return new JsonResponse([
             'available' => $user === null,
-            'message' => $user ? 'Ce nom d\'utilisateur est déjà pris' : 'Nom d\'utilisateur disponible'
+            'message' => $message
         ]);
     }
 }

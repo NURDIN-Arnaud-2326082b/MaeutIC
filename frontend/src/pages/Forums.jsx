@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { forumApi, commentApi } from '../services/apis'
+import { createReport } from '../services/reportApi'
+import ReportModal from '../components/ReportModal'
 import { useAuthStore } from '../store'
 import { checkSensitiveContent } from '../utils/sensitiveContentDetector'
 
@@ -41,6 +43,11 @@ export default function Forums({ specialCategory = null }) {
   const [newPostPdf, setNewPostPdf] = useState(null)
   const [selectedForumId, setSelectedForumId] = useState(null)
   const [preventionAlerts, setPreventionAlerts] = useState([])
+  const [reportModalOpen, setReportModalOpen] = useState(false)
+  const [reportTarget, setReportTarget] = useState(null)
+  const [reportReason, setReportReason] = useState('')
+  const [reportCustomReason, setReportCustomReason] = useState('')
+  const [reportDetails, setReportDetails] = useState('')
   
   // Edit post states
   const [showEditModal, setShowEditModal] = useState(false)
@@ -240,6 +247,21 @@ export default function Forums({ specialCategory = null }) {
     },
   })
 
+  const reportPostMutation = useMutation({
+    mutationFn: createReport,
+    onSuccess: () => {
+      setReportModalOpen(false)
+      setReportTarget(null)
+      setReportReason('')
+      setReportCustomReason('')
+      setReportDetails('')
+      alert('Signalement envoyé avec succès')
+    },
+    onError: (error) => {
+      alert(error.response?.data?.error || 'Erreur lors du signalement')
+    },
+  })
+
   const likeCommentMutation = useMutation({
     mutationFn: (commentId) => commentApi.likeComment(commentId),
     onSuccess: () => {
@@ -412,6 +434,47 @@ export default function Forums({ specialCategory = null }) {
     }
   }
 
+  const openReportModal = (targetType, targetId, targetLabel) => {
+    setReportTarget({ targetType, targetId, targetLabel })
+    setReportReason('')
+    setReportCustomReason('')
+    setReportDetails('')
+    setReportModalOpen(true)
+  }
+
+  const closeReportModal = () => {
+    if (reportPostMutation.isPending) {
+      return
+    }
+
+    setReportModalOpen(false)
+    setReportTarget(null)
+    setReportReason('')
+    setReportCustomReason('')
+    setReportDetails('')
+  }
+
+  const handleReportSubmit = (event) => {
+    event.preventDefault()
+    if (!reportTarget) {
+      return
+    }
+
+    const customReasonText = reportCustomReason.trim()
+
+    if (!reportReason || (reportReason === 'other' && !customReasonText)) {
+      return
+    }
+
+    reportPostMutation.mutate({
+      targetType: reportTarget.targetType,
+      targetId: Number(reportTarget.targetId),
+      reasonCode: reportReason,
+      customReason: customReasonText,
+      details: reportDetails.trim(),
+    })
+  }
+
   const handleEditImageSelection = (e) => {
     const file = e.target.files?.[0]
     if (!file) {
@@ -506,12 +569,18 @@ export default function Forums({ specialCategory = null }) {
   const handleCreatePost = (e) => {
     e.preventDefault()
     const forumId = selectedForumId || currentForum?.id || forums[0]?.id
+    const sensitiveWarningsPayload = preventionAlerts.map((warning) => ({
+      message: warning.message,
+      link: warning.link || null,
+    }))
 
     if (newPostImage || newPostPdf) {
       const formData = new FormData()
       formData.append('name', newPostTitle)
       formData.append('description', newPostDescription)
       formData.append('forumId', String(forumId))
+      formData.append('hasSensitiveContent', preventionAlerts.length > 0 ? '1' : '0')
+      formData.append('sensitiveContentWarnings', JSON.stringify(sensitiveWarningsPayload))
       if (newPostImage) {
         formData.append('image', newPostImage)
       }
@@ -525,7 +594,9 @@ export default function Forums({ specialCategory = null }) {
     createPostMutation.mutate({
       name: newPostTitle,
       description: newPostDescription,
-      forumId
+      forumId,
+      hasSensitiveContent: preventionAlerts.length > 0,
+      sensitiveContentWarnings: sensitiveWarningsPayload,
     })
   }
 
@@ -782,6 +853,15 @@ export default function Forums({ specialCategory = null }) {
                     </button>
                   </div>
                 )}
+                {isAuthenticated && user?.id !== selectedPost.user?.id && (
+                  <button
+                    onClick={() => openReportModal('post', selectedPost.id, selectedPost.name)}
+                    disabled={reportPostMutation.isPending}
+                    className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 rounded text-sm"
+                  >
+                    {reportPostMutation.isPending ? 'Signalement...' : 'Signaler ce post'}
+                  </button>
+                )}
               </div>
 
               {/* Reply Form */}
@@ -1035,16 +1115,29 @@ export default function Forums({ specialCategory = null }) {
                         PDF joint
                       </a>
                     )}
-                    <div className="flex items-center justify-between text-sm text-gray-500">
-                      <div className="flex items-center">
+                    <div className="flex items-center justify-between gap-3 text-sm text-gray-500">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <span>Par {getAuthorName(post)}</span>
-                        <span className="mx-2">•</span>
+                        <span>•</span>
                         <span>{new Date(post.creationDate).toLocaleDateString('fr-FR')}</span>
-                        <span className="mx-2">•</span>
+                        <span>•</span>
                         <span>{post.commentsCount || 0} commentaires</span>
                       </div>
-                      {isAuthenticated && (user?.id === post.user?.id || user?.userType === 1) && (
-                        <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
+                        {isAuthenticated && user?.id !== post.user?.id && (
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault()
+                              openReportModal('post', post.id, post.name)
+                            }}
+                            disabled={reportPostMutation.isPending}
+                            className="text-orange-600 hover:text-orange-800 text-xs font-medium disabled:opacity-50"
+                          >
+                            Signaler ce post
+                          </button>
+                        )}
+                        {isAuthenticated && (user?.id === post.user?.id || user?.userType === 1) && (
+                          <>
                           <button
                             onClick={(e) => {
                               e.preventDefault()
@@ -1063,8 +1156,9 @@ export default function Forums({ specialCategory = null }) {
                           >
                             Supprimer
                           </button>
-                        </div>
-                      )}
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))
@@ -1395,6 +1489,21 @@ export default function Forums({ specialCategory = null }) {
           </div>
         </div>
       )}
+
+      <ReportModal
+        open={reportModalOpen}
+        title="Signaler un post"
+        targetLabel={reportTarget?.targetLabel ? `Cible: ${reportTarget.targetLabel}` : ''}
+        reason={reportReason}
+        customReason={reportCustomReason}
+        details={reportDetails}
+        submitting={reportPostMutation.isPending}
+        onClose={closeReportModal}
+        onReasonChange={setReportReason}
+        onCustomReasonChange={setReportCustomReason}
+        onDetailsChange={setReportDetails}
+        onSubmit={handleReportSubmit}
+      />
 
       <style>{`
         .custom-scrollbar::-webkit-scrollbar {

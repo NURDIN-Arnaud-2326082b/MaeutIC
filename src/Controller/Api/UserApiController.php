@@ -2,10 +2,13 @@
 
 namespace App\Controller\Api;
 
+use App\Entity\DataAccessRequest;
 use App\Entity\User;
 use App\Entity\UserQuestions;
+use App\Repository\DataAccessRequestRepository;
 use App\Repository\UserRepository;
 use App\Repository\TagRepository;
+use App\Service\DataExportService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -429,6 +432,158 @@ class UserApiController extends AbstractController
         $this->container->get('session')->invalidate();
 
         return $this->json(['message' => 'Compte supprimé avec succès']);
+    }
+
+    /**
+     * Create a RGPD data-access request for the authenticated user.
+     */
+    #[Route('/privacy/data-access-requests', name: 'api_privacy_data_access_request_create', methods: ['POST'])]
+    public function createDataAccessRequest(
+        DataAccessRequestRepository $dataAccessRequestRepository,
+        EntityManagerInterface $entityManager
+    ): JsonResponse {
+        /** @var User|null $user */
+        $user = $this->getUser();
+
+        if (!$user) {
+            return $this->json(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $existingPending = $dataAccessRequestRepository->findPendingByRequester($user);
+        if ($existingPending instanceof DataAccessRequest) {
+            return $this->json([
+                'error' => 'Une demande est déjà en cours de traitement',
+                'request' => [
+                    'id' => $existingPending->getId(),
+                    'status' => $existingPending->getStatus(),
+                    'createdAt' => $existingPending->getCreatedAt()?->format('c'),
+                ],
+            ], Response::HTTP_CONFLICT);
+        }
+
+        $request = new DataAccessRequest();
+        $request->setRequester($user);
+        $request->setStatus(DataAccessRequest::STATUS_PENDING);
+        $request->setCreatedAt(new \DateTimeImmutable());
+
+        $entityManager->persist($request);
+        $entityManager->flush();
+
+        return $this->json([
+            'message' => 'Votre demande d\'accès aux données a bien été envoyée.',
+            'request' => [
+                'id' => $request->getId(),
+                'status' => $request->getStatus(),
+                'createdAt' => $request->getCreatedAt()?->format('c'),
+            ],
+        ], Response::HTTP_CREATED);
+    }
+
+    /**
+     * List RGPD data-access requests for the authenticated user.
+     */
+    #[Route('/privacy/data-access-requests/me', name: 'api_privacy_data_access_request_my_list', methods: ['GET'])]
+    public function getMyDataAccessRequests(DataAccessRequestRepository $dataAccessRequestRepository): JsonResponse
+    {
+        /** @var User|null $user */
+        $user = $this->getUser();
+
+        if (!$user) {
+            return $this->json(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $requests = $dataAccessRequestRepository->findBy(['requester' => $user], ['createdAt' => 'DESC']);
+
+        $data = array_map(static function (DataAccessRequest $request): array {
+            return [
+                'id' => $request->getId(),
+                'status' => $request->getStatus(),
+                'createdAt' => $request->getCreatedAt()?->format('c'),
+                'processedAt' => $request->getProcessedAt()?->format('c'),
+                'adminNote' => $request->getAdminNote(),
+                'processedBy' => $request->getProcessedBy() ? [
+                    'id' => $request->getProcessedBy()?->getId(),
+                    'username' => $request->getProcessedBy()?->getUsername(),
+                ] : null,
+            ];
+        }, $requests);
+
+        return $this->json(['requests' => $data]);
+    }
+
+    /**
+     * Download RGPD data export with temporary token + authentication.
+     */
+    #[Route('/privacy/data-access-requests/{id}/download', name: 'api_privacy_data_access_request_download', methods: ['GET'])]
+    public function downloadMyDataAccessRequest(
+        int $id,
+        Request $request,
+        DataAccessRequestRepository $dataAccessRequestRepository,
+        DataExportService $dataExportService,
+        EntityManagerInterface $entityManager
+    ): Response {
+        /** @var User|null $user */
+        $user = $this->getUser();
+
+        if (!$user) {
+            return $this->json(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $dataAccessRequest = $dataAccessRequestRepository->find($id);
+        if (!$dataAccessRequest instanceof DataAccessRequest) {
+            return $this->json(['error' => 'Demande non trouvée'], Response::HTTP_NOT_FOUND);
+        }
+
+        if ($dataAccessRequest->getRequester()?->getId() !== $user->getId()) {
+            return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
+        }
+
+        if ($dataAccessRequest->getStatus() !== DataAccessRequest::STATUS_PROCESSED) {
+            return $this->json(['error' => 'La demande n\'a pas encore été validée'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $rawToken = trim((string) $request->query->get('token', ''));
+        if ($rawToken === '') {
+            return $this->json(['error' => 'Jeton manquant'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $storedHash = $dataAccessRequest->getDownloadTokenHash();
+        $expiresAt = $dataAccessRequest->getDownloadTokenExpiresAt();
+
+        if (!is_string($storedHash) || !$expiresAt instanceof \DateTimeImmutable) {
+            return $this->json(['error' => 'Lien de téléchargement indisponible'], Response::HTTP_BAD_REQUEST);
+        }
+
+        if ($expiresAt < new \DateTimeImmutable()) {
+            return $this->json(['error' => 'Le lien de téléchargement a expiré'], Response::HTTP_GONE);
+        }
+
+        $givenHash = hash('sha256', $rawToken);
+        if (!hash_equals($storedHash, $givenHash)) {
+            return $this->json(['error' => 'Jeton invalide'], Response::HTTP_FORBIDDEN);
+        }
+
+        $payload = $dataExportService->buildUserDataExport($user);
+        $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+
+        if ($json === false) {
+            return $this->json(['error' => 'Impossible de générer le fichier'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        // One-time token: invalidate it after a successful validation.
+        $dataAccessRequest->setDownloadTokenHash(null);
+        $dataAccessRequest->setDownloadTokenExpiresAt(null);
+        $entityManager->flush();
+
+        $filename = sprintf('maeutic-data-export-%d-%s.json', $user->getId(), (new \DateTimeImmutable())->format('Ymd-His'));
+
+        return new Response($json, Response::HTTP_OK, [
+            'Content-Type' => 'application/json; charset=utf-8',
+            'Content-Disposition' => sprintf('attachment; filename="%s"', $filename),
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
+        ]);
     }
 
     /**

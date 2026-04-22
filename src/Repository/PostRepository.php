@@ -182,7 +182,7 @@ class PostRepository extends ServiceEntityRepository
         return $qb->getQuery()->getResult();
     }
 
-    public function searchSpecialPosts(string $query, string $type = 'all', string $dateFilter = 'all', string $sortBy = 'recent', string $specialType = null): array
+    public function searchSpecialPosts(string $query, string $type = 'all', string $dateFilter = 'all', string $sortBy = 'recent', ?string $specialType = null): array
     {
         $qb = $this->createQueryBuilder('p')
             ->leftJoin('p.forum', 'f')

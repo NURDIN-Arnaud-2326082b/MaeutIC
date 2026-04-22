@@ -281,7 +281,7 @@ class OptimizedRecommendationService
             $conn = $this->entityManager->getConnection();
 
             // Compter le nombre total de likes
-            $sql = "SELECT COUNT(*) as like_count FROM post_like WHERE user_id = :userId";
+            $sql = "SELECT COUNT(*) as like_count FROM post_likes WHERE user_id = :userId";
             $stmt = $conn->prepare($sql);
             $stmt->bindValue('userId', $currentUser->getId());
             $result = $stmt->executeQuery();
@@ -294,7 +294,7 @@ class OptimizedRecommendationService
 
             // Détail des likes
             $sql = "SELECT p.id as post_id, f.id as forum_id, f.title as forum_title 
-                    FROM post_like pl 
+                    FROM post_likes pl 
                     JOIN post p ON pl.post_id = p.id 
                     JOIN forum f ON p.forum_id = f.id 
                     WHERE pl.user_id = :userId";

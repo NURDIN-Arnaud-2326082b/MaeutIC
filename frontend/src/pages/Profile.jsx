@@ -3,6 +3,8 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { userApi } from '../services/apis'
 import { conversationApi } from '../services/conversationApi'
+import { createReport } from '../services/reportApi'
+import ReportModal from '../components/ReportModal'
 import { useAuthStore } from '../store'
 import { getNetworkStatus } from '../services/networkApi'
 
@@ -12,6 +14,11 @@ export default function Profile() {
   const { user: currentUser, isAuthenticated } = useAuthStore()
   const [activeTab, setActiveTab] = useState('overview')
   const [showActionsMenu, setShowActionsMenu] = useState(false)
+  const [reportModalOpen, setReportModalOpen] = useState(false)
+  const [reportTarget, setReportTarget] = useState(null)
+  const [reportReason, setReportReason] = useState('')
+  const [reportCustomReason, setReportCustomReason] = useState('')
+  const [reportDetails, setReportDetails] = useState('')
   const actionsMenuRef = useRef(null)
   const queryClient = useQueryClient()
 
@@ -86,6 +93,51 @@ export default function Profile() {
       navigate(`/messages/${data.conversationId}`)
     },
   })
+
+  const createReportMutation = useMutation({
+    mutationFn: createReport,
+    onSuccess: () => {
+      setReportModalOpen(false)
+      setReportTarget(null)
+      setReportReason('')
+      setReportCustomReason('')
+      setReportDetails('')
+      alert('Signalement envoye avec succes')
+    },
+    onError: (error) => {
+      alert(error.response?.data?.error || 'Erreur lors du signalement')
+    },
+  })
+
+  const openReportModal = (targetType, targetId, targetLabel) => {
+    setReportTarget({ targetType, targetId, targetLabel })
+    setReportReason('')
+    setReportCustomReason('')
+    setReportDetails('')
+    setReportModalOpen(true)
+  }
+
+  const handleReportSubmit = (event) => {
+    event.preventDefault()
+
+    if (!reportTarget) {
+      return
+    }
+
+    const customReasonText = reportCustomReason.trim()
+
+    if (!reportReason || (reportReason === 'other' && !customReasonText)) {
+      return
+    }
+
+    createReportMutation.mutate({
+      targetType: reportTarget.targetType,
+      targetId: reportTarget.targetId,
+      reasonCode: reportReason,
+      customReason: customReasonText,
+      details: reportDetails.trim(),
+    })
+  }
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -232,6 +284,13 @@ export default function Profile() {
                       {startConversationMutation.isPending ? 'Chargement...' : 'Envoyer un message'}
                     </button>
                     <button
+                      onClick={() => openReportModal('profile', user.id, user.username)}
+                      disabled={createReportMutation.isPending}
+                      className="inline-block px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 transition disabled:opacity-50"
+                    >
+                      {createReportMutation.isPending ? 'Signalement...' : 'Signaler profil'}
+                    </button>
+                    <button
                       onClick={() => toggleNetworkMutation.mutate(user.id)}
                       disabled={toggleNetworkMutation.isPending}
                       className={`inline-block px-4 py-2 rounded text-white transition ${
@@ -367,6 +426,15 @@ export default function Profile() {
                     minute: '2-digit'
                   })}
                 </div>
+                {currentUser && !isOwnProfile && (
+                  <button
+                    onClick={() => openReportModal('post', post.id, post.title || post.name || 'post')}
+                    disabled={createReportMutation.isPending}
+                    className="mt-3 text-sm text-orange-700 hover:text-orange-900 disabled:opacity-50"
+                  >
+                    Signaler ce post
+                  </button>
+                )}
               </div>
             ))}
             {(!postsData?.data || postsData.data.length === 0) && (
@@ -394,6 +462,15 @@ export default function Profile() {
                     minute: '2-digit'
                   })}
                 </div>
+                {currentUser && !isOwnProfile && (
+                  <button
+                    onClick={() => openReportModal('comment', comment.id, comment.body?.slice(0, 80) || 'commentaire')}
+                    disabled={createReportMutation.isPending}
+                    className="mt-3 text-sm text-orange-700 hover:text-orange-900 disabled:opacity-50"
+                  >
+                    Signaler ce commentaire
+                  </button>
+                )}
               </div>
             ))}
             {(!commentsData?.data || commentsData.data.length === 0) && (
@@ -405,6 +482,21 @@ export default function Profile() {
         )}
       </div>
       )}
+
+      <ReportModal
+        open={reportModalOpen}
+        title="Signaler un élément"
+        targetLabel={reportTarget?.targetLabel ? `Cible: ${reportTarget.targetLabel}` : ''}
+        reason={reportReason}
+        customReason={reportCustomReason}
+        details={reportDetails}
+        submitting={createReportMutation.isPending}
+        onClose={() => setReportModalOpen(false)}
+        onReasonChange={setReportReason}
+        onCustomReasonChange={setReportCustomReason}
+        onDetailsChange={setReportDetails}
+        onSubmit={handleReportSubmit}
+      />
     </div>
   )
 }

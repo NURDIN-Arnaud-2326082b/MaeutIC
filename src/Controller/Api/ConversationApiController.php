@@ -18,6 +18,27 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/api/conversation')]
 final class ConversationApiController extends AbstractController
 {
+    private const BANNED_DISPLAY_NAME = 'utilisateur banni';
+    private const DELETED_DISPLAY_NAME = 'utilisateur supprimé';
+    private const DEFAULT_PROFILE_IMAGE = '/images/default-profile.png';
+
+    private function serializeConversationUser(\App\Entity\User $user): array
+    {
+        if ($user->isBanned()) {
+            return [
+                'id' => $user->getId(),
+                'username' => self::BANNED_DISPLAY_NAME,
+                'profileImage' => self::DEFAULT_PROFILE_IMAGE,
+            ];
+        }
+
+        return [
+            'id' => $user->getId(),
+            'username' => $user->getUsername(),
+            'profileImage' => $user->getProfileImage() ? '/profile_images/' . $user->getProfileImage() : null,
+        ];
+    }
+
     /**
      * Liste toutes les conversations de l'utilisateur connecté
      *
@@ -53,11 +74,7 @@ final class ConversationApiController extends AbstractController
 
             return [
                 'id' => $conversation->getId(),
-                'otherUser' => [
-                    'id' => $other->getId(),
-                    'username' => $other->getUsername(),
-                    'profileImage' => $other->getProfileImage() ? '/profile_images/' . $other->getProfileImage() : null,
-                ],
+                'otherUser' => $this->serializeConversationUser($other),
                 'lastMessage' => $lastMessage ? [
                     'content' => $lastMessage->getContent(),
                     'sentAt' => $lastMessage->getSentAt()->format('d/m/Y H:i'),
@@ -101,21 +118,31 @@ final class ConversationApiController extends AbstractController
 
         $data = [
             'conversationId' => $conversation->getId(),
-            'otherUser' => [
-                'id' => $other->getId(),
-                'username' => $other->getUsername(),
-                'profileImage' => $other->getProfileImage() ? '/profile_images/' . $other->getProfileImage() : null,
-            ],
+            'otherUser' => $this->serializeConversationUser($other),
             'messages' => array_map(function (Message $message) use ($user) {
+                $sender = $message->getSender();
+                $senderId = $sender?->getId();
+                $isOwn = false;
+
+                if ($sender === null) {
+                    $senderName = self::DELETED_DISPLAY_NAME;
+                } else {
+                    $senderName = $sender->getUsername();
+                    if ($sender->isBanned()) {
+                        $senderName = self::BANNED_DISPLAY_NAME;
+                    }
+                    $isOwn = $sender === $user;
+                }
+
                 return [
                     'id' => $message->getId(),
                     'content' => $message->getContent(),
                     'sender' => [
-                        'id' => $message->getSender()->getId(),
-                        'username' => $message->getSender()->getUsername(),
+                        'id' => $senderId,
+                        'username' => $senderName,
                     ],
                     'sentAt' => $message->getSentAt()->format('d/m/Y H:i'),
-                    'isOwn' => $message->getSender() === $user,
+                    'isOwn' => $isOwn,
                 ];
             }, $messages),
         ];
@@ -225,11 +252,7 @@ final class ConversationApiController extends AbstractController
 
         return new JsonResponse([
             'conversationId' => $conversation->getId(),
-            'otherUser' => [
-                'id' => $other->getId(),
-                'username' => $other->getUsername(),
-                'profileImage' => $other->getProfileImage() ? '/profile_images/' . $other->getProfileImage() : null,
-            ],
+            'otherUser' => $this->serializeConversationUser($other),
         ]);
     }
 }

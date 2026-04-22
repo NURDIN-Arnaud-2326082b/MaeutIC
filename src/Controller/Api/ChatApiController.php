@@ -31,6 +31,7 @@ final class ChatApiController extends AbstractController
             $sender = $msg->getSender();
 
             return [
+                'id' => $msg->getId(),
                 'sender' => $sender ? [
                     'username' => $sender->getUsername(),
                     'profileImage' => $sender->getProfileImage(),

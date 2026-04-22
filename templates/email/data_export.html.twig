@@ -1,0 +1,48 @@
+{% extends "email/base_email.html.twig" %}
+
+{% block content %}
+    <h2>✓ Demande traitée</h2>
+    
+    <p>Bonjour {{ recipientName }},</p>
+    
+    <p>Nous vous confirmons que votre demande d'accès à vos données personnelles conformément au RGPD a été <strong>traitée avec succès</strong>.</p>
+    
+    <p>Pour des raisons de sécurité, vos données ne sont pas envoyées en pièce jointe. Elles sont disponibles via un <strong>lien de téléchargement temporaire</strong>.</p>
+
+    <p style="text-align: center; margin: 30px 0;">
+        <a href="{{ dataExportUrl }}" class="button">Télécharger mes données</a>
+    </p>
+
+    <p>Ce lien nécessite que vous soyez connecté(e) à votre compte Maieutic et expire le <strong>{{ expiresAt|date('d/m/Y à H:i') }}</strong>.</p>
+    
+    <h3 style="color: #1e293b; margin-top: 30px; font-size: 18px;">Contenu de l'export</h3>
+    
+    <p>Le fichier inclut :</p>
+    <ul style="line-height: 2;">
+        <li>Vos informations de profil</li>
+        <li>Tous vos messages et posts du forum</li>
+        <li>Vos commentaires</li>
+        <li>Vos articles et ressources</li>
+        <li>Vos messages privés (déchiffrés)</li>
+        <li>Vos conversations</li>
+        <li>Vos notifications</li>
+        <li>Vos signalements émis</li>
+    </ul>
+    
+    <h3 style="color: #1e293b; margin-top: 30px; font-size: 18px;">Prochaines étapes</h3>
+    
+    <p>Si vous avez des questions concernant vos données ou souhaitez exercer d'autres droits (rectification, suppression), <strong>contactez notre équipe de modération</strong>.</p>
+    
+    <p style="margin-top: 35px; font-size: 14px; color: #666;">
+        <strong>Date de traitement :</strong> {{ exportDate }}<br>
+        <strong>Demande :</strong> Accès à vos données personnelles
+    </p>
+    
+    <div style="margin-top: 35px; padding: 20px; background: #f0fdf4; border-left: 4px solid #22c55e; border-radius: 4px;">
+        <p style="margin: 0; color: #166534; font-size: 14px;">
+            <strong>✓ Sécurité :</strong> Vos données ont été exportées de manière sécurisée et ne contiennent que les informations auxquelles vous avez accès.
+        </p>
+    </div>
+    
+    <p style="margin-top: 35px;"><em>L'équipe Maieutic</em></p>
+{% endblock %}
