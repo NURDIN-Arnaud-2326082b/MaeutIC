@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-mandarine-50: #fef3e2;
+  --color-mandarine-100: #fde6c0;
+  --color-mandarine-200: #fbcd82;
+  --color-mandarine-500: #ec8927;
+  --color-mandarine-600: #d07620;
+  --color-mandarine-700: #b56519;
+
+  --color-canard-50: #e6f4f5;
+  --color-canard-100: #cce8ea;
+  --color-canard-200: #99d2d6;
+  --color-canard-300: #66bcbc;
+  --color-canard-400: #33a6a7;
+  --color-canard-500: #018c96;
+  --color-canard-600: #016d76;
+  --color-canard-700: #015762;
+  --color-canard-800: #014050;
+  --color-canard-900: #012a3a;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--color-slate-50);
+  color: var(--color-slate-800);
+}
+
+html.dark body {
+  background-color: var(--color-slate-950);
+  color: var(--color-slate-100);
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

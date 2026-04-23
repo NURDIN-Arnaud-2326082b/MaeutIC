@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback, lazy, Suspense } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import * as d3 from 'd3';
 import { getMapUsers, searchUsers, filterByTags } from '../services/mapsApi';
 import UserMapFilters from '../components/UserMapFilters';
+const ThesisDashboard = lazy(() => import('../features/thesisDashboard/App'));
 
 const BACKEND_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8000';
 
@@ -13,6 +14,7 @@ const Maps = () => {
   const svgRef = useRef(null);
   const simulationRef = useRef(null);
   const [hoveredUser, setHoveredUser] = useState(null);
+  const [activeTab, setActiveTab] = useState('users');
   
   // Filter states
   const [userSearch, setUserSearch] = useState('');
@@ -32,7 +34,7 @@ const Maps = () => {
   const { data: initialData, isLoading: isLoadingInitial } = useQuery({
     queryKey: ['mapUsers'],
     queryFn: getMapUsers,
-    enabled: !shouldSearch,
+    enabled: activeTab === 'users' && !shouldSearch,
   });
 
   // State for search/filter results
@@ -296,7 +298,7 @@ const Maps = () => {
     };
   }, [filteredUsers, mapData, navigate]);
 
-  if (isLoadingInitial && !shouldSearch) {
+  if (activeTab === 'users' && isLoadingInitial && !shouldSearch) {
     return (
       <div className="flex-1 flex items-center justify-center bg-gray-50">
         <div className="text-xl text-gray-600">Chargement de la carte...</div>
@@ -304,7 +306,7 @@ const Maps = () => {
     );
   }
 
-  if (!mapData && !isLoadingInitial) {
+  if (activeTab === 'users' && !mapData && !isLoadingInitial) {
     return (
       <div className="flex-1 flex items-center justify-center bg-gray-50">
         <div className="text-xl text-red-600">Erreur de chargement des données</div>
@@ -326,8 +328,37 @@ const Maps = () => {
 
   return (
     <div className="flex-1 flex flex-col bg-gray-50" style={{ height: 'calc(100vh - 80px)' }}>
+      <div className="mx-6 mt-6 mb-4">
+        <div className="inline-flex bg-white rounded-xl p-1 shadow-sm border border-gray-200">
+          <button
+            type="button"
+            onClick={() => setActiveTab('users')}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              activeTab === 'users'
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            Map des utilisateurs
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('project')}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              activeTab === 'project'
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            Dashboard thèses
+          </button>
+        </div>
+      </div>
+
+      {activeTab === 'users' ? (
+        <>
       {/* Filters Section */}
-      <div className="mx-6 mt-6">
+      <div className="mx-6">
         <UserMapFilters
           userSearch={userSearch}
           onUserSearchChange={setUserSearch}
@@ -376,6 +407,14 @@ const Maps = () => {
             </div>
           )}
       </div>
+        </>
+      ) : (
+        <div className="flex-1 min-h-0 mx-6 mb-6 overflow-hidden bg-white rounded-2xl shadow-lg">
+          <Suspense fallback={<div className="h-full flex items-center justify-center text-gray-600">Chargement du dashboard...</div>}>
+            <ThesisDashboard />
+          </Suspense>
+        </div>
+      )}
     </div>
   );
 };
