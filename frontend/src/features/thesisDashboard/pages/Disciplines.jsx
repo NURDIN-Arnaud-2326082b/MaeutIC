@@ -41,7 +41,8 @@ export default function Disciplines({ data, filters, isDarkMode }) {
 
   // Charger clusters.json
   useEffect(() => {
-    fetch('/clusters.json')
+    const basePath = import.meta.env.BASE_URL
+    fetch(`${basePath}clusters.json`)
       .then(r => r.json())
       .then(data => setClusters(data))
       .catch(() => setError(true))
