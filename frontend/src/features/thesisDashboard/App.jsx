@@ -21,13 +21,8 @@ export default function App() {
   const [page, setPage] = useState('overview')
   const [filters, setFilters] = useState({ annee: null, cnu: null, etablissement: null, query: '' })
   const data = useFilteredData(filters)
-  const [isDarkMode, setIsDarkMode] = useState(false)
+  const isDarkMode = false // Light mode only
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-
-  useEffect(() => {
-    if (isDarkMode) document.documentElement.classList.add('dark')
-    else document.documentElement.classList.remove('dark')
-  }, [isDarkMode])
 
   return (
     <div className={`thesis-dashboard-root flex h-full min-h-0 overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors ${isDarkMode ? 'dark' : ''}`}>
@@ -37,7 +32,6 @@ export default function App() {
         activePage={page}
         onNavigate={setPage}
         isDarkMode={isDarkMode}
-        toggleDarkMode={() => setIsDarkMode(!isDarkMode)}
         isTutorialActive={false}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}

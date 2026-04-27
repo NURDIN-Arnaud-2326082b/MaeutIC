@@ -1,4 +1,5 @@
 import { allData } from '../../hooks/useFilteredData'
+import { assetPath } from '../../utils/assetPath'
 
 const years = [...new Set(allData.map(d => d.annee))].sort()
 const cnus = [...new Set(allData.map(d => d.cnu_norm).filter(Boolean))].sort()
@@ -12,7 +13,7 @@ const NAV = [
   { id: 'disciplines',   label: 'Regroupement par mot clé' },
 ]
 
-export default function Sidebar({ filters, onChange, activePage, onNavigate, isDarkMode, toggleDarkMode, isTutorialActive, isOpen, onClose }) {
+export default function Sidebar({ filters, onChange, activePage, onNavigate, isDarkMode, isTutorialActive, isOpen, onClose }) {
   const set = (key) => (e) => {
     if (isTutorialActive) return // bloquer les filtres pendant le tutoriel
     onChange({ ...filters, [key]: e.target.value || null })
@@ -53,27 +54,13 @@ export default function Sidebar({ filters, onChange, activePage, onNavigate, isD
 
         {/* Logo */}
         <img
-          src={isDarkMode ? "/logo-maieutic-blanc.png" : "/logo-maieutic2.png"}
+          src={assetPath(isDarkMode ? 'logo-maieutic-blanc.png' : 'logo-maieutic2.png')}
           alt="M@ieutic"
           className="w-full h-28 object-contain"
         />
 
         <div className="px-6 pb-6 overflow-y-auto custom-scrollbar flex flex-col gap-6 flex-1">
-          <div className="flex items-center justify-between">
-            <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100 leading-tight">Cartographie des thèses</h1>
-            <button
-              id="tour-darkmode"
-              onClick={toggleDarkMode}
-              className="p-1.5 rounded-full cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
-              title={isDarkMode ? "Passer au mode clair" : "Passer au mode nuit"}
-            >
-              <img
-                src={isDarkMode ? "/mode-lumiere.png" : "/mode-nuit.png"}
-                alt={isDarkMode ? "Soleil" : "Lune"}
-                className="w-6 h-6 object-contain"
-              />
-            </button>
-          </div>
+          <h1 className="text-xl font-bold text-slate-800 leading-tight">Cartographie des thèses</h1>
 
           <nav id="tour-nav" className="flex flex-col gap-1">
             {NAV.map(({ id, label, soon }) => (

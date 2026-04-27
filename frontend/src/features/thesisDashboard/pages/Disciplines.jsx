@@ -3,6 +3,7 @@ import { forceSimulation, forceCollide, forceX, forceY } from 'd3-force'
 import KeywordTrends from '../components/charts/KeywordTrends'
 import KeywordDrillDown from '../components/charts/KeywordDrillDown'
 import { allData } from '../hooks/useFilteredData'
+import { assetPath } from '../utils/assetPath'
 
 // Couleurs par section CNU (cohérentes avec le reste du dashboard)
 const CNU_COLORS = {
@@ -41,8 +42,7 @@ export default function Disciplines({ data, filters, isDarkMode }) {
 
   // Charger clusters.json
   useEffect(() => {
-    const basePath = import.meta.env.BASE_URL
-    fetch(`${basePath}clusters.json`)
+    fetch(assetPath('clusters.json'))
       .then(r => r.json())
       .then(data => setClusters(data))
       .catch(() => setError(true))
