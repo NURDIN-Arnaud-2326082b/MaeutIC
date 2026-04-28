@@ -68,6 +68,7 @@ export default function KeywordTrends({ data, selectedYear }) {
       // ---- BAR CHART MODE : Top word per CNU for this specific year ----
       const cnuWordCounts = {}
       data.forEach(d => {
+        if (d.annee !== selectedYear) return
         if (!d.mots_cles || !Array.isArray(d.mots_cles) || !d.cnu_norm) return
         const c = d.cnu_norm
         if (!cnuWordCounts[c]) cnuWordCounts[c] = {}
