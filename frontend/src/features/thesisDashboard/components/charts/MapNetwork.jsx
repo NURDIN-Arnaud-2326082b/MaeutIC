@@ -5,7 +5,7 @@ import { allData } from '../../hooks/useFilteredData'
 
 export default function MapNetwork({ data, filters }) {
   const { etabPoints, etabLinks, maxLinkWeight, selectedEtab } = useMemo(() => {
-    let baseData = allData
+    let baseData = Array.isArray(data) ? data : allData
     if (filters?.annee) baseData = baseData.filter(d => d.annee === filters.annee)
     if (filters?.cnu) baseData = baseData.filter(d => d.cnu_norm === filters.cnu)
 
