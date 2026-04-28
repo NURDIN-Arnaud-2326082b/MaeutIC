@@ -5,6 +5,8 @@
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
     app.mailer_dsn: '%env(MAILER_DSN)%'
+    app.mailer_from: '%env(MAILER_FROM)%'
+    app.frontend_url: '%env(FRONTEND_URL)%'
 
 services:
     # default configuration for services in *this* file
@@ -25,6 +27,11 @@ services:
     App\Service\EncryptionService:
         arguments:
             $encryptionKey: '%env(resolve:ENCRYPTION_KEY)%'
+
+    App\Service\EmailService:
+        arguments:
+            $mailerFrom: '%app.mailer_from%'
+            $frontendUrl: '%app.frontend_url%'
     
     # CORS Listener
     App\EventListener\CorsListener:
@@ -32,3 +39,7 @@ services:
             $corsAllowOrigin: '%env(CORS_ALLOW_ORIGIN)%'
         tags:
             - { name: kernel.event_subscriber }
+
+    App\EventListener\ReportTargetCleanupSubscriber:
+        tags:
+            - { name: doctrine.event_subscriber }

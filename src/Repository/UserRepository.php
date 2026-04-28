@@ -202,4 +202,30 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * Recherche un utilisateur par email en ignorant la casse.
+     */
+    public function findOneByEmailInsensitive(string $email): ?User
+    {
+        return $this->createQueryBuilder('u')
+            ->where('LOWER(u.email) = :email')
+            ->setParameter('email', mb_strtolower(trim($email)))
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * Recherche un utilisateur par username en ignorant la casse.
+     */
+    public function findOneByUsernameInsensitive(string $username): ?User
+    {
+        return $this->createQueryBuilder('u')
+            ->where('LOWER(u.username) = :username')
+            ->setParameter('username', mb_strtolower(trim($username)))
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
 }

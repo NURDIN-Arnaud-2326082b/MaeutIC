@@ -22,12 +22,23 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[Route('/api/posts')]
 class PostApiController extends AbstractController
 {
+    private function isPostVisible(Post $post): bool
+    {
+        $author = $post->getUser();
+
+        return $author === null || !$author->isBanned();
+    }
+
     /**
      * Récupère les données d'un post pour l'édition
      */
     #[Route('/{id}', name: 'api_post_get', methods: ['GET'])]
     public function getPost(Post $post): JsonResponse
     {
+        if (!$this->isPostVisible($post)) {
+            return $this->json(['error' => 'Post not found'], 404);
+        }
+
         /** @var User|null $user */
         $user = $this->getUser();
         
@@ -203,6 +214,10 @@ class PostApiController extends AbstractController
         EntityManagerInterface $entityManager
     ): JsonResponse
     {
+        if (!$this->isPostVisible($post)) {
+            return $this->json(['error' => 'Post not found'], 404);
+        }
+
         /** @var User $user */
         $user = $this->getUser();
         
@@ -267,6 +282,10 @@ class PostApiController extends AbstractController
         PostLikeRepository $postLikeRepository
     ): JsonResponse
     {
+        if (!$this->isPostVisible($post)) {
+            return $this->json(['error' => 'Post not found'], 404);
+        }
+
         $user = $this->getUser();
         
         $liked = false;

@@ -1,0 +1,1221 @@
+[
+  {
+    "id": 37,
+    "label": "Histoire de la philosophie occidentale",
+    "keywords": [
+      "philosophie",
+      "pensée",
+      "foucault",
+      "spinoza",
+      "deleuze",
+      "hegel",
+      "critique",
+      "michel",
+      "philosophique",
+      "descartes"
+    ],
+    "nb": 415,
+    "cx": 8.726300239562988,
+    "cy": 9.51360034942627,
+    "cnu_dominant": "Philosophie",
+    "cnu_dist": {
+      "Philosophie": 337,
+      "Arts": 25,
+      "Sociologie": 17,
+      "Sciences de l'éducation": 9,
+      "Science politique": 8,
+      "Ethnologie": 8,
+      "Info-com": 5,
+      "Sciences de gestion": 4,
+      "Épistémologie": 2
+    }
+  },
+  {
+    "id": 28,
+    "label": "Sociologie et anthropologie de l'Afrique contemporaine",
+    "keywords": [
+      "afrique",
+      "sénégal",
+      "ivoire",
+      "côte ivoire",
+      "cameroun",
+      "côte",
+      "burkina",
+      "burkina faso",
+      "faso",
+      "afrique subsaharienne"
+    ],
+    "nb": 371,
+    "cx": 12.562100410461426,
+    "cy": 7.874599933624268,
+    "cnu_dominant": "Sciences de l'éducation",
+    "cnu_dist": {
+      "Sciences de l'éducation": 115,
+      "Sociologie": 84,
+      "Science politique": 64,
+      "Sciences de gestion": 44,
+      "Ethnologie": 34,
+      "Arts": 15,
+      "Philosophie": 12,
+      "Épistémologie": 3
+    }
+  },
+  {
+    "id": 1,
+    "label": "Santé, vulnérabilité et action publique",
+    "keywords": [
+      "santé",
+      "soins",
+      "handicap",
+      "hôpital",
+      "infirmiers",
+      "émotions",
+      "situation handicap",
+      "patients",
+      "personnes",
+      "situation"
+    ],
+    "nb": 334,
+    "cx": 11.312199592590332,
+    "cy": 4.827700138092041,
+    "cnu_dominant": "Sciences de l'éducation",
+    "cnu_dist": {
+      "Sciences de l'éducation": 92,
+      "Sciences de gestion": 78,
+      "Sociologie": 66,
+      "Philosophie": 46,
+      "Science politique": 15,
+      "Ethnologie": 14,
+      "Arts": 11,
+      "Épistémologie": 11,
+      "Info-com": 1
+    }
+  },
+  {
+    "id": 17,
+    "label": "Arts et représentation visuels contemporains",
+    "keywords": [
+      "cinéma",
+      "films",
+      "théâtre",
+      "film",
+      "histoire",
+      "femmes",
+      "france",
+      "années",
+      "documentaire",
+      "fiction"
+    ],
+    "nb": 305,
+    "cx": 6.445300102233887,
+    "cy": 8.586000442504883,
+    "cnu_dominant": "Arts",
+    "cnu_dist": {
+      "Arts": 231,
+      "Sciences de l'éducation": 34,
+      "Sociologie": 14,
+      "Science politique": 7,
+      "Philosophie": 6,
+      "Ethnologie": 5,
+      "Épistémologie": 4,
+      "Sciences de gestion": 3,
+      "Info-com": 1
+    }
+  },
+  {
+    "id": 40,
+    "label": "Histoire matérielle et culturelle",
+    "keywords": [
+      "siècle",
+      "siècles",
+      "architecture",
+      "églises",
+      "france",
+      "décor",
+      "xiiie",
+      "xviiie",
+      "jean",
+      "âge"
+    ],
+    "nb": 291,
+    "cx": 7.44980001449585,
+    "cy": 9.389900207519531,
+    "cnu_dominant": "Arts",
+    "cnu_dist": {
+      "Arts": 216,
+      "Ethnologie": 32,
+      "Philosophie": 16,
+      "Science politique": 9,
+      "Sciences de l'éducation": 6,
+      "Épistémologie": 6,
+      "Sociologie": 5,
+      "Sciences de gestion": 1
+    }
+  },
+  {
+    "id": 5,
+    "label": "Numérique, société et pratiques contemporaines",
+    "keywords": [
+      "numérique",
+      "marque",
+      "ligne",
+      "numériques",
+      "consommateurs",
+      "client",
+      "consommateur",
+      "information",
+      "digital",
+      "consumer"
+    ],
+    "nb": 267,
+    "cx": 8.89739990234375,
+    "cy": 4.597799777984619,
+    "cnu_dominant": "Sciences de gestion",
+    "cnu_dist": {
+      "Sciences de gestion": 160,
+      "Sciences de l'éducation": 52,
+      "Sociologie": 18,
+      "Science politique": 14,
+      "Philosophie": 9,
+      "Arts": 7,
+      "Info-com": 6,
+      "Épistémologie": 1
+    }
+  },
+  {
+    "id": 35,
+    "label": "Pratiques et politiques d'enseignement scolaire",
+    "keywords": [
+      "élèves",
+      "enseignants",
+      "enseignement",
+      "éducation",
+      "scolaire",
+      "école",
+      "enseignant",
+      "scolaires",
+      "apprentissage",
+      "activité"
+    ],
+    "nb": 256,
+    "cx": 12.811300277709961,
+    "cy": 5.350299835205078,
+    "cnu_dominant": "Sciences de l'éducation",
+    "cnu_dist": {
+      "Sciences de l'éducation": 199,
+      "Sociologie": 21,
+      "Science politique": 9,
+      "Philosophie": 6,
+      "Épistémologie": 6,
+      "Sciences de gestion": 6,
+      "Arts": 5,
+      "Ethnologie": 2,
+      "Info-com": 2
+    }
+  },
+  {
+    "id": 24,
+    "label": "Télécommunications et réseaux sans fil",
+    "keywords": [
+      "networks",
+      "wireless",
+      "communications",
+      "radio",
+      "mimo",
+      "cloud",
+      "network",
+      "réseaux",
+      "access",
+      "optimization"
+    ],
+    "nb": 248,
+    "cx": 5.661200046539307,
+    "cy": 1.9465999603271484,
+    "cnu_dominant": "Sciences de l'éducation",
+    "cnu_dist": {
+      "Sciences de l'éducation": 114,
+      "Info-com": 113,
+      "Arts": 11,
+      "Épistémologie": 7,
+      "Sciences de gestion": 3
+    }
+  },
+  {
+    "id": 18,
+    "label": "Activité physique, sport et santé",
+    "keywords": [
+      "physique",
+      "cancer",
+      "activité physique",
+      "vidéo",
+      "sport",
+      "sportive",
+      "activité",
+      "patients",
+      "sportives",
+      "prise charge"
+    ],
+    "nb": 230,
+    "cx": 9.179300308227539,
+    "cy": 3.838599920272827,
+    "cnu_dominant": "Épistémologie",
+    "cnu_dist": {
+      "Épistémologie": 111,
+      "Sciences de l'éducation": 57,
+      "Sociologie": 20,
+      "Sciences de gestion": 16,
+      "Arts": 9,
+      "Philosophie": 7,
+      "Science politique": 6,
+      "Ethnologie": 4
+    }
+  },
+  {
+    "id": 19,
+    "label": "Finance, marchés et gouvernance d'entreprise",
+    "keywords": [
+      "essays",
+      "three essays",
+      "finance",
+      "corporate",
+      "three",
+      "financial",
+      "financière",
+      "stock",
+      "essais",
+      "capital"
+    ],
+    "nb": 221,
+    "cx": 9.889399528503418,
+    "cy": 2.369499921798706,
+    "cnu_dominant": "Sciences de gestion",
+    "cnu_dist": {
+      "Sciences de gestion": 196,
+      "Sociologie": 10,
+      "Science politique": 7,
+      "Sciences de l'éducation": 3,
+      "Info-com": 2,
+      "Arts": 1,
+      "Philosophie": 1,
+      "Épistémologie": 1
+    }
+  },
+  {
+    "id": 3,
+    "label": "Musique histoire société culture interprétation",
+    "keywords": [
+      "musique",
+      "musicale",
+      "sonores",
+      "musicales",
+      "musiques",
+      "musical",
+      "sonore",
+      "écoute",
+      "opéra",
+      "siècle"
+    ],
+    "nb": 191,
+    "cx": 5.3597002029418945,
+    "cy": 9.581999778747559,
+    "cnu_dominant": "Arts",
+    "cnu_dist": {
+      "Arts": 132,
+      "Sciences de l'éducation": 22,
+      "Sociologie": 9,
+      "Philosophie": 8,
+      "Info-com": 7,
+      "Sciences de gestion": 6,
+      "Ethnologie": 5,
+      "Épistémologie": 1,
+      "Science politique": 1
+    }
+  },
+  {
+    "id": 21,
+    "label": "Travail, organisations et transformations sociales",
+    "keywords": [
+      "organisations",
+      "entreprises",
+      "management",
+      "salariés",
+      "leadership",
+      "corporate",
+      "organisationnelle",
+      "corporate social",
+      "work",
+      "gestion"
+    ],
+    "nb": 187,
+    "cx": 10.111700057983398,
+    "cy": 4.236299991607666,
+    "cnu_dominant": "Sciences de gestion",
+    "cnu_dist": {
+      "Sciences de gestion": 142,
+      "Sociologie": 21,
+      "Sciences de l'éducation": 13,
+      "Science politique": 5,
+      "Arts": 2,
+      "Philosophie": 2,
+      "Épistémologie": 2
+    }
+  },
+  {
+    "id": 15,
+    "label": "Urbanisme, habitat et gouvernance territoriale",
+    "keywords": [
+      "ville",
+      "urbaine",
+      "urbain",
+      "métropole",
+      "urbanisme",
+      "habitat",
+      "urbains",
+      "projet",
+      "écologie",
+      "architecture"
+    ],
+    "nb": 185,
+    "cx": 8.26200008392334,
+    "cy": 6.430600166320801,
+    "cnu_dominant": "Arts",
+    "cnu_dist": {
+      "Arts": 65,
+      "Sociologie": 43,
+      "Science politique": 21,
+      "Ethnologie": 14,
+      "Philosophie": 14,
+      "Sciences de gestion": 11,
+      "Sciences de l'éducation": 8,
+      "Épistémologie": 7,
+      "Info-com": 2
+    }
+  },
+  {
+    "id": 9,
+    "label": "Genre, sexualité et rapports sociaux",
+    "keywords": [
+      "femmes",
+      "genre",
+      "violence",
+      "violences",
+      "hommes",
+      "gender",
+      "féministes",
+      "féministe",
+      "france",
+      "égalité"
+    ],
+    "nb": 178,
+    "cx": 10.97700023651123,
+    "cy": 8.032999992370605,
+    "cnu_dominant": "Sociologie",
+    "cnu_dist": {
+      "Sociologie": 77,
+      "Sciences de gestion": 19,
+      "Sciences de l'éducation": 19,
+      "Arts": 18,
+      "Science politique": 17,
+      "Philosophie": 15,
+      "Ethnologie": 12,
+      "Épistémologie": 1
+    }
+  },
+  {
+    "id": 12,
+    "label": "Environnement marin et dynamiques océaniques côtières",
+    "keywords": [
+      "eaux",
+      "océan",
+      "pollution",
+      "mer",
+      "observations",
+      "air",
+      "surface",
+      "extraction",
+      "tropical",
+      "variability"
+    ],
+    "nb": 166,
+    "cx": 5.995200157165527,
+    "cy": 5.114200115203857,
+    "cnu_dominant": "Épistémologie",
+    "cnu_dist": {
+      "Épistémologie": 89,
+      "Sciences de l'éducation": 30,
+      "Arts": 14,
+      "Sciences de gestion": 9,
+      "Ethnologie": 7,
+      "Science politique": 6,
+      "Info-com": 6,
+      "Sociologie": 4,
+      "Philosophie": 1
+    }
+  },
+  {
+    "id": 31,
+    "label": "Politique, gouvernance et démocratie contemporaine",
+    "keywords": [
+      "politique",
+      "européenne",
+      "france",
+      "démocratie",
+      "union européenne",
+      "union",
+      "vote",
+      "parti",
+      "état",
+      "europe"
+    ],
+    "nb": 165,
+    "cx": 9.792499542236328,
+    "cy": 7.7469000816345215,
+    "cnu_dominant": "Science politique",
+    "cnu_dist": {
+      "Science politique": 102,
+      "Sociologie": 26,
+      "Philosophie": 13,
+      "Sciences de gestion": 11,
+      "Arts": 8,
+      "Info-com": 3,
+      "Sciences de l'éducation": 2
+    }
+  },
+  {
+    "id": 34,
+    "label": "Didactique des langues et linguistique appliquée",
+    "keywords": [
+      "langue",
+      "linguistique",
+      "langues",
+      "enseignement",
+      "langue étrangère",
+      "language",
+      "français",
+      "fle",
+      "apprentissage",
+      "étrangère"
+    ],
+    "nb": 162,
+    "cx": 11.81309986114502,
+    "cy": 6.671999931335449,
+    "cnu_dominant": "Sciences de l'éducation",
+    "cnu_dist": {
+      "Sciences de l'éducation": 134,
+      "Info-com": 10,
+      "Philosophie": 6,
+      "Arts": 6,
+      "Sociologie": 3,
+      "Science politique": 1,
+      "Sciences de gestion": 1,
+      "Épistémologie": 1
+    }
+  },
+  {
+    "id": 16,
+    "label": "Sociologie et anthropologie de l'Amérique latine",
+    "keywords": [
+      "colombie",
+      "chili",
+      "brésil",
+      "mexique",
+      "politique",
+      "del",
+      "argentine",
+      "los",
+      "rio",
+      "paulo"
+    ],
+    "nb": 160,
+    "cx": 9.299699783325195,
+    "cy": 7.206500053405762,
+    "cnu_dominant": "Ethnologie",
+    "cnu_dist": {
+      "Ethnologie": 44,
+      "Sociologie": 33,
+      "Science politique": 30,
+      "Sciences de l'éducation": 22,
+      "Arts": 17,
+      "Philosophie": 8,
+      "Sciences de gestion": 5,
+      "Épistémologie": 1
+    }
+  },
+  {
+    "id": 39,
+    "label": "Art contemporain et pratiques curatoriales",
+    "keywords": [
+      "art",
+      "artistiques",
+      "musée",
+      "art contemporain",
+      "artistique",
+      "arts",
+      "contemporain",
+      "artistes",
+      "musées",
+      "peinture"
+    ],
+    "nb": 151,
+    "cx": 6.708700180053711,
+    "cy": 7.746300220489502,
+    "cnu_dominant": "Arts",
+    "cnu_dist": {
+      "Arts": 89,
+      "Sciences de l'éducation": 18,
+      "Philosophie": 15,
+      "Sociologie": 14,
+      "Sciences de gestion": 9,
+      "Ethnologie": 4,
+      "Science politique": 1,
+      "Épistémologie": 1
+    }
+  },
+  {
+    "id": 26,
+    "label": "Apprentissage automatique et intelligence artificielle",
+    "keywords": [
+      "learning",
+      "machine learning",
+      "machine",
+      "deep",
+      "apprentissage",
+      "deep learning",
+      "automatique",
+      "apprentissage automatique",
+      "données",
+      "méthodes"
+    ],
+    "nb": 144,
+    "cx": 6.884399890899658,
+    "cy": 2.70770001411438,
+    "cnu_dominant": "Sciences de l'éducation",
+    "cnu_dist": {
+      "Sciences de l'éducation": 87,
+      "Info-com": 32,
+      "Arts": 13,
+      "Sciences de gestion": 9,
+      "Philosophie": 2,
+      "Épistémologie": 1
+    }
+  },
+  {
+    "id": 27,
+    "label": "Études sociales et culturelles du Moyen-Orient",
+    "keywords": [
+      "al",
+      "arabe",
+      "liban",
+      "islamique",
+      "2011",
+      "iran",
+      "printemps",
+      "libanais",
+      "politique",
+      "arabie saoudite"
+    ],
+    "nb": 142,
+    "cx": 11.24940013885498,
+    "cy": 9.305500030517578,
+    "cnu_dominant": "Science politique",
+    "cnu_dist": {
+      "Science politique": 35,
+      "Sciences de l'éducation": 28,
+      "Sociologie": 23,
+      "Ethnologie": 20,
+      "Arts": 14,
+      "Philosophie": 12,
+      "Sciences de gestion": 9,
+      "Épistémologie": 1
+    }
+  },
+  {
+    "id": 0,
+    "label": "Études chinoises et asiatiques contemporaines",
+    "keywords": [
+      "chine",
+      "chinois",
+      "chinoise",
+      "china",
+      "taïwan",
+      "france",
+      "1949",
+      "langue étrangère",
+      "chinese",
+      "contemporaine"
+    ],
+    "nb": 134,
+    "cx": 10.872300148010254,
+    "cy": 6.631199836730957,
+    "cnu_dominant": "Sciences de l'éducation",
+    "cnu_dist": {
+      "Sciences de l'éducation": 36,
+      "Arts": 29,
+      "Sociologie": 26,
+      "Science politique": 16,
+      "Ethnologie": 15,
+      "Sciences de gestion": 7,
+      "Philosophie": 3,
+      "Épistémologie": 2
+    }
+  },
+  {
+    "id": 41,
+    "label": "Histoire de l'art et pratiques artistiques",
+    "keywords": [
+      "art",
+      "peinture",
+      "siècle",
+      "sculpture",
+      "artistiques",
+      "renaissance",
+      "arts",
+      "xvie",
+      "artiste",
+      "france"
+    ],
+    "nb": 113,
+    "cx": 6.847599983215332,
+    "cy": 8.965499877929688,
+    "cnu_dominant": "Arts",
+    "cnu_dist": {
+      "Arts": 100,
+      "Philosophie": 6,
+      "Sociologie": 3,
+      "Épistémologie": 2,
+      "Sciences de l'éducation": 2
+    }
+  },
+  {
+    "id": 6,
+    "label": "Physique des particules au LHC",
+    "keywords": [
+      "atlas",
+      "detector",
+      "experiment",
+      "cms",
+      "search",
+      "decays",
+      "measurement",
+      "tau",
+      "run",
+      "alice"
+    ],
+    "nb": 110,
+    "cx": 3.146199941635132,
+    "cy": 2.5225000381469727,
+    "cnu_dominant": "Arts",
+    "cnu_dist": {
+      "Arts": 110
+    }
+  },
+  {
+    "id": 14,
+    "label": "Transition écologique et durabilité",
+    "keywords": [
+      "climatique",
+      "changement climatique",
+      "changement",
+      "sustainability",
+      "environmental",
+      "france",
+      "énergies renouvelables",
+      "environnementales",
+      "énergies",
+      "renouvelables"
+    ],
+    "nb": 107,
+    "cx": 7.847700119018555,
+    "cy": 5.215000152587891,
+    "cnu_dominant": "Sciences de gestion",
+    "cnu_dist": {
+      "Sciences de gestion": 43,
+      "Sociologie": 19,
+      "Science politique": 15,
+      "Épistémologie": 12,
+      "Sciences de l'éducation": 8,
+      "Ethnologie": 5,
+      "Philosophie": 3,
+      "Arts": 2
+    }
+  },
+  {
+    "id": 25,
+    "label": "Apprentissage profond pour l'imagerie médicale",
+    "keywords": [
+      "learning",
+      "images",
+      "imaging",
+      "réseaux",
+      "segmentation",
+      "deep",
+      "médicales",
+      "profonds",
+      "diagnosis",
+      "imagerie"
+    ],
+    "nb": 104,
+    "cx": 6.446400165557861,
+    "cy": 3.54259991645813,
+    "cnu_dominant": "Sciences de l'éducation",
+    "cnu_dist": {
+      "Sciences de l'éducation": 73,
+      "Info-com": 17,
+      "Arts": 5,
+      "Épistémologie": 5,
+      "Philosophie": 3,
+      "Ethnologie": 1
+    }
+  },
+  {
+    "id": 22,
+    "label": "Migration, intégration et trajectoires sociales",
+    "keywords": [
+      "migrants",
+      "migration",
+      "asile",
+      "france",
+      "migrations",
+      "migratoire",
+      "migratoires",
+      "femmes",
+      "réfugiés",
+      "accueil"
+    ],
+    "nb": 96,
+    "cx": 10.845100402832031,
+    "cy": 7.4293999671936035,
+    "cnu_dominant": "Sociologie",
+    "cnu_dist": {
+      "Sociologie": 44,
+      "Science politique": 15,
+      "Ethnologie": 12,
+      "Sciences de gestion": 9,
+      "Arts": 8,
+      "Philosophie": 3,
+      "Sciences de l'éducation": 3,
+      "Info-com": 1,
+      "Épistémologie": 1
+    }
+  },
+  {
+    "id": 36,
+    "label": "Enfance, famille et protection sociale",
+    "keywords": [
+      "enfance",
+      "protection enfance",
+      "jeunes",
+      "enfants",
+      "protection",
+      "familiales",
+      "jeunesse",
+      "famille",
+      "entreprises familiales",
+      "insertion"
+    ],
+    "nb": 84,
+    "cx": 11.865400314331055,
+    "cy": 5.911499977111816,
+    "cnu_dominant": "Sociologie",
+    "cnu_dist": {
+      "Sociologie": 35,
+      "Sciences de l'éducation": 24,
+      "Sciences de gestion": 13,
+      "Ethnologie": 4,
+      "Arts": 3,
+      "Philosophie": 3,
+      "Science politique": 2
+    }
+  },
+  {
+    "id": 38,
+    "label": "Théories visuelles et esthétique de l'image",
+    "keywords": [
+      "photographie",
+      "couleur",
+      "numérique",
+      "images",
+      "photographique",
+      "image",
+      "spectacle vivant",
+      "caméra",
+      "esthétique",
+      "vivant"
+    ],
+    "nb": 74,
+    "cx": 6.131700038909912,
+    "cy": 7.169899940490723,
+    "cnu_dominant": "Arts",
+    "cnu_dist": {
+      "Arts": 46,
+      "Sciences de l'éducation": 14,
+      "Sciences de gestion": 4,
+      "Philosophie": 3,
+      "Info-com": 3,
+      "Sociologie": 2,
+      "Ethnologie": 1,
+      "Épistémologie": 1
+    }
+  },
+  {
+    "id": 29,
+    "label": "Innovation et stratégie organisationnelle",
+    "keywords": [
+      "innovation",
+      "entreprises",
+      "pme",
+      "business",
+      "processus innovation",
+      "innovations",
+      "model",
+      "management",
+      "processus",
+      "business model"
+    ],
+    "nb": 73,
+    "cx": 9.627400398254395,
+    "cy": 3.4765000343322754,
+    "cnu_dominant": "Sciences de gestion",
+    "cnu_dist": {
+      "Sciences de gestion": 70,
+      "Sciences de l'éducation": 2,
+      "Sociologie": 1
+    }
+  },
+  {
+    "id": 32,
+    "label": "Droit, justice et libertés politiques",
+    "keywords": [
+      "justice",
+      "hannah",
+      "arendt",
+      "judiciaire",
+      "liberté",
+      "juridique",
+      "carcérale",
+      "libéralisme",
+      "droit",
+      "loi"
+    ],
+    "nb": 71,
+    "cx": 9.75160026550293,
+    "cy": 8.270500183105469,
+    "cnu_dominant": "Philosophie",
+    "cnu_dist": {
+      "Philosophie": 31,
+      "Sociologie": 18,
+      "Science politique": 18,
+      "Sciences de gestion": 3,
+      "Arts": 1
+    }
+  },
+  {
+    "id": 8,
+    "label": "Physique des neutrinos et détection nucléaire",
+    "keywords": [
+      "experiment",
+      "detector",
+      "search",
+      "dune",
+      "decay",
+      "nuclear",
+      "energy",
+      "physics",
+      "high",
+      "experiments"
+    ],
+    "nb": 65,
+    "cx": 3.9093000888824463,
+    "cy": 2.978300094604492,
+    "cnu_dominant": "Arts",
+    "cnu_dist": {
+      "Arts": 62,
+      "Info-com": 1,
+      "Épistémologie": 1,
+      "Sciences de l'éducation": 1
+    }
+  },
+  {
+    "id": 7,
+    "label": "Astrophysique et cosmologie observationnelle multi-messagers",
+    "keywords": [
+      "ray",
+      "cosmologie",
+      "gamma ray",
+      "gamma",
+      "amas",
+      "search",
+      "matter",
+      "telescope",
+      "dark",
+      "onde"
+    ],
+    "nb": 64,
+    "cx": 4.119200229644775,
+    "cy": 3.464099884033203,
+    "cnu_dominant": "Arts",
+    "cnu_dist": {
+      "Arts": 56,
+      "Philosophie": 6,
+      "Épistémologie": 1,
+      "Info-com": 1
+    }
+  },
+  {
+    "id": 23,
+    "label": "Matériaux et composants microondes avancés",
+    "keywords": [
+      "particules",
+      "caractérisation",
+      "matériaux",
+      "modélisation",
+      "fibre",
+      "température",
+      "gan",
+      "fibres",
+      "réalisation",
+      "puissance"
+    ],
+    "nb": 64,
+    "cx": 5.212699890136719,
+    "cy": 3.433500051498413,
+    "cnu_dominant": "Sciences de l'éducation",
+    "cnu_dist": {
+      "Sciences de l'éducation": 24,
+      "Arts": 21,
+      "Sciences de gestion": 9,
+      "Épistémologie": 6,
+      "Info-com": 4
+    }
+  },
+  {
+    "id": 11,
+    "label": "Sociologie et consommation alimentaires durables",
+    "keywords": [
+      "alimentaire",
+      "alimentaires",
+      "alimentation",
+      "produits",
+      "perçue",
+      "consommateurs",
+      "produits alimentaires",
+      "valeur perçue",
+      "durable",
+      "france"
+    ],
+    "nb": 63,
+    "cx": 7.905600070953369,
+    "cy": 4.6554999351501465,
+    "cnu_dominant": "Sciences de gestion",
+    "cnu_dist": {
+      "Sciences de gestion": 28,
+      "Sociologie": 14,
+      "Science politique": 6,
+      "Sciences de l'éducation": 5,
+      "Ethnologie": 5,
+      "Info-com": 2,
+      "Arts": 1,
+      "Philosophie": 1,
+      "Épistémologie": 1
+    }
+  },
+  {
+    "id": 30,
+    "label": "Entrepreneuriat, écosystèmes et développement",
+    "keywords": [
+      "entrepreneurial",
+      "entrepreneuriat",
+      "entrepreneurs",
+      "entrepreneuriale",
+      "entrepreneurship",
+      "entrepreneur",
+      "entreprise",
+      "social",
+      "étudiants",
+      "écosystème"
+    ],
+    "nb": 63,
+    "cx": 10.427800178527832,
+    "cy": 3.0945000648498535,
+    "cnu_dominant": "Sciences de gestion",
+    "cnu_dist": {
+      "Sciences de gestion": 53,
+      "Sciences de l'éducation": 6,
+      "Sociologie": 4
+    }
+  },
+  {
+    "id": 33,
+    "label": "Politiques, pratiques et transformations de l'éducation",
+    "keywords": [
+      "france",
+      "enseignants",
+      "universités",
+      "enseignement",
+      "supérieur",
+      "enseignantes",
+      "enseignant",
+      "enseignement supérieur",
+      "québec",
+      "comparative"
+    ],
+    "nb": 61,
+    "cx": 12.714099884033203,
+    "cy": 6.228799819946289,
+    "cnu_dominant": "Sciences de l'éducation",
+    "cnu_dist": {
+      "Sciences de l'éducation": 32,
+      "Sociologie": 14,
+      "Sciences de gestion": 9,
+      "Science politique": 4,
+      "Ethnologie": 1,
+      "Épistémologie": 1
+    }
+  },
+  {
+    "id": 10,
+    "label": "Transitions agroécologiques et durabilité agricole",
+    "keywords": [
+      "agricole",
+      "agriculture",
+      "agricoles",
+      "durabilité",
+      "circuits",
+      "filière",
+      "alimentaire",
+      "agroécologique",
+      "changement échelle",
+      "déchets"
+    ],
+    "nb": 53,
+    "cx": 7.935200214385986,
+    "cy": 5.2967000007629395,
+    "cnu_dominant": "Sciences de gestion",
+    "cnu_dist": {
+      "Sciences de gestion": 19,
+      "Sociologie": 14,
+      "Sciences de l'éducation": 5,
+      "Science politique": 4,
+      "Arts": 4,
+      "Épistémologie": 3,
+      "Philosophie": 3,
+      "Ethnologie": 1
+    }
+  },
+  {
+    "id": 13,
+    "label": "Chaîne d'approvisionnement et mobilité",
+    "keywords": [
+      "supply",
+      "supply chain",
+      "chain",
+      "mobilité",
+      "logistique",
+      "mobility",
+      "planification",
+      "aide décision",
+      "minière",
+      "chaîne"
+    ],
+    "nb": 53,
+    "cx": 8.644200325012207,
+    "cy": 3.336400032043457,
+    "cnu_dominant": "Sciences de gestion",
+    "cnu_dist": {
+      "Sciences de gestion": 35,
+      "Sociologie": 5,
+      "Sciences de l'éducation": 5,
+      "Info-com": 3,
+      "Science politique": 2,
+      "Arts": 2,
+      "Épistémologie": 1
+    }
+  },
+  {
+    "id": 2,
+    "label": "Architecture, design et matérialité",
+    "keywords": [
+      "architecture",
+      "architectural",
+      "architecturale",
+      "architectes",
+      "design",
+      "conception",
+      "concevoir",
+      "carbone",
+      "architecte",
+      "fabrication"
+    ],
+    "nb": 52,
+    "cx": 6.962600231170654,
+    "cy": 6.553899765014648,
+    "cnu_dominant": "Arts",
+    "cnu_dist": {
+      "Arts": 39,
+      "Sciences de l'éducation": 4,
+      "Sociologie": 3,
+      "Sciences de gestion": 2,
+      "Philosophie": 2,
+      "Ethnologie": 1,
+      "Épistémologie": 1
+    }
+  },
+  {
+    "id": 20,
+    "label": "Intelligence artificielle et société",
+    "keywords": [
+      "intelligence",
+      "intelligence artificielle",
+      "artificielle",
+      "artificial intelligence",
+      "artificial",
+      "algorithmique",
+      "innovation",
+      "décision",
+      "éthique",
+      "business"
+    ],
+    "nb": 51,
+    "cx": 7.740699768066406,
+    "cy": 3.027600049972534,
+    "cnu_dominant": "Sciences de gestion",
+    "cnu_dist": {
+      "Sciences de gestion": 19,
+      "Sciences de l'éducation": 13,
+      "Philosophie": 6,
+      "Sociologie": 5,
+      "Info-com": 4,
+      "Arts": 2,
+      "Épistémologie": 1,
+      "Ethnologie": 1
+    }
+  },
+  {
+    "id": 4,
+    "label": "Médias, journalisme et plateformes numériques",
+    "keywords": [
+      "médias",
+      "journalisme",
+      "news",
+      "fake news",
+      "fake",
+      "information",
+      "media",
+      "journalistes",
+      "numérique",
+      "communication"
+    ],
+    "nb": 50,
+    "cx": 9.424799919128418,
+    "cy": 5.928599834442139,
+    "cnu_dominant": "Sciences de l'éducation",
+    "cnu_dist": {
+      "Sciences de l'éducation": 36,
+      "Sociologie": 4,
+      "Sciences de gestion": 4,
+      "Arts": 2,
+      "Science politique": 2,
+      "Philosophie": 2
+    }
+  }
+]

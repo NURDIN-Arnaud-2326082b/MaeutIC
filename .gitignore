@@ -33,6 +33,9 @@ yarn-error.log
 # React/Vite production build output
 /public/react/
 
+# Prototype à intégrer
+/prototype à intégrer/
+
 ###> phpunit/phpunit ###
 /phpunit.xml
 /.phpunit.cache/

@@ -16,6 +16,8 @@ import {
     updateAuthor,
     updateBook,
 } from '../services/libraryApi';
+import {createReport} from '../services/reportApi';
+import ReportModal from '../components/ReportModal';
 
 const BACKEND_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8000';
 const ENABLE_ISBN_SCANNER = false;
@@ -40,6 +42,11 @@ const Library = () => {
     const [removeArticlePdf, setRemoveArticlePdf] = useState(false);
     const [articleConcernType, setArticleConcernType] = useState('none');
     const [articleConcernId, setArticleConcernId] = useState('');
+    const [reportModalOpen, setReportModalOpen] = useState(false);
+    const [reportTarget, setReportTarget] = useState(null);
+    const [reportReason, setReportReason] = useState('');
+    const [reportCustomReason, setReportCustomReason] = useState('');
+    const [reportDetails, setReportDetails] = useState('');
 
     const handleBookFound = ({title, author, image}) => {
         setScannedBook({title, author, imageUrl: image});
@@ -151,6 +158,21 @@ const Library = () => {
         },
     });
 
+    const reportMutation = useMutation({
+        mutationFn: createReport,
+        onSuccess: () => {
+            setReportModalOpen(false);
+            setReportTarget(null);
+            setReportReason('');
+            setReportCustomReason('');
+            setReportDetails('');
+            alert('Signalement envoye avec succes');
+        },
+        onError: (error) => {
+            alert(error.response?.data?.error || 'Erreur lors du signalement');
+        },
+    });
+
     const handleAuthorSubmit = (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
@@ -227,6 +249,36 @@ const Library = () => {
 
     const canEdit = (item) => {
         return user && (item.userId === user.id || user.userType === 1);
+    };
+
+    const openReportModal = (article) => {
+        setReportTarget(article);
+        setReportReason('');
+        setReportCustomReason('');
+        setReportDetails('');
+        setReportModalOpen(true);
+    };
+
+    const handleReportSubmit = (event) => {
+        event.preventDefault();
+
+        if (!reportTarget) {
+            return;
+        }
+
+        const customReasonText = reportCustomReason.trim();
+
+        if (!reportReason || (reportReason === 'other' && !customReasonText)) {
+            return;
+        }
+
+        reportMutation.mutate({
+            targetType: 'article',
+            targetId: Number(reportTarget.id),
+            reasonCode: reportReason,
+            customReason: customReasonText,
+            details: reportDetails.trim(),
+        });
     };
 
     const resolveAssetUrl = (assetPath) => {
@@ -572,6 +624,17 @@ const Library = () => {
                                     Consulter le PDF joint
                                 </a>
                             )}
+
+                            {user && !canEdit(selectedArticle) && (
+                                <button
+                                    type="button"
+                                    onClick={() => openReportModal(selectedArticle)}
+                                    disabled={reportMutation.isPending}
+                                    className="mt-4 px-4 py-2 bg-orange-100 text-orange-700 rounded hover:bg-orange-200 disabled:opacity-50 transition font-medium"
+                                >
+                                    🚩 Signaler cet article
+                                </button>
+                            )}
                         </div>
                     ) : (
                         <>
@@ -579,7 +642,7 @@ const Library = () => {
                                 <h3 className="w-2/5 font-semibold">Titre</h3>
                                 <h3 className="w-1/4 font-semibold">Auteur</h3>
                                 <h3 className="w-1/4 font-semibold">Livre</h3>
-                                {user && <h3 className="w-24"></h3>}
+                                <h3 className="w-32 font-semibold text-center">Actions</h3>
                             </div>
 
                             {filterByLetter(filterBySearch(articles, ['title', 'author', 'concernLabel', 'relatedBookTitle', 'relatedAuthorName']), (a) => a.title, 'articles').map((article) => (
@@ -609,43 +672,62 @@ const Library = () => {
                                     )}
                                     <p className="w-1/4 truncate pr-3">{article.author}</p>
                                     <p className="w-1/4 truncate pr-3 text-gray-700">{article.relatedBookTitle || '-'}</p>
-                                    {canEdit(article) && (
-                                        <div className="absolute top-2 right-2">
-                                            <button
-                                                onClick={() => toggleDropdown(`article-${article.id}`)}
-                                                className="focus:outline-none px-2 py-1"
-                                            >
-                                                &#9776;
-                                            </button>
-                                            {openDropdownId === `article-${article.id}` && (
-                                                <div className="absolute right-0 mt-2 bg-white rounded shadow-lg z-50">
-                                                    <button
-                                                        onClick={() => {
-                                                            setEditingArticle(article);
-                                                            setRemoveArticleImage(false);
-                                                            setRemoveArticlePdf(false);
-                                                            setArticleConcernType(article.concernType || (article.relatedBookId ? 'book' : article.relatedAuthorId ? 'author' : 'none'));
-                                                            setArticleConcernId(String(article.concernId || article.relatedBookId || article.relatedAuthorId || ''));
-                                                            setShowArticleModal(true);
-                                                            setOpenDropdownId(null);
-                                                        }}
-                                                        className="block px-2 py-1 w-full text-gray-700 hover:bg-gray-100"
-                                                    >
-                                                        Modifier
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            handleDeleteArticle(article.id);
-                                                            setOpenDropdownId(null);
-                                                        }}
-                                                        className="block px-2 py-1 w-full text-red-600 hover:bg-gray-100"
-                                                    >
-                                                        Supprimer
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
+                                    <div className="w-32 flex justify-center">
+                                        {user && (
+                                            <div className="relative">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => toggleDropdown(`article-${article.id}`)}
+                                                    className="focus:outline-none px-2 py-1"
+                                                >
+                                                    &#9776;
+                                                </button>
+                                                {openDropdownId === `article-${article.id}` && (
+                                                    <div className="absolute right-0 mt-2 bg-white rounded shadow-lg z-50 min-w-[120px]">
+                                                        {canEdit(article) ? (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setEditingArticle(article);
+                                                                        setRemoveArticleImage(false);
+                                                                        setRemoveArticlePdf(false);
+                                                                        setArticleConcernType(article.concernType || (article.relatedBookId ? 'book' : article.relatedAuthorId ? 'author' : 'none'));
+                                                                        setArticleConcernId(String(article.concernId || article.relatedBookId || article.relatedAuthorId || ''));
+                                                                        setShowArticleModal(true);
+                                                                        setOpenDropdownId(null);
+                                                                    }}
+                                                                    className="block px-2 py-1 w-full text-left text-gray-700 hover:bg-gray-100"
+                                                                >
+                                                                    Modifier
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        handleDeleteArticle(article.id);
+                                                                        setOpenDropdownId(null);
+                                                                    }}
+                                                                    className="block px-2 py-1 w-full text-left text-red-600 hover:bg-gray-100"
+                                                                >
+                                                                    Supprimer
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    openReportModal(article);
+                                                                    setOpenDropdownId(null);
+                                                                }}
+                                                                disabled={reportMutation.isPending}
+                                                                className="block px-2 py-1 w-full text-left text-orange-700 hover:bg-gray-100 disabled:opacity-50"
+                                                            >
+                                                                Signaler
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                         </>
@@ -1160,6 +1242,21 @@ const Library = () => {
                     onClose={() => setShowScanner(false)}
                 />
             )}
+
+            <ReportModal
+                open={reportModalOpen}
+                title="Signaler un article"
+                targetLabel={reportTarget?.title ? `Cible: ${reportTarget.title}` : ''}
+                reason={reportReason}
+                customReason={reportCustomReason}
+                details={reportDetails}
+                submitting={reportMutation.isPending}
+                onClose={() => setReportModalOpen(false)}
+                onReasonChange={setReportReason}
+                onCustomReasonChange={setReportCustomReason}
+                onDetailsChange={setReportDetails}
+                onSubmit={handleReportSubmit}
+            />
         </div>
     );
 };

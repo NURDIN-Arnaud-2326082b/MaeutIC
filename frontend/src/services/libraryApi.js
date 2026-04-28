@@ -62,7 +62,7 @@ export const createArticle = async (formData) => {
 };
 
 export const updateArticle = async (id, formData) => {
-  const { data } = await api.put(`/library/articles/${id}`, formData);
+  const { data } = await api.post(`/library/articles/${id}`, formData);
   return data;
 };
 
