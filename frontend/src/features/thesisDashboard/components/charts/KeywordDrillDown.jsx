@@ -23,12 +23,15 @@ export default function KeywordDrillDown({ filters, isDarkMode }) {
   // Pre-calculate the tree structures
   const { rootCnus, cnuWordsMap } = useMemo(() => {
     let baseData = allData
-    // We respect global filters (etablissement and annee)
+    // We respect global filters (etablissement, annee, and cnu)
     if (filters?.etablissement) {
       baseData = baseData.filter(d => d.etablissement_norm === filters.etablissement)
     }
     if (filters?.annee) {
       baseData = baseData.filter(d => d.annee === filters.annee)
+    }
+    if (filters?.cnu) {
+      baseData = baseData.filter(d => d.cnu_norm === filters.cnu)
     }
 
     const cnuCounts = {}
@@ -75,7 +78,7 @@ export default function KeywordDrillDown({ filters, isDarkMode }) {
     })
 
     return { rootCnus, cnuWordsMap }
-  }, [filters?.etablissement])
+  }, [filters?.etablissement, filters?.annee, filters?.cnu])
 
   const displayTree = useMemo(() => {
     if (!drillCnu) {
