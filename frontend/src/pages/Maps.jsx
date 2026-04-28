@@ -125,6 +125,14 @@ const Maps = () => {
   }, [mapData, showFriends, showRecommendations]);
 
   useEffect(() => {
+    if (activeTab !== 'users') {
+      if (simulationRef.current) {
+        simulationRef.current.stop();
+        simulationRef.current = null;
+      }
+      return;
+    }
+
     if (!mapData || !containerRef.current || !svgRef.current) return;
     if (filteredUsers.length === 0) return;
 
@@ -296,7 +304,7 @@ const Maps = () => {
         simulationRef.current.stop();
       }
     };
-  }, [filteredUsers, mapData, navigate]);
+  }, [activeTab, filteredUsers, mapData, navigate]);
 
   if (activeTab === 'users' && isLoadingInitial && !shouldSearch) {
     return (
