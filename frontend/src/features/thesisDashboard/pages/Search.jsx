@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react'
-import { allData } from '../hooks/useFilteredData'
 
 const CNU_LABELS = {
   '04': 'Science politique', '06': 'Sciences de gestion',
@@ -50,18 +49,18 @@ function ThesisCard({ thesis, query }) {
   )
 }
 
-export default function Search() {
+export default function Search({ data = [] }) {
   const [query, setQuery] = useState('')
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (q.length < 2) return []
-    return allData
+    return data
       .filter(d =>
         d.titre?.toLowerCase().includes(q)
       )
       .sort((a, b) => b.annee - a.annee)
-  }, [query])
+  }, [data, query])
 
   const hasQuery = query.trim().length >= 2
 

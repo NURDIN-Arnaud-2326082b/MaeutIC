@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { ResponsiveTreeMap } from '@nivo/treemap'
-import { allData } from '../../hooks/useFilteredData'
 
 // Consistent colors for CNUs
 const CNU_PALETTE = [
@@ -17,12 +16,12 @@ const getColorForCnu = (cnuStr) => {
   return CNU_PALETTE[Math.abs(hash) % CNU_PALETTE.length];
 }
 
-export default function KeywordDrillDown({ filters, isDarkMode }) {
+export default function KeywordDrillDown({ data = [], filters, isDarkMode }) {
   const [drillCnu, setDrillCnu] = useState(null)
 
   // Pre-calculate the tree structures
   const { rootCnus, cnuWordsMap } = useMemo(() => {
-    let baseData = allData
+    let baseData = Array.isArray(data) ? data : []
     // We respect global filters (etablissement, annee, and cnu)
     if (filters?.etablissement) {
       baseData = baseData.filter(d => d.etablissement_norm === filters.etablissement)
@@ -78,7 +77,7 @@ export default function KeywordDrillDown({ filters, isDarkMode }) {
     })
 
     return { rootCnus, cnuWordsMap }
-  }, [filters?.etablissement, filters?.annee, filters?.cnu])
+  }, [data, filters?.etablissement, filters?.annee, filters?.cnu])
 
   const displayTree = useMemo(() => {
     if (!drillCnu) {

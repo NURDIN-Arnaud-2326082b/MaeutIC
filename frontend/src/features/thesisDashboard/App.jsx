@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Sidebar from './components/layout/Sidebar'
 import SearchBar from './components/SearchBar'
 import Overview from './pages/Overview'
@@ -7,6 +7,7 @@ import Temporel from './pages/Temporel'
 import Reseau from './pages/Reseau'
 import Disciplines from './pages/Disciplines'
 import { useFilteredData } from './hooks/useFilteredData'
+import { useThesisData } from './hooks/useThesisData'
 import './styles.css'
 
 const NAV_LABELS = {
@@ -20,14 +21,32 @@ const NAV_LABELS = {
 export default function App() {
   const [page, setPage] = useState('overview')
   const [filters, setFilters] = useState({ annee: null, cnu: null, etablissement: null, query: '' })
-  const data = useFilteredData(filters)
+  const { data: allData, loading, error } = useThesisData()
+  const data = useFilteredData(allData, filters)
   const isDarkMode = false // Light mode only
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
+  if (loading) {
+    return (
+      <div className={`thesis-dashboard-root flex items-center justify-center h-full min-h-0 bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-300 ${isDarkMode ? 'dark' : ''}`}>
+        Chargement du dashboard…
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className={`thesis-dashboard-root flex items-center justify-center h-full min-h-0 bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-300 ${isDarkMode ? 'dark' : ''}`}>
+        Impossible de charger thesis-dashboard-data.json
+      </div>
+    )
+  }
 
   return (
     <div className={`thesis-dashboard-root flex h-full min-h-0 overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors ${isDarkMode ? 'dark' : ''}`}>
       <Sidebar
         filters={filters}
+        allData={allData}
         onChange={setFilters}
         activePage={page}
         onNavigate={setPage}

@@ -1,9 +1,5 @@
-import { allData } from '../../hooks/useFilteredData'
+import { useMemo } from 'react'
 import { assetPath } from '../../utils/assetPath'
-
-const years = [...new Set(allData.map(d => d.annee))].sort()
-const cnus = [...new Set(allData.map(d => d.cnu_norm).filter(Boolean))].sort()
-const etabs = [...new Set(allData.map(d => d.etablissement_norm))].sort()
 
 const NAV = [
   { id: 'overview',      label: 'Vue d\'ensemble' },
@@ -13,7 +9,16 @@ const NAV = [
   { id: 'disciplines',   label: 'Regroupement par mot clé' },
 ]
 
-export default function Sidebar({ filters, onChange, activePage, onNavigate, isDarkMode, isTutorialActive, isOpen, onClose }) {
+export default function Sidebar({ filters, allData = [], onChange, activePage, onNavigate, isDarkMode, isTutorialActive, isOpen, onClose }) {
+  const { years, cnus, etabs } = useMemo(() => {
+    const safeData = Array.isArray(allData) ? allData : []
+    return {
+      years: [...new Set(safeData.map(d => d.annee))].sort(),
+      cnus: [...new Set(safeData.map(d => d.cnu_norm).filter(Boolean))].sort(),
+      etabs: [...new Set(safeData.map(d => d.etablissement_norm).filter(Boolean))].sort(),
+    }
+  }, [allData])
+
   const set = (key) => (e) => {
     if (isTutorialActive) return // bloquer les filtres pendant le tutoriel
     onChange({ ...filters, [key]: e.target.value || null })

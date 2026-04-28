@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, useMemo } from 'react'
 import { forceSimulation, forceCollide, forceX, forceY } from 'd3-force'
 import KeywordTrends from '../components/charts/KeywordTrends'
 import KeywordDrillDown from '../components/charts/KeywordDrillDown'
-import { allData } from '../hooks/useFilteredData'
 import { assetPath } from '../utils/assetPath'
 
 // Couleurs par section CNU (cohérentes avec le reste du dashboard)
@@ -97,8 +96,8 @@ export default function Disciplines({ data, filters, isDarkMode }) {
   const selectedCluster = clusters?.find(c => c.id === selected) ?? null
   const clusterTheses = useMemo(() => {
     if (!selectedCluster) return []
-    return allData.filter(d => d.cluster_id === selectedCluster.id)
-  }, [selectedCluster])
+    return (Array.isArray(data) ? data : []).filter(d => d.cluster_id === selectedCluster.id)
+  }, [data, selectedCluster])
 
   // --- États de chargement / erreur / vide ---
   if (error) return (
@@ -471,7 +470,7 @@ export default function Disciplines({ data, filters, isDarkMode }) {
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 flex flex-col shadow-sm">
           <p className="text-sm font-semibold text-slate-700 dark:text-slate-100 mb-4">Top 10 des mots clés les plus utilisés par CNU</p>
           <div className="flex-1 w-full relative">
-            <KeywordDrillDown filters={filters} isDarkMode={isDarkMode} />
+            <KeywordDrillDown data={data} filters={filters} isDarkMode={isDarkMode} />
           </div>
         </div>
       </div>

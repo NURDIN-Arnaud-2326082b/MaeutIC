@@ -2,7 +2,6 @@ import { useMemo } from 'react'
 import { MapContainer, TileLayer, CircleMarker, Tooltip } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import SparkLine from '../components/charts/SparkLine'
-import { allData } from '../hooks/useFilteredData'
 
 
 function KpiCard({ label, value, sub, color = 'indigo' }) {
@@ -28,8 +27,7 @@ function KpiCard({ label, value, sub, color = 'indigo' }) {
 
 
 export default function Overview({ data }) {
-  // Si la recherche ne donne aucun résultat, les visuels restent sur les données globales
-  const visData = data.length > 0 ? data : allData
+  const visData = Array.isArray(data) ? data : []
 
   const stats = useMemo(() => {
     const nbTheses = visData.length
