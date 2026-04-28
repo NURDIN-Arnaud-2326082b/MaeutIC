@@ -259,9 +259,16 @@ const Library = () => {
         return String(str).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
 
+    const getAuthorLastName = (author) => {
+        if (!author.name) return '';
+        const parts = author.name.trim().split(/\s+/);
+        return parts[parts.length - 1];
+    };
+
     const getFirstLetter = (str) => {
         if (!str) return '#';
         const cleanStr = removeAccents(str);
+        console.log(cleanStr);
         const firstChar = cleanStr.charAt(0).toUpperCase();
         return /[A-Z]/.test(firstChar) ? firstChar : '#';
     }
@@ -408,14 +415,14 @@ const Library = () => {
                             placeholder="Rechercher un auteur..."
                             className="w-full px-4 py-2 mb-3 border rounded-lg bg-white/80 focus:outline-none focus:ring-2 focus:ring-blue-400"
                         />
-                        <GlossaryNav items={authors} keyFn={(a) => a.name} tab="authors"/>
+                        <GlossaryNav items={authors} keyFn={(a) => getAuthorLastName(a)} tab="authors"/>
                     </div>
 
                     <div className="flex flex-wrap w-full">
                         {(() => {
                             const searched = filterBySearch(authors, ['name', 'nationality']);
-                            const filtered = filterByLetter(searched, (a) => a.name, 'authors');
-                            const grouped = groupByLetter(filtered, (a) => a.name);
+                            const filtered = filterByLetter(searched, (a) => getAuthorLastName(a), 'authors');
+                            const grouped = groupByLetter(filtered, (a) => getAuthorLastName(a));
                             return Object.keys(grouped).sort().map((letter) => (
                                 <div key={letter} className="w-full">
                                     <div id={`author-letter-${letter}`} className="w-full px-4 pt-4 pb-1">
