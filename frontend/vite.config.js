@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
+  const isProd = mode === 'production'
   const apiBaseUrl = env.VITE_API_URL || 'http://localhost:8000/api'
   const backendTarget = /^https?:\/\//.test(apiBaseUrl)
     ? apiBaseUrl.replace(/\/api\/?$/, '')
@@ -34,6 +35,8 @@ export default defineConfig(({ mode }) => {
   })
 
   return {
+    // In production, React is served from /react, so chunks must resolve from this base.
+    base: isProd ? '/react/' : '/',
     plugins: [react()],
     server: {
       port: 3000,
