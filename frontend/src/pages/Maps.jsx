@@ -328,7 +328,7 @@ const Maps = () => {
 
   return (
     <div className="flex-1 flex flex-col bg-gray-50" style={{ height: 'calc(100vh - 80px)' }}>
-      <div className="mx-6 mt-6 mb-4">
+      <div className="mx-6 mt-6 mb-4 flex justify-center">
         <div className="inline-flex bg-white rounded-xl p-1 shadow-sm border border-gray-200">
           <button
             type="button"
@@ -339,7 +339,7 @@ const Maps = () => {
                 : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
-            Map des utilisateurs
+            Carte des utilisateurs
           </button>
           <button
             type="button"
@@ -350,7 +350,7 @@ const Maps = () => {
                 : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
-            Dashboard thèses
+            Carte des thèses
           </button>
         </div>
       </div>
