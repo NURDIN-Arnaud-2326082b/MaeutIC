@@ -108,7 +108,7 @@ export default function Reseau({ data, filters, isDarkMode }) {
         <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
           Chaque nœud représente l'un des directeurs ayant le plus de collaborations. Les arcs relient les auteurs lorsqu'ils co-dirigent des thèses ensemble. L'épaisseur indique le volume de collaborations.
         </p>
-        <div className="rounded-xl overflow-hidden">
+        <div className="rounded-xl overflow-hidden" style={{ height: 400 }}>
           <ArcDiagram data={data} filters={filters} isDarkMode={isDarkMode} />
         </div>
       </div>
@@ -119,7 +119,7 @@ export default function Reseau({ data, filters, isDarkMode }) {
         <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
           Graphique de force (Nœud = Auteur). Déplacez le curseur pour filtrer et nettoyer le graphe.
         </p>
-        <div className="rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800">
+        <div className="rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800" style={{ height: 550 }}>
           <ForceGraph data={data} width={graphWidth > 0 ? graphWidth : 800} height={550} />
         </div>
       </div>

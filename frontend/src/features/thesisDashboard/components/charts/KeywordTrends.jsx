@@ -165,8 +165,8 @@ export default function KeywordTrends({ data, selectedYear }) {
   }
 
   return (
-    <div className="h-[400px] w-full mt-4 bg-transparent rounded-xl">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="w-full mt-4 bg-transparent rounded-xl">
+      <ResponsiveContainer width="100%" height={400}>
         {isBar ? (
           <BarChart data={chartData} layout="vertical" margin={{ left: -10, right: 100, top: 10, bottom: 10 }}>
             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />

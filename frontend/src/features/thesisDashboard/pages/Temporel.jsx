@@ -157,7 +157,7 @@ export default function Temporel({ data = [] }) {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card title="Nombre de thèses par année">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={360}>
             <BarChart data={processed.byYear}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="annee" tick={{ fontSize: 11 }} />
@@ -169,7 +169,7 @@ export default function Temporel({ data = [] }) {
         </Card>
 
         <Card title="Nombre de directeurs actifs par année">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={360}>
             <LineChart data={processed.directorsByYear}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="annee" tick={{ fontSize: 11 }} />
@@ -194,7 +194,7 @@ export default function Temporel({ data = [] }) {
         description="Une courbe par discipline"
         height={440}
       >
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height={400}>
           <LineChart data={processed.disciplineLineData}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="annee" tick={{ fontSize: 11 }} />

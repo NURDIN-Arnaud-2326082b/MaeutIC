@@ -134,7 +134,7 @@ export default function KeywordDrillDown({ data = [], filters, isDarkMode }) {
         )}
       </div>
 
-      <div className="flex-1 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl overflow-hidden p-1 shadow-sm">
+      <div className="flex-1 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl overflow-hidden p-1 shadow-sm" style={{ height: 400, minHeight: 400 }}>
         <ResponsiveTreeMap
           data={displayTree}
           identity="name"
