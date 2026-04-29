@@ -1,5 +1,4 @@
 import { useMemo } from 'react'
-import { assetPath } from '../../utils/assetPath'
 
 const NAV = [
   { id: 'overview',      label: 'Vue d\'ensemble' },
