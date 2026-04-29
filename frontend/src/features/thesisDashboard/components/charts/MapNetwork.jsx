@@ -86,7 +86,7 @@ export default function MapNetwork({ data, filters }) {
   }
 
   return (
-    <div className="rounded-xl overflow-hidden" style={{ height: 500, position: 'relative', zIndex: 0 }}>
+    <div className="rounded-xl overflow-hidden" style={{ height: 900, position: 'relative', zIndex: 0 }}>
       {/* Set key to centerPosition so MapContainer updates its center properly when selecting an etab. However, forcing full recreate might flash. We'll skip keying the map and let the user pan or rely on Leaflet's setView if we added a hook, but setting center natively sometimes flies if we don't care about panning. Since they just want it highlighted, preserving standard view or jumping is fine. Using a simple approach without key: */}
       <MapContainer
         key={selectedEtab || 'default'} // Forces re-center when selecting a specific establishment

@@ -43,7 +43,8 @@ export default function Sidebar({ filters, allData = [], onChange, activePage, o
       <aside className={`
         fixed md:static inset-y-0 left-0 z-40
         w-64 shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800
-        h-screen flex flex-col transition-transform duration-300 ease-in-out
+        h-screen md:h-auto md:rounded-2xl md:m-4 md:max-h-[calc(100vh-2rem)]
+        flex flex-col transition-transform duration-300 ease-in-out
         ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
         {/* Bouton fermer (mobile uniquement) */}
@@ -57,15 +58,8 @@ export default function Sidebar({ filters, allData = [], onChange, activePage, o
           </svg>
         </button>
 
-        {/* Logo */}
-        <img
-          src={assetPath(isDarkMode ? 'logo-maieutic-blanc.png' : 'logo-maieutic2.png')}
-          alt="M@ieutic"
-          className="w-full h-28 object-contain"
-        />
-
-        <div className="px-6 pb-6 overflow-y-auto custom-scrollbar flex flex-col gap-6 flex-1">
-          <h1 className="text-xl font-bold text-slate-800 leading-tight">Cartographie des thèses</h1>
+        <div className="px-6 pt-6 pb-6 overflow-y-auto custom-scrollbar flex flex-col gap-6 flex-1">
+          <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100 leading-tight">Cartographie des thèses</h1>
 
           <nav id="tour-nav" className="flex flex-col gap-1">
             {NAV.map(({ id, label, soon }) => (
