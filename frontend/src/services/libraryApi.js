@@ -27,6 +27,16 @@ export const deleteAuthor = async (id) => {
   return data;
 };
 
+export const createAuthorBio = async (id, formData) => {
+  const { data } = await api.post(`/library/authors/${id}/bio`, formData);
+  return data;
+};
+
+export const getAuthorBio = async (id) => {
+  const { data } = await api.get(`/library/authors/${id}/bio`);
+  return data;
+};
+
 // ==================== BOOKS ====================
 
 export const getBooks = async () => {

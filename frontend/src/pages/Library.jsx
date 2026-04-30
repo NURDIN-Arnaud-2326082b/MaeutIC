@@ -5,12 +5,14 @@ import BarcodeScanner from '../components/BarcodeScanner';
 import {
     createArticle,
     createAuthor,
+    createAuthorBio,
     createBook,
     deleteArticle,
     deleteAuthor,
     deleteBook,
     getArticles,
     getAuthors,
+    getAuthorBio,
     getBooks,
     updateArticle,
     updateAuthor,
@@ -47,6 +49,11 @@ const Library = () => {
     const [reportReason, setReportReason] = useState('');
     const [reportCustomReason, setReportCustomReason] = useState('');
     const [reportDetails, setReportDetails] = useState('');
+    const [authorBioType, setAuthorBioType] = useState('none');
+    const [authorBioUrl, setAuthorBioUrl] = useState('');
+    const [authorBioFile, setAuthorBioFile] = useState(null);
+    const [authorBioContent, setAuthorBioContent] = useState('');
+    const [authorBioTitle, setAuthorBioTitle] = useState('');
 
     const handleBookFound = ({title, author, image}) => {
         setScannedBook({title, author, imageUrl: image});
@@ -81,6 +88,19 @@ const Library = () => {
         mutationFn: deleteAuthor,
         onSuccess: () => {
             queryClient.invalidateQueries(['authors']);
+        },
+    });
+
+    const createAuthorBioMutation = useMutation({
+        mutationFn: ({id, formData}) => createAuthorBio(id, formData),
+        onSuccess: () => {
+            queryClient.invalidateQueries(['authors']);
+            // Reset bio states
+            setAuthorBioType('none');
+            setAuthorBioUrl('');
+            setAuthorBioFile(null);
+            setAuthorBioContent('');
+            setAuthorBioTitle('');
         },
     });
 
@@ -176,6 +196,24 @@ const Library = () => {
     const handleAuthorSubmit = (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
+
+        // Add biography data if provided
+        if (authorBioType !== 'none') {
+            formData.set('bioType', authorBioType);
+            if (authorBioType === 'external_link') {
+                formData.set('bioUrl', authorBioUrl);
+            } else if (authorBioType === 'pdf_file') {
+                if (authorBioFile) {
+                    formData.set('bioPdf', authorBioFile);
+                }
+            } else if (authorBioType === 'internal_article') {
+                const articleData = {
+                    title: authorBioTitle || ('Biographie de ' + (formData.get('name') || 'auteur')),
+                    content: authorBioContent,
+                };
+                formData.set('article', JSON.stringify(articleData));
+            }
+        }
 
         if (editingAuthor) {
             updateAuthorMutation.mutate({id: editingAuthor.id, formData});
@@ -487,7 +525,7 @@ const Library = () => {
                                                 key={author.id}
                                                 className="bg-white hover:bg-blue-50 rounded-lg overflow-hidden relative w-44 h-72 m-4 p-3 border border-gray-200 shadow-xl flex flex-col cursor-pointer transition-all duration-300 ease-in-out hover:shadow-2xl hover:-translate-y-1 hover:border-gray-300"
                                             >
-                                                <a href={author.link} target="_blank" rel="noopener noreferrer">
+                                                <a href={author.bioUrl} target="_blank" rel="noopener noreferrer">
                                                     <img
                                                         src={resolveAssetUrl(author.image)}
                                                         alt={author.name}
@@ -516,6 +554,45 @@ const Library = () => {
                                                         className="absolute bottom-2 right-2 w-8 h-7 rounded-lg"
                                                     />
                                                 )}
+
+                                                {/* Biography badge and button */}
+                                                {author.bioType && (
+                                                    <div className="absolute top-2 left-2">
+                                                        {author.bioType === 'internal_article' && author.bioArticle ? (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setActiveTab('articles');
+                                                                    setSelectedArticleId(author.bioArticle.id);
+                                                                }}
+                                                                className="bg-purple-600 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-purple-700 transition"
+                                                                title="Voir la biographie"
+                                                            >
+                                                                📄 Biographie
+                                                            </button>
+                                                        ) : author.bioType === 'external_link' ? (
+                                                            <a
+                                                                href={author.bioUrl}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="bg-green-600 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-green-700 transition"
+                                                                title="Voir la biographie externe"
+                                                            >
+                                                                🔗 Biographie
+                                                            </a>
+                                                        ) : author.bioType === 'pdf_file' ? (
+                                                            <a
+                                                                href={author.bioPdfUrl}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="bg-red-600 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-red-700 transition"
+                                                                title="Télécharger la biographie"
+                                                            >
+                                                                📄 PDF
+                                                            </a>
+                                                        ) : null}
+                                                    </div>
+                                                )}
+
                                                 {canEdit(author) && (
                                                     <div className="absolute top-3 right-3">
                                                         <button
@@ -861,54 +938,58 @@ const Library = () => {
             {showAuthorModal && (
                 <div
                     className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-[12000] overflow-y-auto px-4 pt-24 pb-6">
-                    <div className="bg-white rounded-lg p-6 w-full max-w-md mt-4 mb-6">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-2xl mt-4 mb-6">
                         <h2 className="text-xl font-bold mb-4">
                             {editingAuthor ? 'Modifier l\'auteur' : 'Ajouter un auteur'}
                         </h2>
                         <form onSubmit={handleAuthorSubmit}>
-                            <div className="mb-4">
-                                <label className="block text-gray-700 mb-2">Nom</label>
-                                <input
-                                    type="text"
-                                    name="name"
-                                    defaultValue={editingAuthor?.name || ''}
-                                    className="w-full px-3 py-2 border rounded"
-                                    required
-                                />
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label className="block text-gray-700 mb-2">Nom *</label>
+                                    <input
+                                        type="text"
+                                        name="name"
+                                        defaultValue={editingAuthor?.name || ''}
+                                        className="w-full px-3 py-2 border rounded"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-gray-700 mb-2">Nationalité</label>
+                                    <input
+                                        type="text"
+                                        name="nationality"
+                                        defaultValue={editingAuthor?.nationality || ''}
+                                        className="w-full px-3 py-2 border rounded"
+                                    />
+                                </div>
                             </div>
-                            <div className="mb-4">
-                                <label className="block text-gray-700 mb-2">Année de naissance</label>
-                                <input
-                                    type="number"
-                                    name="birthYear"
-                                    defaultValue={editingAuthor?.birthYear || ''}
-                                    className="w-full px-3 py-2 border rounded"
-                                />
-                            </div>
-                            <div className="mb-4">
-                                <label className="block text-gray-700 mb-2">Année de décès</label>
-                                <input
-                                    type="number"
-                                    name="deathYear"
-                                    defaultValue={editingAuthor?.deathYear || ''}
-                                    className="w-full px-3 py-2 border rounded"
-                                />
-                            </div>
-                            <div className="mb-4">
-                                <label className="block text-gray-700 mb-2">Nationalité</label>
-                                <input
-                                    type="text"
-                                    name="nationality"
-                                    defaultValue={editingAuthor?.nationality || ''}
-                                    className="w-full px-3 py-2 border rounded"
-                                />
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label className="block text-gray-700 mb-2">Année de naissance</label>
+                                    <input
+                                        type="number"
+                                        name="birthYear"
+                                        defaultValue={editingAuthor?.birthYear || ''}
+                                        className="w-full px-3 py-2 border rounded"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-gray-700 mb-2">Année de décès</label>
+                                    <input
+                                        type="number"
+                                        name="deathYear"
+                                        defaultValue={editingAuthor?.deathYear || ''}
+                                        className="w-full px-3 py-2 border rounded"
+                                    />
+                                </div>
                             </div>
                             <div className="mb-4">
                                 <label className="block text-gray-700 mb-2">Lien</label>
                                 <input
                                     type="url"
-                                    name="link"
-                                    defaultValue={editingAuthor?.link || ''}
+                                    name="bioUrl"
+                                    defaultValue={editingAuthor?.bioUrl || ''}
                                     className="w-full px-3 py-2 border rounded"
                                 />
                             </div>
@@ -921,12 +1002,97 @@ const Library = () => {
                                     className="w-full px-3 py-2 border rounded"
                                 />
                             </div>
-                            <div className="flex justify-end space-x-2">
+
+                            {/* Biography Section */}
+                            <div className="border-t pt-4 mt-4">
+                                <h3 className="font-bold text-lg mb-4">Fiche auteur (optionnelle)</h3>
+                                <div className="mb-4">
+                                    <label className="block text-gray-700 mb-2">Type de fiche</label>
+                                    <select
+                                        value={authorBioType}
+                                        onChange={(e) => {
+                                            setAuthorBioType(e.target.value);
+                                            // Reset other fields when type changes
+                                            setAuthorBioUrl('');
+                                            setAuthorBioFile(null);
+                                            setAuthorBioContent('');
+                                            setAuthorBioTitle('');
+                                        }}
+                                        className="w-full px-3 py-2 border rounded"
+                                    >
+                                        <option value="none">Aucune fiche</option>
+                                        <option value="external_link">Lien externe</option>
+                                        <option value="pdf_file">Fichier PDF</option>
+                                        <option value="internal_article">Article interne</option>
+                                    </select>
+                                </div>
+
+                                {authorBioType === 'external_link' && (
+                                    <div className="mb-4">
+                                        <label className="block text-gray-700 mb-2">URL de la fiche</label>
+                                        <input
+                                            type="url"
+                                            value={authorBioUrl}
+                                            onChange={(e) => setAuthorBioUrl(e.target.value)}
+                                            className="w-full px-3 py-2 border rounded"
+                                            placeholder="https://..."
+                                        />
+                                    </div>
+                                )}
+
+                                {authorBioType === 'pdf_file' && (
+                                    <div className="mb-4">
+                                        <label className="block text-gray-700 mb-2">Fichier PDF</label>
+                                        <input
+                                            type="file"
+                                            accept=".pdf"
+                                            onChange={(e) => setAuthorBioFile(e.target.files?.[0] || null)}
+                                            className="w-full px-3 py-2 border rounded"
+                                        />
+                                        {authorBioFile && (
+                                            <p className="text-sm text-gray-600 mt-1">Fichier sélectionné: {authorBioFile.name}</p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {authorBioType === 'internal_article' && (
+                                    <>
+                                        <div className="mb-4">
+                                            <label className="block text-gray-700 mb-2">Titre de la biographie</label>
+                                            <input
+                                                type="text"
+                                                value={authorBioTitle}
+                                                onChange={(e) => setAuthorBioTitle(e.target.value)}
+                                                className="w-full px-3 py-2 border rounded"
+                                                placeholder="Titre de l'article"
+                                            />
+                                        </div>
+                                        <div className="mb-4">
+                                            <label className="block text-gray-700 mb-2">Contenu de la biographie</label>
+                                            <textarea
+                                                value={authorBioContent}
+                                                onChange={(e) => setAuthorBioContent(e.target.value)}
+                                                className="w-full px-3 py-2 border rounded"
+                                                rows="5"
+                                                placeholder="Écrivez la biographie..."
+                                            />
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+
+                            <div className="flex justify-end space-x-2 mt-6">
                                 <button
                                     type="button"
                                     onClick={() => {
                                         setShowAuthorModal(false);
                                         setEditingAuthor(null);
+                                        // Reset bio states
+                                        setAuthorBioType('none');
+                                        setAuthorBioUrl('');
+                                        setAuthorBioFile(null);
+                                        setAuthorBioContent('');
+                                        setAuthorBioTitle('');
                                     }}
                                     className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
                                 >

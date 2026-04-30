@@ -41,8 +41,7 @@ class Author
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $nationality = null;
 
-    #[ORM\Column(length: 255, nullable: true)]
-    private ?string $link = null;
+    // `link` renamed to `bioUrl` (database column added by migration)
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $image = null;
@@ -66,6 +65,19 @@ class Author
      */
     #[ORM\ManyToMany(targetEntity: Book::class, mappedBy: 'authors')]
     private Collection $books;
+
+    #[ORM\Column(length: 50, nullable: true)]
+    private ?string $bioType = null;
+
+    #[ORM\Column(length: 512, nullable: true)]
+    private ?string $bioUrl = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $bioPdfPath = null;
+
+    #[ORM\ManyToOne(targetEntity: Article::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: "SET NULL")]
+    private ?Article $bioArticle = null;
 
     public function __construct()
     {
@@ -125,17 +137,7 @@ class Author
         return $this;
     }
 
-    public function getLink(): ?string
-    {
-        return $this->link;
-    }
-
-    public function setLink(?string $link): static
-    {
-        $this->link = $link;
-
-        return $this;
-    }
+    // `link` accessor removed — use `getBioUrl()` / `setBioUrl()` instead
 
     public function getImage(): ?string
     {
@@ -195,6 +197,54 @@ class Author
         if ($this->books->removeElement($book)) {
             $book->removeAuthor($this);
         }
+
+        return $this;
+    }
+
+    public function getBioType(): ?string
+    {
+        return $this->bioType;
+    }
+
+    public function setBioType(?string $bioType): static
+    {
+        $this->bioType = $bioType;
+
+        return $this;
+    }
+
+    public function getBioUrl(): ?string
+    {
+        return $this->bioUrl;
+    }
+
+    public function setBioUrl(?string $bioUrl): static
+    {
+        $this->bioUrl = $bioUrl;
+
+        return $this;
+    }
+
+    public function getBioPdfPath(): ?string
+    {
+        return $this->bioPdfPath;
+    }
+
+    public function setBioPdfPath(?string $bioPdfPath): static
+    {
+        $this->bioPdfPath = $bioPdfPath;
+
+        return $this;
+    }
+
+    public function getBioArticle(): ?Article
+    {
+        return $this->bioArticle;
+    }
+
+    public function setBioArticle(?Article $bioArticle): static
+    {
+        $this->bioArticle = $bioArticle;
 
         return $this;
     }

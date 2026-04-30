@@ -29,11 +29,11 @@ class AuthorFixtures extends Fixture implements DependentFixtureInterface
 
         foreach ($realAuthors as $ra) {
             $author = new Author();
-            $author->setName($ra['name'])
+                $author->setName($ra['name'])
                 ->setBirthYear($ra['birth'])
                 ->setDeathYear($ra['death'])
                 ->setNationality($ra['nat'])
-                ->setLink($ra['link'])
+                ->setBioUrl($ra['link'])
                 ->setImage("https://ui-avatars.com/api/?name=" . urlencode($ra['name']) . "&background=random")
                 ->setUser($getRandomUser());
             $manager->persist($author);
@@ -49,7 +49,7 @@ class AuthorFixtures extends Fixture implements DependentFixtureInterface
                 ->setBirthYear($birth)
                 ->setDeathYear($birth + $faker->numberBetween(40, 90))
                 ->setNationality($faker->randomElement($nationalities))
-                ->setLink($faker->url())
+                ->setBioUrl($faker->url())
                 ->setImage($faker->imageUrl(200, 200, 'people'))
                 ->setUser($getRandomUser());
             $manager->persist($author);

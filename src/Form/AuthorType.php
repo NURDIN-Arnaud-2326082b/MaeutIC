@@ -267,9 +267,9 @@ class AuthorType extends AbstractType
                     'class' => 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2'
                 ]
             ])
-            ->add('link', TextType::class, [
+            ->add('bioUrl', TextType::class, [
                 'label' => "Lien d'une biographie de l'auteur",
-                'required' => true,
+                'required' => false,
             ])
             ->add('imageFile', FileType::class, [
                 'label' => 'Photo de l\'auteur',
