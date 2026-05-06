@@ -154,6 +154,30 @@ const Library = () => {
         ? articles.find((article) => article.id === selectedArticleId)
         : null;
 
+    const handleAuthorCardClick = (author) => {
+        const bioType = author.bioType || (author.bioUrl ? 'external_link' : null);
+
+        if (bioType === 'internal_article' && author.bioArticle) {
+            setActiveTab('articles');
+            setSelectedArticleId(author.bioArticle.id);
+            return;
+        }
+
+        if (bioType === 'external_link' && author.bioUrl) {
+            window.location.assign(author.bioUrl);
+            return;
+        }
+
+        if (bioType === 'pdf_file' && author.bioPdfUrl) {
+            const downloadLink = document.createElement('a');
+            downloadLink.href = author.bioPdfUrl;
+            downloadLink.download = `${author.name || 'biographie'}.pdf`;
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            downloadLink.remove();
+        }
+    };
+
     const createArticleMutation = useMutation({
         mutationFn: createArticle,
         onSuccess: () => {
@@ -540,15 +564,16 @@ const Library = () => {
                                         {grouped[letter].map((author) => (
                                             <div
                                                 key={author.id}
+                                                onClick={() => handleAuthorCardClick(author)}
+                                                role={author.bioType || author.bioUrl ? 'button' : undefined}
+                                                tabIndex={author.bioType || author.bioUrl ? 0 : undefined}
                                                 className="bg-white hover:bg-blue-50 rounded-lg overflow-hidden relative w-44 h-72 m-4 p-3 border border-gray-200 shadow-xl flex flex-col cursor-pointer transition-all duration-300 ease-in-out hover:shadow-2xl hover:-translate-y-1 hover:border-gray-300"
                                             >
-                                                <a href={author.bioUrl} target="_blank" rel="noopener noreferrer">
-                                                    <img
-                                                        src={resolveAssetUrl(author.image)}
-                                                        alt={author.name}
-                                                        className="w-full aspect-square object-cover rounded-lg"
-                                                    />
-                                                </a>
+                                                <img
+                                                    src={resolveAssetUrl(author.image)}
+                                                    alt={author.name}
+                                                    className="w-full aspect-square object-cover rounded-lg"
+                                                />
 
                                                 <div className="pt-3 px-1 flex flex-col">
                                                     <h3
@@ -572,48 +597,13 @@ const Library = () => {
                                                     />
                                                 )}
 
-                                                {/* Biography badge and button */}
-                                                {author.bioType && (
-                                                    <div className="absolute top-2 left-2">
-                                                        {author.bioType === 'internal_article' && author.bioArticle ? (
-                                                            <button
-                                                                onClick={() => {
-                                                                    setActiveTab('articles');
-                                                                    setSelectedArticleId(author.bioArticle.id);
-                                                                }}
-                                                                className="bg-purple-600 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-purple-700 transition"
-                                                                title="Voir la biographie"
-                                                            >
-                                                                📄 Biographie
-                                                            </button>
-                                                        ) : author.bioType === 'external_link' ? (
-                                                            <a
-                                                                href={author.bioUrl}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="bg-green-600 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-green-700 transition"
-                                                                title="Voir la biographie externe"
-                                                            >
-                                                                🔗 Biographie
-                                                            </a>
-                                                        ) : author.bioType === 'pdf_file' ? (
-                                                            <a
-                                                                href={author.bioPdfUrl}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="bg-red-600 text-white px-2 py-1 rounded text-xs font-semibold hover:bg-red-700 transition"
-                                                                title="Télécharger la biographie"
-                                                            >
-                                                                📄 PDF
-                                                            </a>
-                                                        ) : null}
-                                                    </div>
-                                                )}
-
                                                 {canEdit(author) && (
                                                     <div className="absolute top-3 right-3">
                                                         <button
-                                                            onClick={() => toggleDropdown(`author-${author.id}`)}
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                toggleDropdown(`author-${author.id}`);
+                                                            }}
                                                             className="focus:outline-none px-2 py-1"
                                                         >
                                                             &#9776;
@@ -622,7 +612,8 @@ const Library = () => {
                                                             <div
                                                                 className="absolute right-0 mt-2 bg-white rounded shadow-lg z-50">
                                                                 <button
-                                                                    onClick={() => {
+                                                                    onClick={(event) => {
+                                                                        event.stopPropagation();
                                                                         setEditingAuthor(author);
                                                                         setShowAuthorModal(true);
                                                                         setOpenDropdownId(null);
@@ -632,7 +623,8 @@ const Library = () => {
                                                                     Modifier
                                                                 </button>
                                                                 <button
-                                                                    onClick={() => {
+                                                                    onClick={(event) => {
+                                                                        event.stopPropagation();
                                                                         handleDeleteAuthor(author.id);
                                                                         setOpenDropdownId(null);
                                                                     }}
