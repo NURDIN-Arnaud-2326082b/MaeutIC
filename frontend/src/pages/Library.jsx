@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {useAuthStore} from '../store';
 import BarcodeScanner from '../components/BarcodeScanner';
@@ -59,6 +59,15 @@ const Library = () => {
         setScannedBook({title, author, imageUrl: image});
         setShowScanner(false);
     };
+
+    useEffect(() => {
+        if (!showAuthorModal || !editingAuthor) {
+            return;
+        }
+
+        setAuthorBioType(editingAuthor.bioType || 'none');
+        setAuthorBioUrl(editingAuthor.bioUrl || '');
+    }, [showAuthorModal, editingAuthor]);
 
     // Authors
     const {data: authors = []} = useQuery({
@@ -196,23 +205,31 @@ const Library = () => {
     const handleAuthorSubmit = (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
+        const bioUrlValue = String(formData.get('bioUrl') || '').trim();
+        let bioTypeValue = authorBioType;
+
+        if (bioTypeValue === 'none' && bioUrlValue) {
+            bioTypeValue = 'external_link';
+        }
 
         // Add biography data if provided
-        if (authorBioType !== 'none') {
-            formData.set('bioType', authorBioType);
-            if (authorBioType === 'external_link') {
+        if (bioTypeValue !== 'none') {
+            formData.set('bioType', bioTypeValue);
+            if (bioTypeValue === 'external_link') {
                 formData.set('bioUrl', authorBioUrl);
-            } else if (authorBioType === 'pdf_file') {
+            } else if (bioTypeValue === 'pdf_file') {
                 if (authorBioFile) {
                     formData.set('bioPdf', authorBioFile);
                 }
-            } else if (authorBioType === 'internal_article') {
+            } else if (bioTypeValue === 'internal_article') {
                 const articleData = {
                     title: authorBioTitle || ('Biographie de ' + (formData.get('name') || 'auteur')),
                     content: authorBioContent,
                 };
                 formData.set('article', JSON.stringify(articleData));
             }
+        } else if (editingAuthor?.bioType) {
+            formData.set('bioType', 'none');
         }
 
         if (editingAuthor) {

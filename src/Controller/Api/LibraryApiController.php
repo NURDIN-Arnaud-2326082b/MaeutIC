@@ -73,24 +73,10 @@ class LibraryApiController extends AbstractController
         $em->persist($author);
         $em->flush();
 
-        // Handle biography if provided during author creation
-        $bioType = $request->request->get('bioType');
-        if ($bioType) {
-            $bioData = [
-                'bioType' => $bioType,
-                'bioUrl' => $request->request->get('bioUrl'),
-            ];
-            
-            if ($bioType === 'internal_article') {
-                $bioData['article'] = [
-                    'title' => $request->request->get('articleTitle'),
-                    'content' => $request->request->get('articleContent'),
-                ];
-            }
-
+        $bioData = $this->extractAuthorBioData($request);
+        if ($bioData !== null) {
             $bioError = $this->applyAuthorBio($author, $bioData, $request, $em);
             if ($bioError instanceof JsonResponse) {
-                // If bio creation fails, still return the author but with error info
                 return $bioError;
             }
         }
@@ -169,6 +155,14 @@ class LibraryApiController extends AbstractController
                 $author->setImage($newFilename);
             } catch (FileException $e) {
                 return new JsonResponse(['error' => 'Erreur lors de l\'upload de l\'image'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            }
+        }
+
+        $bioData = $this->extractAuthorBioData($request);
+        if ($bioData !== null) {
+            $bioError = $this->applyAuthorBio($author, $bioData, $request, $em);
+            if ($bioError instanceof JsonResponse) {
+                return $bioError;
             }
         }
 
@@ -604,6 +598,11 @@ class LibraryApiController extends AbstractController
         $author->setBioPdfPath(null);
         $author->setBioArticle(null);
 
+        if ($bioType === 'none' || $bioType === null) {
+            $em->flush();
+            return null;
+        }
+
         if ($bioType === 'external_link') {
             $bioUrl = $data['bioUrl'] ?? null;
             if (!$bioUrl) {
@@ -659,6 +658,54 @@ class LibraryApiController extends AbstractController
 
         $em->flush();
         return null;
+    }
+
+    /**
+     * Build biography payload from request when bio fields are present.
+     */
+    private function extractAuthorBioData(Request $request): ?array
+    {
+        $hasBioFields = $request->request->has('bioType')
+            || $request->request->has('bioUrl')
+            || $request->request->has('article')
+            || $request->request->has('articleTitle')
+            || $request->request->has('articleContent')
+            || $request->files->has('bioPdf')
+            || $request->files->has('articleImage');
+
+        if (!$hasBioFields) {
+            return null;
+        }
+
+        $bioType = $request->request->get('bioType');
+        $bioUrl = trim((string) $request->request->get('bioUrl', ''));
+
+        if (!$bioType) {
+            if ($request->files->has('bioPdf')) {
+                $bioType = 'pdf_file';
+            } elseif ($request->request->has('article') || $request->request->has('articleTitle') || $request->request->has('articleContent')) {
+                $bioType = 'internal_article';
+            } elseif ($bioUrl !== '') {
+                $bioType = 'external_link';
+            }
+        }
+
+        $data = [
+            'bioType' => $bioType,
+            'bioUrl' => $bioUrl !== '' ? $bioUrl : null,
+        ];
+
+        if ($request->request->has('article')) {
+            $articleData = json_decode($request->request->get('article'), true) ?: [];
+            $data['article'] = $articleData;
+        } elseif ($request->request->has('articleTitle') || $request->request->has('articleContent')) {
+            $data['article'] = [
+                'title' => $request->request->get('articleTitle'),
+                'content' => $request->request->get('articleContent'),
+            ];
+        }
+
+        return $data;
     }
 
     /**
