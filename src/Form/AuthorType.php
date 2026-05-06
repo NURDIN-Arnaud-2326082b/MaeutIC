@@ -7,7 +7,7 @@
  * - Nom de l'auteur
  * - Années de naissance et décès
  * - Nationalité (liste complète de pays)
- * - Lien vers ressource externe
+ * - Lien associé à la fiche
  * - Upload d'image
  * - Sélection de tags pour catégorisation
  */
@@ -268,7 +268,7 @@ class AuthorType extends AbstractType
                 ]
             ])
             ->add('bioUrl', TextType::class, [
-                'label' => "Lien d'une biographie de l'auteur",
+                'label' => 'Lien associé',
                 'required' => false,
             ])
             ->add('imageFile', FileType::class, [

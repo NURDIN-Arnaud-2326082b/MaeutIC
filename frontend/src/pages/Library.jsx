@@ -5,14 +5,12 @@ import BarcodeScanner from '../components/BarcodeScanner';
 import {
     createArticle,
     createAuthor,
-    createAuthorBio,
     createBook,
     deleteArticle,
     deleteAuthor,
     deleteBook,
     getArticles,
     getAuthors,
-    getAuthorBio,
     getBooks,
     updateArticle,
     updateAuthor,
@@ -40,6 +38,8 @@ const Library = () => {
     const [showScanner, setShowScanner] = useState(false);
     const [scannedBook, setScannedBook] = useState(null);
     const [selectedArticleId, setSelectedArticleId] = useState(null);
+    const [selectedAuthorId, setSelectedAuthorId] = useState(null);
+    const [selectedAuthorTab, setSelectedAuthorTab] = useState('bio');
     const [removeArticleImage, setRemoveArticleImage] = useState(false);
     const [removeArticlePdf, setRemoveArticlePdf] = useState(false);
     const [articleConcernType, setArticleConcernType] = useState('none');
@@ -49,11 +49,10 @@ const Library = () => {
     const [reportReason, setReportReason] = useState('');
     const [reportCustomReason, setReportCustomReason] = useState('');
     const [reportDetails, setReportDetails] = useState('');
-    const [authorBioType, setAuthorBioType] = useState('none');
+    const [glossaryFilter, setGlossaryFilter] = useState({authors: null, books: null, articles: null});
     const [authorBioUrl, setAuthorBioUrl] = useState('');
     const [authorBioFile, setAuthorBioFile] = useState(null);
     const [authorBioContent, setAuthorBioContent] = useState('');
-    const [authorBioTitle, setAuthorBioTitle] = useState('');
 
     const handleBookFound = ({title, author, image}) => {
         setScannedBook({title, author, imageUrl: image});
@@ -65,8 +64,9 @@ const Library = () => {
             return;
         }
 
-        setAuthorBioType(editingAuthor.bioType || 'none');
+        setAuthorBioContent(editingAuthor.bioContent || '');
         setAuthorBioUrl(editingAuthor.bioUrl || '');
+        setAuthorBioFile(null);
     }, [showAuthorModal, editingAuthor]);
 
     // Authors
@@ -79,6 +79,7 @@ const Library = () => {
         mutationFn: createAuthor,
         onSuccess: () => {
             queryClient.invalidateQueries(['authors']);
+            queryClient.invalidateQueries(['articles']);
             setShowAuthorModal(false);
             setEditingAuthor(null);
         },
@@ -88,6 +89,7 @@ const Library = () => {
         mutationFn: ({id, formData}) => updateAuthor(id, formData),
         onSuccess: () => {
             queryClient.invalidateQueries(['authors']);
+            queryClient.invalidateQueries(['articles']);
             setShowAuthorModal(false);
             setEditingAuthor(null);
         },
@@ -97,19 +99,6 @@ const Library = () => {
         mutationFn: deleteAuthor,
         onSuccess: () => {
             queryClient.invalidateQueries(['authors']);
-        },
-    });
-
-    const createAuthorBioMutation = useMutation({
-        mutationFn: ({id, formData}) => createAuthorBio(id, formData),
-        onSuccess: () => {
-            queryClient.invalidateQueries(['authors']);
-            // Reset bio states
-            setAuthorBioType('none');
-            setAuthorBioUrl('');
-            setAuthorBioFile(null);
-            setAuthorBioContent('');
-            setAuthorBioTitle('');
         },
     });
 
@@ -154,28 +143,53 @@ const Library = () => {
         ? articles.find((article) => article.id === selectedArticleId)
         : null;
 
+    const selectedAuthor = selectedAuthorId
+        ? authors.find((author) => author.id === selectedAuthorId)
+        : null;
+
+    const selectedAuthorArticles = selectedAuthor
+        ? articles.filter((article) => article.relatedAuthorId === selectedAuthor.id || article.relatedAuthorName === selectedAuthor.name)
+        : [];
+
+    const selectedAuthorBooks = selectedAuthor
+        ? books.filter((book) => book.authors?.some((bookAuthor) => bookAuthor.id === selectedAuthor.id))
+        : [];
+
+    const getAuthorById = (id) => authors.find((author) => author.id === id) || null;
+
     const handleAuthorCardClick = (author) => {
-        const bioType = author.bioType || (author.bioUrl ? 'external_link' : null);
+        setSelectedAuthorId(author.id);
+        setSelectedAuthorTab('bio');
+    };
 
-        if (bioType === 'internal_article' && author.bioArticle) {
-            setActiveTab('articles');
-            setSelectedArticleId(author.bioArticle.id);
+    const closeAuthorPreview = () => {
+        setSelectedAuthorId(null);
+        setSelectedAuthorTab('bio');
+    };
+
+    const openAuthorPreviewArticle = (article) => {
+        setActiveTab('articles');
+        setSelectedArticleId(article.id);
+        closeAuthorPreview();
+    };
+
+    const openAuthorBioLink = (author) => {
+        if (author.bioUrl) {
+            window.open(author.bioUrl, '_blank', 'noopener,noreferrer');
+        }
+    };
+
+    const downloadAuthorBioPdf = (author) => {
+        if (!author.bioPdfUrl) {
             return;
         }
 
-        if (bioType === 'external_link' && author.bioUrl) {
-            window.location.assign(author.bioUrl);
-            return;
-        }
-
-        if (bioType === 'pdf_file' && author.bioPdfUrl) {
-            const downloadLink = document.createElement('a');
-            downloadLink.href = author.bioPdfUrl;
-            downloadLink.download = `${author.name || 'biographie'}.pdf`;
-            document.body.appendChild(downloadLink);
-            downloadLink.click();
-            downloadLink.remove();
-        }
+        const downloadLink = document.createElement('a');
+        downloadLink.href = resolveAssetUrl(author.bioPdfUrl);
+        downloadLink.download = `${author.name || 'biographie'}.pdf`;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        downloadLink.remove();
     };
 
     const createArticleMutation = useMutation({
@@ -229,31 +243,18 @@ const Library = () => {
     const handleAuthorSubmit = (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
-        const bioUrlValue = String(formData.get('bioUrl') || '').trim();
-        let bioTypeValue = authorBioType;
+        const bioContentValue = authorBioContent.trim();
 
-        if (bioTypeValue === 'none' && bioUrlValue) {
-            bioTypeValue = 'external_link';
+        if (!bioContentValue) {
+            alert('La fiche auteur est obligatoire. Merci de saisir un texte de biographie.');
+            return;
         }
 
-        // Add biography data if provided
-        if (bioTypeValue !== 'none') {
-            formData.set('bioType', bioTypeValue);
-            if (bioTypeValue === 'external_link') {
-                formData.set('bioUrl', authorBioUrl);
-            } else if (bioTypeValue === 'pdf_file') {
-                if (authorBioFile) {
-                    formData.set('bioPdf', authorBioFile);
-                }
-            } else if (bioTypeValue === 'internal_article') {
-                const articleData = {
-                    title: authorBioTitle || ('Biographie de ' + (formData.get('name') || 'auteur')),
-                    content: authorBioContent,
-                };
-                formData.set('article', JSON.stringify(articleData));
-            }
-        } else if (editingAuthor?.bioType) {
-            formData.set('bioType', 'none');
+        formData.set('bioContent', bioContentValue);
+        formData.set('bioUrl', authorBioUrl.trim());
+
+        if (authorBioFile) {
+            formData.set('bioPdf', authorBioFile);
         }
 
         if (editingAuthor) {
@@ -378,31 +379,28 @@ const Library = () => {
         return /^https?:\/\//i.test(article?.link || '');
     };
 
-    const toggleDropdown = (id) => {
-        setOpenDropdownId(openDropdownId === id ? null : id);
-    };
-
-    // Glossary helpers
-    const [glossaryFilter, setGlossaryFilter] = useState({authors: null, books: null, articles: null});
-
     const removeAccents = (str) => {
         if (!str) return "";
         return String(str).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    }
-
-    const getAuthorLastName = (author) => {
-        if (!author.name) return '';
-        const parts = author.name.trim().split(/\s+/);
-        return parts[parts.length - 1];
     };
 
     const getFirstLetter = (str) => {
         if (!str) return '#';
-        const cleanStr = removeAccents(str);
-        console.log(cleanStr);
+        const cleanStr = removeAccents(String(str).trim());
         const firstChar = cleanStr.charAt(0).toUpperCase();
         return /[A-Z]/.test(firstChar) ? firstChar : '#';
-    }
+    };
+
+    const getAuthorLastName = (author) => {
+        if (!author?.name) return '';
+
+        const parts = String(author.name).trim().split(/\s+/);
+        return parts[parts.length - 1];
+    };
+
+    const toggleDropdown = (id) => {
+        setOpenDropdownId((currentId) => (currentId === id ? null : id));
+    };
 
     const getAvailableLetters = (items, keyFn) => {
         const letters = new Set(items.map((item) => getFirstLetter(keyFn(item))));
@@ -564,30 +562,39 @@ const Library = () => {
                                         {grouped[letter].map((author) => (
                                             <div
                                                 key={author.id}
-                                                onClick={() => handleAuthorCardClick(author)}
-                                                role={author.bioType || author.bioUrl ? 'button' : undefined}
-                                                tabIndex={author.bioType || author.bioUrl ? 0 : undefined}
                                                 className="bg-white hover:bg-blue-50 rounded-lg overflow-hidden relative w-44 h-72 m-4 p-3 border border-gray-200 shadow-xl flex flex-col cursor-pointer transition-all duration-300 ease-in-out hover:shadow-2xl hover:-translate-y-1 hover:border-gray-300"
                                             >
-                                                <img
-                                                    src={resolveAssetUrl(author.image)}
-                                                    alt={author.name}
-                                                    className="w-full aspect-square object-cover rounded-lg"
-                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleAuthorCardClick(author)}
+                                                    onKeyDown={(event) => {
+                                                        if (event.key === 'Enter' || event.key === ' ') {
+                                                            event.preventDefault();
+                                                            handleAuthorCardClick(author);
+                                                        }
+                                                    }}
+                                                    className="text-left flex-1 flex flex-col outline-none"
+                                                >
+                                                    <img
+                                                        src={resolveAssetUrl(author.image)}
+                                                        alt={author.name}
+                                                        className="w-full aspect-square object-cover rounded-lg"
+                                                    />
 
-                                                <div className="pt-3 px-1 flex flex-col">
-                                                    <h3
-                                                        className="text-base font-semibold text-gray-800 line-clamp-2 leading-tight"
-                                                        title={author.name}
-                                                    >
-                                                        {author.name}
-                                                    </h3>
-                                                    {(author.birthYear || author.deathYear) && (
-                                                        <p className="text-sm text-gray-600 mt-1">
-                                                            {author.birthYear || '?'} - {author.deathYear || '...'}
-                                                        </p>
-                                                    )}
-                                                </div>
+                                                    <div className="pt-3 px-1 flex flex-col">
+                                                        <h3
+                                                            className="text-base font-semibold text-gray-800 line-clamp-2 leading-tight"
+                                                            title={author.name}
+                                                        >
+                                                            {author.name}
+                                                        </h3>
+                                                        {(author.birthYear || author.deathYear) && (
+                                                            <p className="text-sm text-gray-600 mt-1">
+                                                                {author.birthYear || '?'} - {author.deathYear || '...'}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </button>
 
                                                 {author.nationality && (
                                                     <img
@@ -598,20 +605,21 @@ const Library = () => {
                                                 )}
 
                                                 {canEdit(author) && (
-                                                    <div className="absolute top-3 right-3">
+                                                    <div className="absolute top-3 right-3 z-20">
                                                         <button
+                                                            type="button"
                                                             onClick={(event) => {
                                                                 event.stopPropagation();
                                                                 toggleDropdown(`author-${author.id}`);
                                                             }}
-                                                            className="focus:outline-none px-2 py-1"
+                                                            className="focus:outline-none px-2 py-1 rounded bg-white/90 hover:bg-white shadow"
                                                         >
                                                             &#9776;
                                                         </button>
                                                         {openDropdownId === `author-${author.id}` && (
-                                                            <div
-                                                                className="absolute right-0 mt-2 bg-white rounded shadow-lg z-50">
+                                                            <div className="absolute right-0 mt-2 bg-white rounded shadow-lg z-50 min-w-[120px]">
                                                                 <button
+                                                                    type="button"
                                                                     onClick={(event) => {
                                                                         event.stopPropagation();
                                                                         setEditingAuthor(author);
@@ -623,6 +631,7 @@ const Library = () => {
                                                                     Modifier
                                                                 </button>
                                                                 <button
+                                                                    type="button"
                                                                     onClick={(event) => {
                                                                         event.stopPropagation();
                                                                         handleDeleteAuthor(author.id);
@@ -642,6 +651,183 @@ const Library = () => {
                                 </div>
                             ));
                         })()}
+
+                        {selectedAuthor && (
+                            <div
+                                className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm p-4 flex items-center justify-center"
+                                onClick={closeAuthorPreview}
+                            >
+                                <div
+                                    className="w-full max-w-6xl max-h-[90vh] overflow-hidden rounded-3xl shadow-2xl bg-[#1e1f22] text-white grid grid-cols-1 lg:grid-cols-[340px_1fr]"
+                                    onClick={(event) => event.stopPropagation()}
+                                >
+                                    <div className="relative bg-[#2b2d31] p-6 border-b lg:border-b-0 lg:border-r border-white/10 overflow-y-auto">
+                                        <button
+                                            type="button"
+                                            onClick={closeAuthorPreview}
+                                            className="absolute top-4 right-4 px-3 py-1 rounded-full bg-white/10 text-white text-sm hover:bg-white/20 transition"
+                                        >
+                                            Fermer
+                                        </button>
+
+                                        <div className="h-28 rounded-2xl bg-gradient-to-br from-blue-500 via-indigo-500 to-blue-700" />
+                                        <div className="relative -mt-14 ml-4">
+                                            <img
+                                                src={resolveAssetUrl(selectedAuthor.image)}
+                                                alt={selectedAuthor.name}
+                                                className="w-28 h-28 rounded-full object-cover border-4 border-[#2b2d31] shadow-lg"
+                                            />
+                                        </div>
+
+                                        <div className="mt-4">
+                                            <h2 className="text-3xl font-bold leading-tight">{selectedAuthor.name}</h2>
+                                            <p className="text-sm text-white/70 mt-1">{selectedAuthor.nationality || 'Nationalité non renseignée'}</p>
+                                            {(selectedAuthor.birthYear || selectedAuthor.deathYear) && (
+                                                <p className="text-sm text-white/60 mt-1">
+                                                    {selectedAuthor.birthYear || '?'} - {selectedAuthor.deathYear || '...'}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="mt-6 grid grid-cols-2 gap-3 text-sm">
+                                            <div className="rounded-2xl bg-white/5 p-4">
+                                                <div className="text-white/50">Articles</div>
+                                                <div className="mt-1 text-xl font-semibold">{selectedAuthorArticles.length}</div>
+                                            </div>
+                                            <div className="rounded-2xl bg-white/5 p-4">
+                                                <div className="text-white/50">Livres</div>
+                                                <div className="mt-1 text-xl font-semibold">{selectedAuthorBooks.length}</div>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-6 text-sm text-white/70 space-y-2">
+                                            {(selectedAuthor.bioContent || selectedAuthor.bioUrl || selectedAuthor.bioPdfUrl) && (
+                                                <div>
+                                                    <div className="uppercase tracking-wider text-xs text-white/40">Biographie manuelle</div>
+                                                    <div className="mt-1 text-white/80 whitespace-pre-wrap leading-relaxed">
+                                                        {selectedAuthor.bioContent || 'Biographie sans texte associé.'}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {selectedAuthor.bioUrl && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openAuthorBioLink(selectedAuthor)}
+                                                    className="mt-2 inline-flex px-3 py-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition"
+                                                >
+                                                    Ouvrir le lien associé
+                                                </button>
+                                            )}
+                                            {selectedAuthor.bioPdfUrl && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => downloadAuthorBioPdf(selectedAuthor)}
+                                                    className="mt-2 ml-2 inline-flex px-3 py-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition"
+                                                >
+                                                    Télécharger le PDF associé
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="p-6 overflow-y-auto">
+                                        <div className="flex flex-wrap gap-2 border-b border-white/10 pb-4">
+                                            {[
+                                                {key: 'bio', label: 'Biographie'},
+                                                {key: 'articles', label: `Articles (${selectedAuthorArticles.length})`},
+                                                {key: 'books', label: `Livres (${selectedAuthorBooks.length})`},
+                                            ].map((tab) => (
+                                                <button
+                                                    key={tab.key}
+                                                    type="button"
+                                                    onClick={() => setSelectedAuthorTab(tab.key)}
+                                                    className={`px-4 py-2 rounded-full text-sm font-semibold transition ${
+                                                        selectedAuthorTab === tab.key
+                                                            ? 'bg-white text-[#1e1f22]'
+                                                            : 'bg-white/5 text-white/70 hover:bg-white/10'
+                                                    }`}
+                                                >
+                                                    {tab.label}
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        <div className="pt-5">
+                                            {selectedAuthorTab === 'bio' && (
+                                                <div className="space-y-4">
+                                                    <div className="rounded-2xl bg-white/5 p-5 border border-white/10">
+                                                        <h3 className="text-xl font-semibold">Biographie</h3>
+                                                        <div className="mt-4 whitespace-pre-wrap text-white/80 leading-relaxed">
+                                                            {selectedAuthor.bioContent || 'Aucune biographie n’est associée à cet auteur.'}
+                                                        </div>
+                                                        {selectedAuthor.bioUrl && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => openAuthorBioLink(selectedAuthor)}
+                                                                className="mt-5 px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition"
+                                                            >
+                                                                Ouvrir le lien associé
+                                                            </button>
+                                                        )}
+                                                        {selectedAuthor.bioPdfUrl && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => downloadAuthorBioPdf(selectedAuthor)}
+                                                                className="mt-5 ml-3 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition"
+                                                            >
+                                                                Télécharger le PDF associé
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {selectedAuthorTab === 'articles' && (
+                                                <div className="space-y-3">
+                                                    {selectedAuthorArticles.length > 0 ? selectedAuthorArticles.map((article) => (
+                                                        <button
+                                                            key={article.id}
+                                                            type="button"
+                                                            onClick={() => openAuthorPreviewArticle(article)}
+                                                            className="w-full text-left rounded-2xl bg-white/5 p-4 border border-white/10 hover:bg-white/10 transition"
+                                                        >
+                                                            <div className="font-semibold text-white">{article.title}</div>
+                                                            <div className="mt-1 text-sm text-white/60 truncate">
+                                                                {article.content || 'Aucun extrait disponible.'}
+                                                            </div>
+                                                        </button>
+                                                    )) : (
+                                                        <div className="rounded-2xl bg-white/5 p-5 border border-white/10 text-white/70">
+                                                            Aucun article lié à cet auteur.
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {selectedAuthorTab === 'books' && (
+                                                <div className="space-y-3">
+                                                    {selectedAuthorBooks.length > 0 ? selectedAuthorBooks.map((book) => (
+                                                        <div
+                                                            key={book.id}
+                                                            className="rounded-2xl bg-white/5 p-4 border border-white/10"
+                                                        >
+                                                            <div className="font-semibold text-white">{book.title}</div>
+                                                            <div className="mt-1 text-sm text-white/60 truncate">
+                                                                {book.authors?.map((bookAuthor) => bookAuthor.name).join(', ') || 'Auteur inconnu'}
+                                                            </div>
+                                                        </div>
+                                                    )) : (
+                                                        <div className="rounded-2xl bg-white/5 p-5 border border-white/10 text-white/70">
+                                                            Aucun livre lié à cet auteur.
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -994,15 +1180,6 @@ const Library = () => {
                                 </div>
                             </div>
                             <div className="mb-4">
-                                <label className="block text-gray-700 mb-2">Lien</label>
-                                <input
-                                    type="url"
-                                    name="bioUrl"
-                                    defaultValue={editingAuthor?.bioUrl || ''}
-                                    className="w-full px-3 py-2 border rounded"
-                                />
-                            </div>
-                            <div className="mb-4">
                                 <label className="block text-gray-700 mb-2">Image</label>
                                 <input
                                     type="file"
@@ -1014,80 +1191,42 @@ const Library = () => {
 
                             {/* Biography Section */}
                             <div className="border-t pt-4 mt-4">
-                                <h3 className="font-bold text-lg mb-4">Fiche auteur (optionnelle)</h3>
+                                <h3 className="font-bold text-lg mb-4">Fiche auteur</h3>
                                 <div className="mb-4">
-                                    <label className="block text-gray-700 mb-2">Type de fiche</label>
-                                    <select
-                                        value={authorBioType}
-                                        onChange={(e) => {
-                                            setAuthorBioType(e.target.value);
-                                            // Reset other fields when type changes
-                                            setAuthorBioUrl('');
-                                            setAuthorBioFile(null);
-                                            setAuthorBioContent('');
-                                            setAuthorBioTitle('');
-                                        }}
+                                    <label className="block text-gray-700 mb-2">Texte de biographie</label>
+                                    <textarea
+                                        value={authorBioContent}
+                                        onChange={(e) => setAuthorBioContent(e.target.value)}
                                         className="w-full px-3 py-2 border rounded"
-                                    >
-                                        <option value="none">Aucune fiche</option>
-                                        <option value="external_link">Lien externe</option>
-                                        <option value="pdf_file">Fichier PDF</option>
-                                        <option value="internal_article">Article interne</option>
-                                    </select>
+                                        rows="6"
+                                        placeholder="Écrivez la biographie..."
+                                        required
+                                    />
                                 </div>
-
-                                {authorBioType === 'external_link' && (
-                                    <div className="mb-4">
-                                        <label className="block text-gray-700 mb-2">URL de la fiche</label>
-                                        <input
-                                            type="url"
-                                            value={authorBioUrl}
-                                            onChange={(e) => setAuthorBioUrl(e.target.value)}
-                                            className="w-full px-3 py-2 border rounded"
-                                            placeholder="https://..."
-                                        />
-                                    </div>
-                                )}
-
-                                {authorBioType === 'pdf_file' && (
-                                    <div className="mb-4">
-                                        <label className="block text-gray-700 mb-2">Fichier PDF</label>
-                                        <input
-                                            type="file"
-                                            accept=".pdf"
-                                            onChange={(e) => setAuthorBioFile(e.target.files?.[0] || null)}
-                                            className="w-full px-3 py-2 border rounded"
-                                        />
-                                        {authorBioFile && (
-                                            <p className="text-sm text-gray-600 mt-1">Fichier sélectionné: {authorBioFile.name}</p>
-                                        )}
-                                    </div>
-                                )}
-
-                                {authorBioType === 'internal_article' && (
-                                    <>
-                                        <div className="mb-4">
-                                            <label className="block text-gray-700 mb-2">Titre de la biographie</label>
-                                            <input
-                                                type="text"
-                                                value={authorBioTitle}
-                                                onChange={(e) => setAuthorBioTitle(e.target.value)}
-                                                className="w-full px-3 py-2 border rounded"
-                                                placeholder="Titre de l'article"
-                                            />
-                                        </div>
-                                        <div className="mb-4">
-                                            <label className="block text-gray-700 mb-2">Contenu de la biographie</label>
-                                            <textarea
-                                                value={authorBioContent}
-                                                onChange={(e) => setAuthorBioContent(e.target.value)}
-                                                className="w-full px-3 py-2 border rounded"
-                                                rows="5"
-                                                placeholder="Écrivez la biographie..."
-                                            />
-                                        </div>
-                                    </>
-                                )}
+                                <div className="mb-4">
+                                    <label className="block text-gray-700 mb-2">Lien associé</label>
+                                    <input
+                                        type="url"
+                                        value={authorBioUrl}
+                                        onChange={(e) => setAuthorBioUrl(e.target.value)}
+                                        className="w-full px-3 py-2 border rounded"
+                                        placeholder="https://..."
+                                    />
+                                </div>
+                                <div className="mb-4">
+                                    <label className="block text-gray-700 mb-2">PDF associé</label>
+                                    <input
+                                        type="file"
+                                        accept=".pdf"
+                                        onChange={(e) => setAuthorBioFile(e.target.files?.[0] || null)}
+                                        className="w-full px-3 py-2 border rounded"
+                                    />
+                                    {authorBioFile ? (
+                                        <p className="text-sm text-gray-600 mt-1">Fichier sélectionné: {authorBioFile.name}</p>
+                                    ) : editingAuthor?.bioPdfPath ? (
+                                        <p className="text-sm text-gray-600 mt-1">PDF actuel conservé si aucun nouveau fichier n’est choisi.</p>
+                                    ) : null}
+                                </div>
                             </div>
 
                             <div className="flex justify-end space-x-2 mt-6">
@@ -1096,12 +1235,9 @@ const Library = () => {
                                     onClick={() => {
                                         setShowAuthorModal(false);
                                         setEditingAuthor(null);
-                                        // Reset bio states
-                                        setAuthorBioType('none');
                                         setAuthorBioUrl('');
                                         setAuthorBioFile(null);
                                         setAuthorBioContent('');
-                                        setAuthorBioTitle('');
                                     }}
                                     className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
                                 >
