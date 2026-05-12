@@ -43,3 +43,10 @@ services:
     App\EventListener\ReportTargetCleanupSubscriber:
         tags:
             - { name: doctrine.event_subscriber }
+
+    Pusher\Pusher:
+        public: true
+        arguments:
+            - '%env(PUSHER_KEY)%'
+            - '%env(PUSHER_SECRET)%'
+            - '%env(PUSHER_APP_ID)%'
