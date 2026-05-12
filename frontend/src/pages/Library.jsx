@@ -149,7 +149,7 @@ const Library = () => {
         : null;
 
     const selectedAuthorArticles = selectedAuthor
-        ? articles.filter((article) => article.relatedAuthorId === selectedAuthor.id || article.relatedAuthorName === selectedAuthor.name)
+        ? articles.filter((article) => article.relatedAuthorId === selectedAuthor.id || article.relatedAuthorName === getAuthorDisplayName(selectedAuthor))
         : [];
 
     const selectedAuthorBooks = selectedAuthor
@@ -203,7 +203,7 @@ const Library = () => {
 
         const downloadLink = document.createElement('a');
         downloadLink.href = resolveAssetUrl(author.bioPdfUrl);
-        downloadLink.download = `${author.name || 'biographie'}.pdf`;
+        downloadLink.download = `${getAuthorDisplayName(author) || 'biographie'}.pdf`;
         document.body.appendChild(downloadLink);
         downloadLink.click();
         downloadLink.remove();
@@ -412,8 +412,7 @@ const Library = () => {
 
     const getAuthorDisplayName = (author) => {
         if (!author) return '';
-        const composed = `${author.firstName || ''} ${author.lastName || ''}`.trim();
-        return composed || author.name || '';
+        return `${author.firstName || ''} ${author.lastName || ''}`.trim();
     };
 
     const getAuthorNameParts = (author) => {
@@ -421,31 +420,14 @@ const Library = () => {
             return {firstName: '', lastName: ''};
         }
 
-        if (author.firstName || author.lastName) {
-            return {
-                firstName: author.firstName || '',
-                lastName: author.lastName || '',
-            };
-        }
-
-        const fallbackName = String(author.name || '').trim();
-        if (!fallbackName) {
-            return {firstName: '', lastName: ''};
-        }
-
-        const parts = fallbackName.split(/\s+/);
-        if (parts.length === 1) {
-            return {firstName: parts[0], lastName: parts[0]};
-        }
-
         return {
-            firstName: parts.slice(0, -1).join(' '),
-            lastName: parts[parts.length - 1],
+            firstName: author.firstName || '',
+            lastName: author.lastName || '',
         };
     };
 
     const getAuthorLastName = (author) => {
-        return (author?.lastName || '').trim() || getAuthorNameParts(author).lastName;
+        return (author?.lastName || '').trim();
     };
 
     const toggleDropdown = (id) => {
@@ -472,7 +454,7 @@ const Library = () => {
                 if (!item[f]) return false;
 
                 if (Array.isArray(item[f])) {
-                    const combinedNames = item[f].map(val => val.name || '').join(' ');
+                    const combinedNames = item[f].map(val => getAuthorDisplayName(val)).join(' ');
                     return removeAccents(combinedNames.toLowerCase()).includes(q);
                 }
 
@@ -599,7 +581,7 @@ const Library = () => {
 
                     <div className="flex flex-wrap w-full">
                         {(() => {
-                            const searched = filterBySearch(authors, ['firstName', 'lastName', 'name', 'nationality']);
+                            const searched = filterBySearch(authors, ['firstName', 'lastName', 'nationality']);
                             const filtered = filterByLetter(searched, (a) => getAuthorLastName(a), 'authors');
                             const grouped = groupByLetter(filtered, (a) => getAuthorLastName(a));
                             return Object.keys(grouped).sort().map((letter) => (
@@ -865,7 +847,7 @@ const Library = () => {
                                                         >
                                                             <div className="font-semibold text-slate-900">{book.title}</div>
                                                             <div className="mt-1 text-sm text-slate-500 truncate">
-                                                                {book.authors?.map((bookAuthor) => bookAuthor.name).join(', ') || 'Auteur inconnu'}
+                                                                {book.authors?.map((bookAuthor) => getAuthorDisplayName(bookAuthor)).join(', ') || 'Auteur inconnu'}
                                                             </div>
                                                         </div>
                                                     )) : (
@@ -1134,7 +1116,7 @@ const Library = () => {
                                                         {book.title}
                                                     </h3>
                                                     <p className="text-sm text-gray-600 truncate mt-1">
-                                                        {book.authors?.map(a => a.name).join(', ') || 'Auteur inconnu'}
+                                                        {book.authors?.map((bookAuthor) => getAuthorDisplayName(bookAuthor)).join(', ') || 'Auteur inconnu'}
                                                     </p>
                                                 </div>
                                                 {canEdit(book) && (
@@ -1365,7 +1347,7 @@ const Library = () => {
                                 >
                                     {authors.map((author) => (
                                         <option key={author.id} value={author.id}>
-                                            {author.name}
+                                            {getAuthorDisplayName(author)}
                                         </option>
                                     ))}
                                 </select>
@@ -1487,7 +1469,7 @@ const Library = () => {
                                             ))}
                                             {articleConcernType === 'author' && authors.map((author) => (
                                                 <option key={author.id} value={author.id}>
-                                                    {author.name}
+                                                    {getAuthorDisplayName(author)}
                                                 </option>
                                             ))}
                                         </select>

@@ -45,12 +45,8 @@ class LibraryApiController extends AbstractController
         $author = new Author();
         $firstName = trim((string) $request->request->get('firstName', ''));
         $lastName = trim((string) $request->request->get('lastName', ''));
-        if ($firstName !== '' || $lastName !== '') {
-            $author->setFirstName($firstName);
-            $author->setLastName($lastName);
-        } else {
-            $author->setName((string) $request->request->get('name', ''));
-        }
+        $author->setFirstName($firstName);
+        $author->setLastName($lastName);
         $author->setBirthYear($request->request->get('birthYear') ? (int)$request->request->get('birthYear') : null);
         $author->setDeathYear($request->request->get('deathYear') ? (int)$request->request->get('deathYear') : null);
         $author->setNationality($request->request->get('nationality'));
@@ -144,9 +140,6 @@ class LibraryApiController extends AbstractController
         if ($request->request->has('lastName')) {
             $author->setLastName((string) $request->request->get('lastName'));
         }
-        if ($request->request->has('name') && !$request->request->has('firstName') && !$request->request->has('lastName')) {
-            $author->setName((string) $request->request->get('name'));
-        }
         if ($request->request->has('birthYear')) {
             $author->setBirthYear($request->request->get('birthYear') ? (int)$request->request->get('birthYear') : null);
         }
@@ -229,7 +222,8 @@ class LibraryApiController extends AbstractController
                 'authors' => array_map(function ($author) {
                     return [
                         'id' => $author->getId(),
-                        'name' => $author->getName()
+                        'firstName' => $author->getFirstName(),
+                        'lastName' => $author->getLastName(),
                     ];
                 }, $book->getAuthors()->toArray()),
                 'isbn' => $book->getIsbn(),
@@ -318,7 +312,8 @@ class LibraryApiController extends AbstractController
             'authors' => array_map(function ($author) {
                 return [
                     'id' => $author->getId(),
-                    'name' => $author->getName()
+                    'firstName' => $author->getFirstName(),
+                    'lastName' => $author->getLastName(),
                 ];
             }, $book->getAuthors()->toArray()),
             'isbn' => $book->getIsbn(),
@@ -413,7 +408,8 @@ class LibraryApiController extends AbstractController
             'authors' => array_map(function ($author) {
                 return [
                     'id' => $author->getId(),
-                    'name' => $author->getName()
+                    'firstName' => $author->getFirstName(),
+                    'lastName' => $author->getLastName(),
                 ];
             }, $book->getAuthors()->toArray()),
             'isbn' => $book->getIsbn(),
@@ -1072,7 +1068,6 @@ class LibraryApiController extends AbstractController
             'id' => $author->getId(),
             'firstName' => $author->getFirstName(),
             'lastName' => $author->getLastName(),
-            'name' => $author->getName(),
             'birthYear' => $author->getBirthYear(),
             'deathYear' => $author->getDeathYear(),
             'nationality' => $author->getNationality(),
