@@ -19,6 +19,10 @@ const CACHE_CONFIG = {
 const STATIC_CACHE_URLS = [
   '/',
   '/manifest.json',
+  // Cache favicon so it can be served when offline or when network fails
+  '/favicon.png',
+  // In case the frontend is served under /react/ in production builds
+  '/react/favicon.png',
   // Ajoutez ici d'autres ressources critiques
 ];
 

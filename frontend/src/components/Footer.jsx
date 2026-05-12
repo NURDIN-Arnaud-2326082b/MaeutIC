@@ -1,3 +1,5 @@
+import { assetPath } from '../features/thesisDashboard/utils/assetPath'
+
 export default function Footer() {
   return (
     <footer className="z-20 m-0 bg-white shadow-lg shadow-black/5">
@@ -22,10 +24,10 @@ export default function Footer() {
 
         {/* Logos à droite */}
         <div className="flex flex-row h-20 items-center">
-          <img src="/images/Aix-Marseille-Universite-se-dote-dune-nouvelle-charte-graphique-et-dun-nouveau-logo.png" className="h-full mx-2" alt="AMU" />
-          <img src="/images/cropped-cropped-cropped-cropped-cropped-cropped-cropped-Presentation1-1.jpg" className="h-full mx-2" alt="Logo 2" />
-          <img src="/images/lerass_90.png" className="h-full mx-2" alt="LERASS" />
-          <img src="/images/logo_udmpv.jpg" className="h-full mx-2" alt="UDMPV" />
+          <img src={assetPath('images/Aix-Marseille-Universite-se-dote-dune-nouvelle-charte-graphique-et-dun-nouveau-logo.png')} className="h-full mx-2" alt="AMU" />
+          <img src={assetPath('images/cropped-cropped-cropped-cropped-cropped-cropped-cropped-Presentation1-1.jpg')} className="h-full mx-2" alt="Logo 2" />
+          <img src={assetPath('images/lerass_90.png')} className="h-full mx-2" alt="LERASS" />
+          <img src={assetPath('images/logo_udmpv.jpg')} className="h-full mx-2" alt="UDMPV" />
         </div>
       </div>
     </footer>

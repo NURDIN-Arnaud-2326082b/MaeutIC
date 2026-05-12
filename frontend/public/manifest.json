@@ -1,0 +1,21 @@
+{
+  "name": "M@ieutIC",
+  "short_name": "M@ieutIC",
+  "description": "Application M@ieutIC - Plateforme collaborative",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4F46E5",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "favicon.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["education", "productivity"],
+  "screenshots": [],
+  "shortcuts": []
+}

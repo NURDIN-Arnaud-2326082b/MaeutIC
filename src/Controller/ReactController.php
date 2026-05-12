@@ -17,7 +17,7 @@ class ReactController extends AbstractController
         name: 'react_app',
         requirements: [
             // Exclude API, static files, and direct file requests from SPA fallback.
-            'reactRouting' => '(?!api(?:/|$))(?!react(?:/|$))(?!js(?:/|$))(?!images(?:/|$))(?!audio(?:/|$))(?!article_images(?:/|$))(?!article_pdfs(?:/|$))(?!author_images(?:/|$))(?!book_images(?:/|$))(?!post_images(?:/|$))(?!post_pdfs(?:/|$))(?!profile_images(?:/|$))(?!manifest\.json$)(?!sw\.js$)(?!favicon\.ico$)(?!robots\.txt$)(?!.*\.[a-zA-Z0-9]+$).*',
+            'reactRouting' => '(?!api(?:/|$))(?!react(?:/|$))(?!assets(?:/|$))(?!js(?:/|$))(?!images(?:/|$))(?!audio(?:/|$))(?!article_images(?:/|$))(?!article_pdfs(?:/|$))(?!author_images(?:/|$))(?!book_images(?:/|$))(?!post_images(?:/|$))(?!post_pdfs(?:/|$))(?!profile_images(?:/|$))(?!.*\.[a-zA-Z0-9]+$).*',
         ],
         methods: ['GET'],
         priority: -1
