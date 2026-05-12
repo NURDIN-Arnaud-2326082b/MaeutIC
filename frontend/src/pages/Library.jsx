@@ -261,14 +261,16 @@ const Library = () => {
         e.preventDefault();
         const formData = new FormData(e.target);
         const bioContentValue = authorBioContent.trim();
+        const bioUrlValue = authorBioUrl.trim();
+        const hasBioPdf = Boolean(authorBioFile);
 
-        if (!bioContentValue) {
-            alert('La fiche auteur est obligatoire. Merci de saisir un texte de biographie.');
+        if (!editingAuthor && !bioContentValue && !bioUrlValue && !hasBioPdf) {
+            alert('Merci de renseigner au moins un champ de fiche auteur : texte, lien ou PDF.');
             return;
         }
 
         formData.set('bioContent', bioContentValue);
-        formData.set('bioUrl', authorBioUrl.trim());
+        formData.set('bioUrl', bioUrlValue);
 
         if (authorBioFile) {
             formData.set('bioPdf', authorBioFile);
@@ -1219,7 +1221,6 @@ const Library = () => {
                                         className="w-full px-3 py-2 border rounded"
                                         rows="6"
                                         placeholder="Écrivez la biographie..."
-                                        required
                                     />
                                 </div>
                                 <div className="mb-4">

@@ -68,6 +68,16 @@ class LibraryApiController extends AbstractController
             }
         }
 
+        $bioContent = trim((string)$request->request->get('bioContent', ''));
+        $bioUrl = trim((string)$request->request->get('bioUrl', ''));
+        $hasBioPdfUpload = $request->files->has('bioPdf');
+
+        if ($bioContent === '' && $bioUrl === '' && !$hasBioPdfUpload) {
+            return new JsonResponse([
+                'error' => 'Merci de renseigner au moins un champ de fiche auteur : texte, lien ou PDF.'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
         $em->persist($author);
         $em->flush();
 
@@ -588,11 +598,7 @@ class LibraryApiController extends AbstractController
         $bioUrl = trim((string)($data['bioUrl'] ?? ''));
         $hasPdfUpload = $request->files->has('bioPdf');
 
-        if ($bioContent === '') {
-            return new JsonResponse(['error' => 'La fiche auteur est obligatoire'], Response::HTTP_BAD_REQUEST);
-        }
-
-        $author->setBioContent($bioContent);
+        $author->setBioContent($bioContent !== '' ? $bioContent : null);
         $author->setBioUrl($bioUrl !== '' ? $bioUrl : null);
 
         if ($hasPdfUpload) {
