@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { conversationApi } from '../services/conversationApi';
 import { createReport } from '../services/reportApi';
 import ReportModal from '../components/ReportModal';
+import Pusher from "pusher-js";
 
 export default function Conversation() {
   const { conversationId } = useParams();
@@ -21,7 +22,6 @@ export default function Conversation() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['conversation', conversationId],
     queryFn: () => conversationApi.getMessages(conversationId),
-    refetchInterval: 2000, // Polling toutes les 2 secondes
   });
 
   // Mutation pour envoyer un message
@@ -33,6 +33,45 @@ export default function Conversation() {
       queryClient.invalidateQueries(['conversations']);
     },
   });
+
+  useEffect(() => {
+    const pusher = new Pusher(import.meta.env.VITE_PUSHER_KEY, {
+      cluster: import.meta.env.VITE_PUSHER_CLUSTER,
+      channelAuthorization: {
+        endpoint: '/api/pusher/auth',
+        transport: 'ajax',
+      },
+    });
+
+    const channelName = `private-conversation-${conversationId}`;
+    const channel = pusher.subscribe(channelName);
+
+    channel.bind('new-message', (newMessage) => {
+      queryClient.setQueryData(['conversation', conversationId], (oldData) => {
+        if (!oldData) return oldData;
+
+        if (oldData.messages.some((msg) => msg.id === newMessage.id)) {
+          return oldData;
+        }
+
+        const formattedMessage = {
+          ...newMessage,
+          isOwn: false,
+        };
+
+        return {
+          ...oldData,
+          messages: [...oldData.messages, formattedMessage],
+        };
+      });
+    });
+
+    return () => {
+      channel.unbind_all();
+      channel.unsubscribe();
+      pusher.disconnect();
+    };
+  }, [conversationId, queryClient]);
 
   const reportMessageMutation = useMutation({
     mutationFn: createReport,

@@ -4,11 +4,13 @@ namespace App\Controller\Api;
 
 use App\Entity\Conversation;
 use App\Entity\Message;
+use App\Entity\User;
 use App\Repository\ConversationRepository;
 use App\Repository\MessageRepository;
 use App\Repository\UserRepository;
 use DateTime;
 use Doctrine\ORM\EntityManagerInterface;
+use Pusher\Pusher;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -22,7 +24,7 @@ final class ConversationApiController extends AbstractController
     private const DELETED_DISPLAY_NAME = 'utilisateur supprimé';
     private const DEFAULT_PROFILE_IMAGE = '/images/default-profile.png';
 
-    private function serializeConversationUser(\App\Entity\User $user): array
+    private function serializeConversationUser(User $user): array
     {
         if ($user->isBanned()) {
             return [
@@ -48,7 +50,7 @@ final class ConversationApiController extends AbstractController
     #[Route('s', name: 'api_conversations_list', methods: ['GET'])]
     public function listConversations(ConversationRepository $conversationRepo): JsonResponse
     {
-        /** @var \App\Entity\User|null $user */
+        /** @var User|null $user */
         $user = $this->getUser();
         if (!$user) {
             return new JsonResponse(['error' => 'Not authenticated'], Response::HTTP_UNAUTHORIZED);
@@ -96,7 +98,7 @@ final class ConversationApiController extends AbstractController
     #[Route('/{id}/messages', name: 'api_conversation_messages', methods: ['GET'])]
     public function getMessages(Conversation $conversation, MessageRepository $messageRepo): JsonResponse
     {
-        /** @var \App\Entity\User|null $user */
+        /** @var User|null $user */
         $user = $this->getUser();
         if (!$user) {
             return new JsonResponse(['error' => 'Not authenticated'], Response::HTTP_UNAUTHORIZED);
@@ -161,7 +163,7 @@ final class ConversationApiController extends AbstractController
     #[Route('/{id}/message', name: 'api_conversation_send_message', methods: ['POST'])]
     public function sendMessage(Request $request, Conversation $conversation, EntityManagerInterface $em): JsonResponse
     {
-        /** @var \App\Entity\User|null $user */
+        /** @var User|null $user */
         $user = $this->getUser();
         if (!$user) {
             return new JsonResponse(['error' => 'Not authenticated'], Response::HTTP_UNAUTHORIZED);
@@ -195,6 +197,28 @@ final class ConversationApiController extends AbstractController
         $em->persist($message);
         $em->flush();
 
+        $pusherMessageData = [
+            'id' => $message->getId(),
+            'content' => $message->getContent(),
+            'sender' => [
+                'id' => $user->getId(),
+                'username' => $user->getUsername(),
+            ],
+            'sentAt' => $message->getSentAt()->format('d/m/Y H:i'),
+        ];
+
+        $pusher = new Pusher(
+            $_ENV['PUSHER_KEY'],
+            $_ENV['PUSHER_SECRET'],
+            $_ENV['PUSHER_APP_ID'],
+            [
+                'cluster' => $_ENV['PUSHER_CLUSTER'],
+                'useTLS' => true
+            ]
+        );
+
+        $pusher->trigger('private-conversation-' . $conversation->getId(), 'new-message', $pusherMessageData);
+
         return new JsonResponse([
             'id' => $message->getId(),
             'content' => $message->getContent(),
@@ -219,7 +243,7 @@ final class ConversationApiController extends AbstractController
     #[Route('/with/{userId}', name: 'api_conversation_find_or_create', methods: ['GET'])]
     public function findOrCreateConversation(int $userId, UserRepository $userRepo, ConversationRepository $conversationRepo, EntityManagerInterface $em): JsonResponse
     {
-        /** @var \App\Entity\User|null $user */
+        /** @var User|null $user */
         $user = $this->getUser();
         if (!$user) {
             return new JsonResponse(['error' => 'Not authenticated'], Response::HTTP_UNAUTHORIZED);
