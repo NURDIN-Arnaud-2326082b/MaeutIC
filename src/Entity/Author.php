@@ -30,7 +30,10 @@ class Author
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
-    private ?string $name = null;
+    private ?string $firstName = null;
+
+    #[ORM\Column(length: 255)]
+    private ?string $lastName = null;
 
     #[ORM\Column(type: 'integer', nullable: true)]
     private ?int $birthYear = null;
@@ -85,12 +88,45 @@ class Author
 
     public function getName(): ?string
     {
-        return $this->name;
+        $fullName = trim((string) ($this->firstName ?? '') . ' ' . (string) ($this->lastName ?? ''));
+        return $fullName !== '' ? $fullName : null;
     }
 
     public function setName(string $name): static
     {
-        $this->name = $name;
+        $parts = preg_split('/\s+/', trim($name)) ?: [];
+        if (count($parts) <= 1) {
+            $this->firstName = $parts[0] ?? '';
+            $this->lastName = $parts[0] ?? '';
+            return $this;
+        }
+
+        $this->lastName = array_pop($parts) ?: '';
+        $this->firstName = implode(' ', $parts);
+
+        return $this;
+    }
+
+    public function getFirstName(): ?string
+    {
+        return $this->firstName;
+    }
+
+    public function setFirstName(string $firstName): static
+    {
+        $this->firstName = trim($firstName);
+
+        return $this;
+    }
+
+    public function getLastName(): ?string
+    {
+        return $this->lastName;
+    }
+
+    public function setLastName(string $lastName): static
+    {
+        $this->lastName = trim($lastName);
 
         return $this;
     }

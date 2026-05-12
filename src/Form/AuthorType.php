@@ -234,7 +234,11 @@ class AuthorType extends AbstractType
         asort($countries);
 
         $builder
-            ->add('name', TextType::class, [
+            ->add('firstName', TextType::class, [
+                'label' => 'Prénom',
+                'required' => true,
+            ])
+            ->add('lastName', TextType::class, [
                 'label' => 'Nom',
                 'required' => true,
             ])

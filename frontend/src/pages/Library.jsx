@@ -410,11 +410,42 @@ const Library = () => {
         return /[A-Z]/.test(firstChar) ? firstChar : '#';
     };
 
-    const getAuthorLastName = (author) => {
-        if (!author?.name) return '';
+    const getAuthorDisplayName = (author) => {
+        if (!author) return '';
+        const composed = `${author.firstName || ''} ${author.lastName || ''}`.trim();
+        return composed || author.name || '';
+    };
 
-        const parts = String(author.name).trim().split(/\s+/);
-        return parts[parts.length - 1];
+    const getAuthorNameParts = (author) => {
+        if (!author) {
+            return {firstName: '', lastName: ''};
+        }
+
+        if (author.firstName || author.lastName) {
+            return {
+                firstName: author.firstName || '',
+                lastName: author.lastName || '',
+            };
+        }
+
+        const fallbackName = String(author.name || '').trim();
+        if (!fallbackName) {
+            return {firstName: '', lastName: ''};
+        }
+
+        const parts = fallbackName.split(/\s+/);
+        if (parts.length === 1) {
+            return {firstName: parts[0], lastName: parts[0]};
+        }
+
+        return {
+            firstName: parts.slice(0, -1).join(' '),
+            lastName: parts[parts.length - 1],
+        };
+    };
+
+    const getAuthorLastName = (author) => {
+        return (author?.lastName || '').trim() || getAuthorNameParts(author).lastName;
     };
 
     const toggleDropdown = (id) => {
@@ -568,7 +599,7 @@ const Library = () => {
 
                     <div className="flex flex-wrap w-full">
                         {(() => {
-                            const searched = filterBySearch(authors, ['name', 'nationality']);
+                            const searched = filterBySearch(authors, ['firstName', 'lastName', 'name', 'nationality']);
                             const filtered = filterByLetter(searched, (a) => getAuthorLastName(a), 'authors');
                             const grouped = groupByLetter(filtered, (a) => getAuthorLastName(a));
                             return Object.keys(grouped).sort().map((letter) => (
@@ -597,16 +628,16 @@ const Library = () => {
                                                 >
                                                     <img
                                                         src={resolveAssetUrl(author.image)}
-                                                        alt={author.name}
+                                                        alt={getAuthorDisplayName(author)}
                                                         className="w-full aspect-square object-cover rounded-lg"
                                                     />
 
                                                     <div className="pt-3 px-1 flex flex-col">
                                                         <h3
                                                             className="text-base font-semibold text-gray-800 line-clamp-2 leading-tight"
-                                                            title={author.name}
+                                                            title={getAuthorDisplayName(author)}
                                                         >
-                                                            {author.name}
+                                                            {getAuthorDisplayName(author)}
                                                         </h3>
                                                         {(author.birthYear || author.deathYear) && (
                                                             <p className="text-sm text-gray-600 mt-1">
@@ -694,7 +725,7 @@ const Library = () => {
                                         <div className="relative -mt-10 ml-3 w-20 h-20 rounded-full p-1 bg-white shadow-lg ring-4 ring-white">
                                             <img
                                                 src={resolveAssetUrl(selectedAuthor.image)}
-                                                alt={selectedAuthor.name}
+                                                alt={getAuthorDisplayName(selectedAuthor)}
                                                 className="w-full h-full rounded-full object-cover"
                                             />
                                         </div>
@@ -703,7 +734,7 @@ const Library = () => {
                                             <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 ring-1 ring-blue-100">
                                                 Fiche auteur
                                             </span>
-                                            <h2 className="mt-3 text-xl font-black leading-tight text-slate-900">{selectedAuthor.name}</h2>
+                                            <h2 className="mt-3 text-xl font-black leading-tight text-slate-900">{getAuthorDisplayName(selectedAuthor)}</h2>
                                             <p className="text-sm text-slate-500 mt-1">{selectedAuthor.nationality || 'Nationalité non renseignée'}</p>
                                             {(selectedAuthor.birthYear || selectedAuthor.deathYear) && (
                                                 <p className="text-sm text-slate-400 mt-1">
@@ -1159,13 +1190,23 @@ const Library = () => {
                             {editingAuthor ? 'Modifier l\'auteur' : 'Ajouter un auteur'}
                         </h2>
                         <form onSubmit={handleAuthorSubmit}>
-                            <div className="grid grid-cols-2 gap-4 mb-4">
+                            <div className="grid grid-cols-3 gap-4 mb-4">
+                                <div>
+                                    <label className="block text-gray-700 mb-2">Prénom *</label>
+                                    <input
+                                        type="text"
+                                        name="firstName"
+                                        defaultValue={getAuthorNameParts(editingAuthor).firstName}
+                                        className="w-full px-3 py-2 border rounded"
+                                        required
+                                    />
+                                </div>
                                 <div>
                                     <label className="block text-gray-700 mb-2">Nom *</label>
                                     <input
                                         type="text"
-                                        name="name"
-                                        defaultValue={editingAuthor?.name || ''}
+                                        name="lastName"
+                                        defaultValue={getAuthorNameParts(editingAuthor).lastName}
                                         className="w-full px-3 py-2 border rounded"
                                         required
                                     />

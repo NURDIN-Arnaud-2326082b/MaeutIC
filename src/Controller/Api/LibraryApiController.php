@@ -43,7 +43,14 @@ class LibraryApiController extends AbstractController
         }
 
         $author = new Author();
-        $author->setName($request->request->get('name'));
+        $firstName = trim((string) $request->request->get('firstName', ''));
+        $lastName = trim((string) $request->request->get('lastName', ''));
+        if ($firstName !== '' || $lastName !== '') {
+            $author->setFirstName($firstName);
+            $author->setLastName($lastName);
+        } else {
+            $author->setName((string) $request->request->get('name', ''));
+        }
         $author->setBirthYear($request->request->get('birthYear') ? (int)$request->request->get('birthYear') : null);
         $author->setDeathYear($request->request->get('deathYear') ? (int)$request->request->get('deathYear') : null);
         $author->setNationality($request->request->get('nationality'));
@@ -131,8 +138,14 @@ class LibraryApiController extends AbstractController
             return new JsonResponse(['error' => 'Non autorisé'], Response::HTTP_FORBIDDEN);
         }
 
-        if ($request->request->has('name')) {
-            $author->setName($request->request->get('name'));
+        if ($request->request->has('firstName')) {
+            $author->setFirstName((string) $request->request->get('firstName'));
+        }
+        if ($request->request->has('lastName')) {
+            $author->setLastName((string) $request->request->get('lastName'));
+        }
+        if ($request->request->has('name') && !$request->request->has('firstName') && !$request->request->has('lastName')) {
+            $author->setName((string) $request->request->get('name'));
         }
         if ($request->request->has('birthYear')) {
             $author->setBirthYear($request->request->get('birthYear') ? (int)$request->request->get('birthYear') : null);
@@ -1057,6 +1070,8 @@ class LibraryApiController extends AbstractController
     {
         $response = [
             'id' => $author->getId(),
+            'firstName' => $author->getFirstName(),
+            'lastName' => $author->getLastName(),
             'name' => $author->getName(),
             'birthYear' => $author->getBirthYear(),
             'deathYear' => $author->getDeathYear(),

@@ -22,7 +22,8 @@ class AuthorRepository extends ServiceEntityRepository
     public function findAllOrderedByName(): array
     {
         return $this->createQueryBuilder('a')
-            ->orderBy('a.name', 'ASC')
+            ->orderBy('a.lastName', 'ASC')
+            ->addOrderBy('a.firstName', 'ASC')
             ->getQuery()
             ->getResult();
     }
@@ -68,7 +69,8 @@ class AuthorRepository extends ServiceEntityRepository
             ->groupBy('a.id')
             ->having('COUNT(DISTINCT t.tag) = :count')
             ->setParameter('count', count($tagIds))
-            ->orderBy('a.name', 'ASC');
+            ->orderBy('a.lastName', 'ASC')
+            ->addOrderBy('a.firstName', 'ASC');
         return $qb->getQuery()->getResult();
     }
 }
