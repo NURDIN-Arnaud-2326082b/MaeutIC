@@ -623,6 +623,19 @@ class LibraryApiController extends AbstractController
         $bioUrl = trim((string)($data['bioUrl'] ?? ''));
         $hasPdfUpload = $request->files->has('bioPdf');
 
+        if ($bioUrl !== '') {
+            $validatedBioUrl = filter_var($bioUrl, FILTER_VALIDATE_URL);
+            $scheme = $validatedBioUrl ? strtolower((string) parse_url($validatedBioUrl, PHP_URL_SCHEME)) : '';
+
+            if (!$validatedBioUrl || !in_array($scheme, ['http', 'https'], true)) {
+                return new JsonResponse([
+                    'error' => 'URL de fiche auteur invalide. Utilisez une URL http ou https valide.'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $bioUrl = $validatedBioUrl;
+        }
+
         $author->setBioContent($bioContent !== '' ? $bioContent : null);
         $author->setBioUrl($bioUrl !== '' ? $bioUrl : null);
 
