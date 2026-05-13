@@ -1040,7 +1040,13 @@ class LibraryApiController extends AbstractController
 
     private function deleteArticleImageFile(string $filename): void
     {
-        $path = $this->getParameter('kernel.project_dir') . '/public/article_images/' . $filename;
+        $safeFilename = basename($filename);
+
+        if (!preg_match('/^[a-zA-Z0-9._-]+\.(jpg|jpeg|png|gif|webp|svg)$/i', $safeFilename)) {
+            return;
+        }
+
+        $path = $this->getParameter('kernel.project_dir') . '/public/article_images/' . $safeFilename;
         if (is_file($path)) {
             @unlink($path);
         }
@@ -1048,7 +1054,13 @@ class LibraryApiController extends AbstractController
 
     private function deleteArticlePdfFile(string $filename): void
     {
-        $path = $this->getParameter('kernel.project_dir') . '/public/article_pdfs/' . $filename;
+        $safeFilename = basename($filename);
+
+        if (!preg_match('/^[a-zA-Z0-9._-]+\.pdf$/i', $safeFilename)) {
+            return;
+        }
+
+        $path = $this->getParameter('kernel.project_dir') . '/public/article_pdfs/' . $safeFilename;
         if (is_file($path)) {
             @unlink($path);
         }
@@ -1158,7 +1170,14 @@ class LibraryApiController extends AbstractController
 
     private function deleteAuthorBioPdfFile(string $filename): void
     {
-        $path = $this->getParameter('kernel.project_dir') . '/public/author_bios/' . $filename;
+        $safeFilename = basename($filename);
+
+        // Only allow expected filename characters and .pdf extension to avoid path traversal
+        if (!preg_match('/^[a-zA-Z0-9._-]+\.pdf$/', $safeFilename)) {
+            return;
+        }
+
+        $path = $this->getParameter('kernel.project_dir') . '/public/author_bios/' . $safeFilename;
         if (is_file($path)) {
             @unlink($path);
         }
@@ -1166,7 +1185,13 @@ class LibraryApiController extends AbstractController
 
     private function deleteAuthorImageFile(string $filename): void
     {
-        $path = $this->getParameter('kernel.project_dir') . '/public/author_images/' . $filename;
+        $safeFilename = basename($filename);
+
+        if (!preg_match('/^[a-zA-Z0-9._-]+\.(jpg|jpeg|png|gif|webp|svg)$/i', $safeFilename)) {
+            return;
+        }
+
+        $path = $this->getParameter('kernel.project_dir') . '/public/author_images/' . $safeFilename;
         if (is_file($path)) {
             @unlink($path);
         }
