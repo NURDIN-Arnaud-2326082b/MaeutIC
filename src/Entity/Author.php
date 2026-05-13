@@ -1,16 +1,24 @@
 <?php
 
 /**
- * Entité Author - Représente un auteur dans la bibliothèque
+ * Author entity — représente un auteur dans la bibliothèque.
  *
- * Cette entité gère les auteurs référencés dans la bibliothèque académique :
- * - Nom de l'auteur
- * - Années de naissance et décès
- * - Nationalité
- * - Lien vers une ressource externe
- * - Photo/image de l'auteur
- * - Tags associés pour catégorisation
- * - Utilisateur ayant ajouté l'auteur
+ * Modèle actuel :
+ * - `firstName` / `lastName` (séparés) — accessible via `getFirstName()`/`setFirstName()`,
+ *   et utilitaires `getName()` / `setName()` pour lecture/écriture conviviale.
+ * - `birthYear` / `deathYear` (nullable)
+ * - `nationality` (nullable)
+ * - `image` (nom de fichier local ou URL externe)
+ * - `user` (relation vers l'utilisateur qui a ajouté l'auteur)
+ * - `books` (relation ManyToMany)
+ * - Biographie :
+ *   - `bioContent` (texte libre, nullable)
+ *   - `bioUrl` (URL externe valide, nullable)
+ *   - `bioPdfPath` (nom de fichier PDF uploadé, nullable)
+ *
+ * Notes :
+ * - `getName()` compose `firstName` + `lastName` et retourne `null` si vide.
+ * - `setName()` répartit une chaîne en `firstName`/`lastName` (heuristique simple).
  */
 
 namespace App\Entity;
