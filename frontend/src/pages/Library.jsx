@@ -148,6 +148,11 @@ const Library = () => {
         ? authors.find((author) => author.id === selectedAuthorId)
         : null;
 
+    function getAuthorDisplayName(author) {
+        if (!author) return '';
+        return `${author.firstName || ''} ${author.lastName || ''}`.trim();
+    }
+
     const selectedAuthorArticles = selectedAuthor
         ? articles.filter((article) => article.relatedAuthorId === selectedAuthor.id || article.relatedAuthorName === getAuthorDisplayName(selectedAuthor))
         : [];
@@ -408,11 +413,6 @@ const Library = () => {
         const cleanStr = removeAccents(String(str).trim());
         const firstChar = cleanStr.charAt(0).toUpperCase();
         return /[A-Z]/.test(firstChar) ? firstChar : '#';
-    };
-
-    const getAuthorDisplayName = (author) => {
-        if (!author) return '';
-        return `${author.firstName || ''} ${author.lastName || ''}`.trim();
     };
 
     const getAuthorNameParts = (author) => {
@@ -1266,7 +1266,7 @@ const Library = () => {
                                     />
                                     {authorBioFile ? (
                                         <p className="text-sm text-gray-600 mt-1">Fichier sélectionné: {authorBioFile.name}</p>
-                                    ) : editingAuthor?.bioPdfPath ? (
+                                    ) : editingAuthor?.bioPdfUrl ? (
                                         <p className="text-sm text-gray-600 mt-1">PDF actuel conservé si aucun nouveau fichier n’est choisi.</p>
                                     ) : null}
                                 </div>

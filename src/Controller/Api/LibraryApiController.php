@@ -76,23 +76,39 @@ class LibraryApiController extends AbstractController
         $hasBioPdfUpload = $request->files->has('bioPdf');
 
         if ($bioContent === '' && $bioUrl === '' && !$hasBioPdfUpload) {
+            // No bio fields provided
             return new JsonResponse([
                 'error' => 'Merci de renseigner au moins un champ de fiche auteur : texte, lien ou PDF.'
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        $em->persist($author);
-        $em->flush();
+        $conn = $em->getConnection();
+        $conn->beginTransaction();
 
-        $bioData = $this->extractAuthorBioData($request);
-        if ($bioData !== null) {
-            $bioError = $this->applyAuthorBio($author, $bioData, $request, $em);
-            if ($bioError instanceof JsonResponse) {
-                return $bioError;
+        try {
+            $em->persist($author);
+
+            $bioData = $this->extractAuthorBioData($request);
+            if ($bioData !== null) {
+                $bioError = $this->applyAuthorBio($author, $bioData, $request, $em);
+                if ($bioError instanceof JsonResponse) {
+                    $conn->rollBack();
+                    $this->cleanupAuthorUploadedFiles($author);
+                    return $bioError;
+                }
+            } else {
+                // No bio to apply, flush the author now
+                $em->flush();
             }
-        }
 
-        return new JsonResponse($this->buildAuthorResponse($author), Response::HTTP_CREATED);
+            $conn->commit();
+
+            return new JsonResponse($this->buildAuthorResponse($author), Response::HTTP_CREATED);
+        } catch (\Exception $e) {
+            $conn->rollBack();
+            $this->cleanupAuthorUploadedFiles($author);
+            return new JsonResponse(['error' => 'Erreur interne'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 
     private function getAuthorImageUrl(Author $author): string
@@ -1125,6 +1141,27 @@ class LibraryApiController extends AbstractController
         $path = $this->getParameter('kernel.project_dir') . '/public/author_bios/' . $filename;
         if (is_file($path)) {
             @unlink($path);
+        }
+    }
+
+    private function deleteAuthorImageFile(string $filename): void
+    {
+        $path = $this->getParameter('kernel.project_dir') . '/public/author_images/' . $filename;
+        if (is_file($path)) {
+            @unlink($path);
+        }
+    }
+
+    private function cleanupAuthorUploadedFiles(Author $author): void
+    {
+        $image = $author->getImage();
+        if ($image) {
+            $this->deleteAuthorImageFile($image);
+        }
+
+        $pdf = $author->getBioPdfPath();
+        if ($pdf) {
+            $this->deleteAuthorBioPdfFile($pdf);
         }
     }
 
