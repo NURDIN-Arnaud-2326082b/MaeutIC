@@ -690,7 +690,7 @@ class LibraryApiController extends AbstractController
     public function getAuthorBio(Author $author): JsonResponse
     {
         $response = [
-            'hasBio' => true,
+            'hasBio' => $this->hasAuthorBio($author),
             'bioContent' => $author->getBioContent(),
             'bioUrl' => $author->getBioUrl(),
             'bioPdfUrl' => $this->getAuthorBioPdfUrl($author),
@@ -1147,6 +1147,13 @@ class LibraryApiController extends AbstractController
         }
 
         return '/author_bios/' . $author->getBioPdfPath();
+    }
+
+    private function hasAuthorBio(Author $author): bool
+    {
+        return $author->getBioContent() !== null
+            || $author->getBioUrl() !== null
+            || $author->getBioPdfPath() !== null;
     }
 
     private function deleteAuthorBioPdfFile(string $filename): void
