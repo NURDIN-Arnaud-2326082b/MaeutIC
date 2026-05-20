@@ -90,16 +90,15 @@ class LibraryApiController extends AbstractController
 
             $bioData = $this->extractAuthorBioData($request);
             if ($bioData !== null) {
-                $bioError = $this->applyAuthorBio($author, $bioData, $request, $em);
+                $bioError = $this->applyAuthorBio($author, $bioData, $request);
                 if ($bioError instanceof JsonResponse) {
                     $conn->rollBack();
                     $this->cleanupAuthorUploadedFiles($author);
                     return $bioError;
                 }
-            } else {
-                // No bio to apply, flush the author now
-                $em->flush();
             }
+
+            $em->flush();
 
             $conn->commit();
 
@@ -165,9 +164,11 @@ class LibraryApiController extends AbstractController
         if ($request->request->has('nationality')) {
             $author->setNationality($request->request->get('nationality'));
         }
+
+        $previousBioPdfPath = $author->getBioPdfPath();
         $bioData = $this->extractAuthorBioData($request);
         if ($bioData !== null) {
-            $bioError = $this->applyAuthorBio($author, $bioData, $request, $em);
+            $bioError = $this->applyAuthorBio($author, $bioData, $request);
             if ($bioError instanceof JsonResponse) {
                 return $bioError;
             }
@@ -188,11 +189,18 @@ class LibraryApiController extends AbstractController
                 );
                 $author->setImage($newFilename);
             } catch (FileException $e) {
+                if ($author->getBioPdfPath() !== $previousBioPdfPath && $author->getBioPdfPath()) {
+                    $this->deleteAuthorBioPdfFile((string)$author->getBioPdfPath());
+                }
                 return new JsonResponse(['error' => 'Erreur lors de l\'upload de l\'image'], Response::HTTP_INTERNAL_SERVER_ERROR);
             }
         }
 
         $em->flush();
+
+        if ($previousBioPdfPath && $author->getBioPdfPath() !== $previousBioPdfPath) {
+            $this->deleteAuthorBioPdfFile($previousBioPdfPath);
+        }
 
         return new JsonResponse($this->buildAuthorResponse($author));
     }
@@ -601,9 +609,17 @@ class LibraryApiController extends AbstractController
             $data = json_decode($request->getContent(), true) ?? [];
         }
 
-        $bioError = $this->applyAuthorBio($author, $data, $request, $em);
+        $previousBioPdfPath = $author->getBioPdfPath();
+
+        $bioError = $this->applyAuthorBio($author, $data, $request);
         if ($bioError instanceof JsonResponse) {
             return $bioError;
+        }
+
+        $em->flush();
+
+        if ($previousBioPdfPath && $author->getBioPdfPath() !== $previousBioPdfPath) {
+            $this->deleteAuthorBioPdfFile($previousBioPdfPath);
         }
 
         return new JsonResponse($this->buildAuthorResponse($author));
@@ -615,8 +631,7 @@ class LibraryApiController extends AbstractController
     private function applyAuthorBio(
         Author                 $author,
         array                  $data,
-        Request                $request,
-        EntityManagerInterface $em
+        Request                $request
     ): ?JsonResponse
     {
         $bioContent = trim((string)($data['bioContent'] ?? ''));
@@ -650,14 +665,9 @@ class LibraryApiController extends AbstractController
                 return new JsonResponse(['error' => $uploadResult['error']], Response::HTTP_BAD_REQUEST);
             }
 
-            if ($author->getBioPdfPath()) {
-                $this->deleteAuthorBioPdfFile($author->getBioPdfPath());
-            }
-
             $author->setBioPdfPath($uploadResult['filename']);
         }
 
-        $em->flush();
         return null;
     }
 
