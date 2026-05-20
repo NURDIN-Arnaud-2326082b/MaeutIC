@@ -21,35 +21,39 @@ class AuthorFixtures extends Fixture implements DependentFixtureInterface
 
         // Quelques vrais auteurs classiques
         $realAuthors = [
-            ['name' => 'Pierre Bourdieu', 'birth' => 1930, 'death' => 2002, 'nat' => 'fr', 'link' => 'https://fr.wikipedia.org/wiki/Pierre_Bourdieu'],
-            ['name' => 'Michel Foucault', 'birth' => 1926, 'death' => 1984, 'nat' => 'fr', 'link' => 'https://fr.wikipedia.org/wiki/Michel_Foucault'],
-            ['name' => 'Hannah Arendt', 'birth' => 1906, 'death' => 1975, 'nat' => 'de', 'link' => 'https://fr.wikipedia.org/wiki/Hannah_Arendt'],
-            ['name' => 'Erving Goffman', 'birth' => 1922, 'death' => 1982, 'nat' => 'us', 'link' => 'https://fr.wikipedia.org/wiki/Erving_Goffman']
+            ['firstName' => 'Pierre', 'lastName' => 'Bourdieu', 'birth' => 1930, 'death' => 2002, 'nat' => 'fr', 'link' => 'https://fr.wikipedia.org/wiki/Pierre_Bourdieu'],
+            ['firstName' => 'Michel', 'lastName' => 'Foucault', 'birth' => 1926, 'death' => 1984, 'nat' => 'fr', 'link' => 'https://fr.wikipedia.org/wiki/Michel_Foucault'],
+            ['firstName' => 'Hannah', 'lastName' => 'Arendt', 'birth' => 1906, 'death' => 1975, 'nat' => 'de', 'link' => 'https://fr.wikipedia.org/wiki/Hannah_Arendt'],
+            ['firstName' => 'Erving', 'lastName' => 'Goffman', 'birth' => 1922, 'death' => 1982, 'nat' => 'us', 'link' => 'https://fr.wikipedia.org/wiki/Erving_Goffman']
         ];
 
         foreach ($realAuthors as $ra) {
             $author = new Author();
-            $author->setName($ra['name'])
+                $author->setFirstName($ra['firstName'])
+                ->setLastName($ra['lastName'])
                 ->setBirthYear($ra['birth'])
                 ->setDeathYear($ra['death'])
                 ->setNationality($ra['nat'])
-                ->setLink($ra['link'])
-                ->setImage("https://ui-avatars.com/api/?name=" . urlencode($ra['name']) . "&background=random")
+                ->setBioUrl($ra['link'])
+                ->setImage("https://ui-avatars.com/api/?name=" . urlencode($ra['firstName'] . ' ' . $ra['lastName']) . "&background=random")
                 ->setUser($getRandomUser());
             $manager->persist($author);
 
-            $this->addReference("author" . $ra['name'], $author);
+            $this->addReference("author" . $ra['lastName'], $author);
         }
 
         // Quelques auteurs fictifs/générés
         for ($i = 1; $i <= 10; $i++) {
             $birth = $faker->numberBetween(1850, 1950);
+            $firstName = $faker->firstName();
+            $lastName = $faker->lastName();
             $author = new Author();
-            $author->setName($faker->firstName() . ' ' . $faker->lastName())
+            $author->setFirstName($firstName)
+                ->setLastName($lastName)
                 ->setBirthYear($birth)
                 ->setDeathYear($birth + $faker->numberBetween(40, 90))
                 ->setNationality($faker->randomElement($nationalities))
-                ->setLink($faker->url())
+                ->setBioUrl($faker->url())
                 ->setImage($faker->imageUrl(200, 200, 'people'))
                 ->setUser($getRandomUser());
             $manager->persist($author);

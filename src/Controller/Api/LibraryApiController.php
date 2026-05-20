@@ -43,11 +43,13 @@ class LibraryApiController extends AbstractController
         }
 
         $author = new Author();
-        $author->setName($request->request->get('name'));
+        $firstName = trim((string) $request->request->get('firstName', ''));
+        $lastName = trim((string) $request->request->get('lastName', ''));
+        $author->setFirstName($firstName);
+        $author->setLastName($lastName);
         $author->setBirthYear($request->request->get('birthYear') ? (int)$request->request->get('birthYear') : null);
         $author->setDeathYear($request->request->get('deathYear') ? (int)$request->request->get('deathYear') : null);
         $author->setNationality($request->request->get('nationality'));
-        $author->setLink($request->request->get('link'));
         $author->setUser($user);
 
         // Handle image upload
@@ -69,19 +71,44 @@ class LibraryApiController extends AbstractController
             }
         }
 
-        $em->persist($author);
-        $em->flush();
+        $bioContent = trim((string)$request->request->get('bioContent', ''));
+        $bioUrl = trim((string)$request->request->get('bioUrl', ''));
+        $hasBioPdfUpload = $request->files->has('bioPdf');
 
-        return new JsonResponse([
-            'id' => $author->getId(),
-            'name' => $author->getName(),
-            'birthYear' => $author->getBirthYear(),
-            'deathYear' => $author->getDeathYear(),
-            'nationality' => $author->getNationality(),
-            'link' => $author->getLink(),
-            'image' => $this->getAuthorImageUrl($author),
-            'userId' => $author->getUser()?->getId(),
-        ], Response::HTTP_CREATED);
+        if ($bioContent === '' && $bioUrl === '' && !$hasBioPdfUpload) {
+            // No bio fields provided
+            return new JsonResponse([
+                'error' => 'Merci de renseigner au moins un champ de fiche auteur : texte, lien ou PDF.'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        $conn = $em->getConnection();
+        $conn->beginTransaction();
+
+        try {
+            $em->persist($author);
+
+            $bioData = $this->extractAuthorBioData($request);
+            if ($bioData !== null) {
+                $bioError = $this->applyAuthorBio($author, $bioData, $request, $em);
+                if ($bioError instanceof JsonResponse) {
+                    $conn->rollBack();
+                    $this->cleanupAuthorUploadedFiles($author);
+                    return $bioError;
+                }
+            } else {
+                // No bio to apply, flush the author now
+                $em->flush();
+            }
+
+            $conn->commit();
+
+            return new JsonResponse($this->buildAuthorResponse($author), Response::HTTP_CREATED);
+        } catch (\Exception $e) {
+            $conn->rollBack();
+            $this->cleanupAuthorUploadedFiles($author);
+            return new JsonResponse(['error' => 'Erreur interne'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 
     private function getAuthorImageUrl(Author $author): string
@@ -123,8 +150,11 @@ class LibraryApiController extends AbstractController
             return new JsonResponse(['error' => 'Non autorisé'], Response::HTTP_FORBIDDEN);
         }
 
-        if ($request->request->has('name')) {
-            $author->setName($request->request->get('name'));
+        if ($request->request->has('firstName')) {
+            $author->setFirstName((string) $request->request->get('firstName'));
+        }
+        if ($request->request->has('lastName')) {
+            $author->setLastName((string) $request->request->get('lastName'));
         }
         if ($request->request->has('birthYear')) {
             $author->setBirthYear($request->request->get('birthYear') ? (int)$request->request->get('birthYear') : null);
@@ -135,8 +165,12 @@ class LibraryApiController extends AbstractController
         if ($request->request->has('nationality')) {
             $author->setNationality($request->request->get('nationality'));
         }
-        if ($request->request->has('link')) {
-            $author->setLink($request->request->get('link'));
+        $bioData = $this->extractAuthorBioData($request);
+        if ($bioData !== null) {
+            $bioError = $this->applyAuthorBio($author, $bioData, $request, $em);
+            if ($bioError instanceof JsonResponse) {
+                return $bioError;
+            }
         }
 
         // Handle image upload
@@ -160,16 +194,7 @@ class LibraryApiController extends AbstractController
 
         $em->flush();
 
-        return new JsonResponse([
-            'id' => $author->getId(),
-            'name' => $author->getName(),
-            'birthYear' => $author->getBirthYear(),
-            'deathYear' => $author->getDeathYear(),
-            'nationality' => $author->getNationality(),
-            'link' => $author->getLink(),
-            'image' => $this->getAuthorImageUrl($author),
-            'userId' => $author->getUser()?->getId(),
-        ]);
+        return new JsonResponse($this->buildAuthorResponse($author));
     }
 
     /**
@@ -213,7 +238,8 @@ class LibraryApiController extends AbstractController
                 'authors' => array_map(function ($author) {
                     return [
                         'id' => $author->getId(),
-                        'name' => $author->getName()
+                        'firstName' => $author->getFirstName(),
+                        'lastName' => $author->getLastName(),
                     ];
                 }, $book->getAuthors()->toArray()),
                 'isbn' => $book->getIsbn(),
@@ -235,19 +261,7 @@ class LibraryApiController extends AbstractController
     {
         $authors = $authorRepository->findAllOrderedByName();
 
-        $authorsData = array_map(function (Author $author) {
-            return [
-                'id' => $author->getId(),
-                'name' => $author->getName(),
-                'birthYear' => $author->getBirthYear(),
-                'deathYear' => $author->getDeathYear(),
-                'nationality' => $author->getNationality(),
-                'link' => $author->getLink(),
-                'image' => $this->getAuthorImageUrl($author),
-                'userId' => $author->getUser()?->getId(),
-                'userType' => $author->getUser()?->getUserType(),
-            ];
-        }, $authors);
+        $authorsData = array_map(fn(Author $author) => $this->buildAuthorResponse($author), $authors);
 
         return new JsonResponse($authorsData);
     }
@@ -314,7 +328,8 @@ class LibraryApiController extends AbstractController
             'authors' => array_map(function ($author) {
                 return [
                     'id' => $author->getId(),
-                    'name' => $author->getName()
+                    'firstName' => $author->getFirstName(),
+                    'lastName' => $author->getLastName(),
                 ];
             }, $book->getAuthors()->toArray()),
             'isbn' => $book->getIsbn(),
@@ -409,7 +424,8 @@ class LibraryApiController extends AbstractController
             'authors' => array_map(function ($author) {
                 return [
                     'id' => $author->getId(),
-                    'name' => $author->getName()
+                    'firstName' => $author->getFirstName(),
+                    'lastName' => $author->getLastName(),
                 ];
             }, $book->getAuthors()->toArray()),
             'isbn' => $book->getIsbn(),
@@ -556,16 +572,131 @@ class LibraryApiController extends AbstractController
     #[Route('/authors/{id}', name: 'api_library_author', methods: ['GET'])]
     public function getAuthor(Author $author): JsonResponse
     {
-        return new JsonResponse([
-            'id' => $author->getId(),
-            'name' => $author->getName(),
-            'birthYear' => $author->getBirthYear(),
-            'deathYear' => $author->getDeathYear(),
-            'nationality' => $author->getNationality(),
-            'link' => $author->getLink(),
-            'image' => $this->getAuthorImageUrl($author),
-            'userId' => $author->getUser()?->getId(),
-        ]);
+        return new JsonResponse($this->buildAuthorResponse($author));
+    }
+
+    /**
+     * Create or update author biography
+     */
+    #[Route('/authors/{id}/bio', name: 'api_library_author_bio', methods: ['POST'])]
+    public function createOrUpdateAuthorBio(
+        Author                 $author,
+        Request                $request,
+        EntityManagerInterface $em
+    ): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+        if (!$user) {
+            return new JsonResponse(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        // Check permissions - only author creator or admin can modify
+        if ($author->getUser() !== $user && $user->getUserType() !== 1) {
+            return new JsonResponse(['error' => 'Non autorisé'], Response::HTTP_FORBIDDEN);
+        }
+
+        $data = $request->request->all();
+        if (empty($data)) {
+            $data = json_decode($request->getContent(), true) ?? [];
+        }
+
+        $bioError = $this->applyAuthorBio($author, $data, $request, $em);
+        if ($bioError instanceof JsonResponse) {
+            return $bioError;
+        }
+
+        return new JsonResponse($this->buildAuthorResponse($author));
+    }
+
+    /**
+     * Apply biography to author - shared logic for both create and update
+     */
+    private function applyAuthorBio(
+        Author                 $author,
+        array                  $data,
+        Request                $request,
+        EntityManagerInterface $em
+    ): ?JsonResponse
+    {
+        $bioContent = trim((string)($data['bioContent'] ?? ''));
+        $bioUrl = trim((string)($data['bioUrl'] ?? ''));
+        $hasPdfUpload = $request->files->has('bioPdf');
+
+        if ($bioUrl !== '') {
+            $validatedBioUrl = filter_var($bioUrl, FILTER_VALIDATE_URL);
+            $scheme = $validatedBioUrl ? strtolower((string) parse_url($validatedBioUrl, PHP_URL_SCHEME)) : '';
+
+            if (!$validatedBioUrl || !in_array($scheme, ['http', 'https'], true)) {
+                return new JsonResponse([
+                    'error' => 'URL de fiche auteur invalide. Utilisez une URL http ou https valide.'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $bioUrl = $validatedBioUrl;
+        }
+
+        $author->setBioContent($bioContent !== '' ? $bioContent : null);
+        $author->setBioUrl($bioUrl !== '' ? $bioUrl : null);
+
+        if ($hasPdfUpload) {
+            $pdfFile = $request->files->get('bioPdf');
+            if (!$pdfFile) {
+                return new JsonResponse(['error' => 'Fichier PDF requis'], Response::HTTP_BAD_REQUEST);
+            }
+
+            $uploadResult = $this->uploadAuthorBioPdf($pdfFile);
+            if ($uploadResult['error']) {
+                return new JsonResponse(['error' => $uploadResult['error']], Response::HTTP_BAD_REQUEST);
+            }
+
+            if ($author->getBioPdfPath()) {
+                $this->deleteAuthorBioPdfFile($author->getBioPdfPath());
+            }
+
+            $author->setBioPdfPath($uploadResult['filename']);
+        }
+
+        $em->flush();
+        return null;
+    }
+
+    /**
+     * Build biography payload from request when bio fields are present.
+     */
+    private function extractAuthorBioData(Request $request): ?array
+    {
+        $hasBioFields = $request->request->has('bioContent')
+            || $request->request->has('bioUrl')
+            || $request->files->has('bioPdf');
+
+        if (!$hasBioFields) {
+            return null;
+        }
+
+        $bioContent = trim((string) $request->request->get('bioContent', ''));
+        $bioUrl = trim((string) $request->request->get('bioUrl', ''));
+
+        return [
+            'bioContent' => $bioContent,
+            'bioUrl' => $bioUrl !== '' ? $bioUrl : null,
+        ];
+    }
+
+    /**
+     * Get an author biography
+     */
+    #[Route('/authors/{id}/bio', name: 'api_library_author_bio_get', methods: ['GET'])]
+    public function getAuthorBio(Author $author): JsonResponse
+    {
+        $response = [
+            'hasBio' => $this->hasAuthorBio($author),
+            'bioContent' => $author->getBioContent(),
+            'bioUrl' => $author->getBioUrl(),
+            'bioPdfUrl' => $this->getAuthorBioPdfUrl($author),
+        ];
+
+        return new JsonResponse($response);
     }
 
     /**
@@ -909,7 +1040,13 @@ class LibraryApiController extends AbstractController
 
     private function deleteArticleImageFile(string $filename): void
     {
-        $path = $this->getParameter('kernel.project_dir') . '/public/article_images/' . $filename;
+        $safeFilename = basename($filename);
+
+        if (!preg_match('/^[a-zA-Z0-9._-]+\.(jpg|jpeg|png|gif|webp|svg)$/i', $safeFilename)) {
+            return;
+        }
+
+        $path = $this->getParameter('kernel.project_dir') . '/public/article_images/' . $safeFilename;
         if (is_file($path)) {
             @unlink($path);
         }
@@ -917,7 +1054,13 @@ class LibraryApiController extends AbstractController
 
     private function deleteArticlePdfFile(string $filename): void
     {
-        $path = $this->getParameter('kernel.project_dir') . '/public/article_pdfs/' . $filename;
+        $safeFilename = basename($filename);
+
+        if (!preg_match('/^[a-zA-Z0-9._-]+\.pdf$/i', $safeFilename)) {
+            return;
+        }
+
+        $path = $this->getParameter('kernel.project_dir') . '/public/article_pdfs/' . $safeFilename;
         if (is_file($path)) {
             @unlink($path);
         }
@@ -956,4 +1099,122 @@ class LibraryApiController extends AbstractController
 
         return new JsonResponse(['success' => true]);
     }
+
+    /**
+     * Build author response with all data including biography
+     */
+    private function buildAuthorResponse(Author $author): array
+    {
+        $response = [
+            'id' => $author->getId(),
+            'firstName' => $author->getFirstName(),
+            'lastName' => $author->getLastName(),
+            'birthYear' => $author->getBirthYear(),
+            'deathYear' => $author->getDeathYear(),
+            'nationality' => $author->getNationality(),
+            'bioContent' => $author->getBioContent(),
+            'bioUrl' => $author->getBioUrl(),
+            'bioPdfUrl' => $this->getAuthorBioPdfUrl($author),
+            'image' => $this->getAuthorImageUrl($author),
+            'userId' => $author->getUser()?->getId(),
+            'userType' => $author->getUser()?->getUserType(),
+        ];
+
+        return $response;
+    }
+
+    /**
+     * @return array{filename: ?string, error: ?string}
+     */
+    private function uploadAuthorBioPdf(UploadedFile $pdfFile): array
+    {
+        if ($pdfFile->getMimeType() !== 'application/pdf') {
+            return ['filename' => null, 'error' => 'Format PDF non supporté'];
+        }
+
+        if ($pdfFile->getSize() > 10 * 1024 * 1024) {
+            return ['filename' => null, 'error' => 'PDF trop volumineux (max 10 MB)'];
+        }
+
+        $uploadDir = $this->getParameter('kernel.project_dir') . '/public/author_bios';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0775, true);
+        }
+
+        $filename = uniqid('author_bio_', true) . '.pdf';
+
+        try {
+            $pdfFile->move($uploadDir, $filename);
+        } catch (FileException $e) {
+            return ['filename' => null, 'error' => 'Erreur lors de l\'enregistrement du PDF'];
+        }
+
+        return ['filename' => $filename, 'error' => null];
+    }
+
+    private function getAuthorBioPdfUrl(Author $author): ?string
+    {
+        if (!$author->getBioPdfPath()) {
+            return null;
+        }
+
+        return '/author_bios/' . $author->getBioPdfPath();
+    }
+
+    private function hasAuthorBio(Author $author): bool
+    {
+        return $author->getBioContent() !== null
+            || $author->getBioUrl() !== null
+            || $author->getBioPdfPath() !== null;
+    }
+
+    private function deleteAuthorBioPdfFile(string $filename): void
+    {
+        $safeFilename = basename($filename);
+
+        // Only allow expected filename characters and .pdf extension to avoid path traversal
+        if (!preg_match('/^[a-zA-Z0-9._-]+\.pdf$/', $safeFilename)) {
+            return;
+        }
+
+        $path = $this->getParameter('kernel.project_dir') . '/public/author_bios/' . $safeFilename;
+        if (is_file($path)) {
+            @unlink($path);
+        }
+    }
+
+    private function deleteAuthorImageFile(string $filename): void
+    {
+        $safeFilename = basename($filename);
+
+        if (!preg_match('/^[a-zA-Z0-9._-]+\.(jpg|jpeg|png|gif|webp|svg)$/i', $safeFilename)) {
+            return;
+        }
+
+        $path = $this->getParameter('kernel.project_dir') . '/public/author_images/' . $safeFilename;
+        if (is_file($path)) {
+            @unlink($path);
+        }
+    }
+
+    private function cleanupAuthorUploadedFiles(Author $author): void
+    {
+        $image = $author->getImage();
+        if ($image) {
+            $this->deleteAuthorImageFile($image);
+        }
+
+        $pdf = $author->getBioPdfPath();
+        if ($pdf) {
+            $this->deleteAuthorBioPdfFile($pdf);
+        }
+    }
+
+    private function slugifyTitle(string $title): string
+    {
+        $slug = strtolower(trim($title));
+        $slug = preg_replace('/[^a-z0-9]+/', '-', $slug);
+        return trim($slug, '-');
+    }
 }
+
