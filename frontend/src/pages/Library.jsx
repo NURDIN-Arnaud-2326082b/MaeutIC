@@ -61,7 +61,14 @@ const Library = () => {
     };
 
     useEffect(() => {
-        if (!showAuthorModal || !editingAuthor) {
+        if (!showAuthorModal) {
+            return;
+        }
+
+        if (!editingAuthor) {
+            setAuthorBioContent('');
+            setAuthorBioUrl('');
+            setAuthorBioFile(null);
             return;
         }
 
@@ -81,6 +88,9 @@ const Library = () => {
         onSuccess: () => {
             queryClient.invalidateQueries(['authors']);
             queryClient.invalidateQueries(['articles']);
+            setAuthorBioUrl('');
+            setAuthorBioFile(null);
+            setAuthorBioContent('');
             setShowAuthorModal(false);
             setEditingAuthor(null);
         },
@@ -91,6 +101,9 @@ const Library = () => {
         onSuccess: () => {
             queryClient.invalidateQueries(['authors']);
             queryClient.invalidateQueries(['articles']);
+            setAuthorBioUrl('');
+            setAuthorBioFile(null);
+            setAuthorBioContent('');
             setShowAuthorModal(false);
             setEditingAuthor(null);
         },
