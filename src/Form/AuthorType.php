@@ -7,7 +7,7 @@
  * - Nom de l'auteur
  * - Années de naissance et décès
  * - Nationalité (liste complète de pays)
- * - Lien vers ressource externe
+ * - Lien associé à la fiche
  * - Upload d'image
  * - Sélection de tags pour catégorisation
  */
@@ -234,7 +234,11 @@ class AuthorType extends AbstractType
         asort($countries);
 
         $builder
-            ->add('name', TextType::class, [
+            ->add('firstName', TextType::class, [
+                'label' => 'Prénom',
+                'required' => true,
+            ])
+            ->add('lastName', TextType::class, [
                 'label' => 'Nom',
                 'required' => true,
             ])
@@ -267,9 +271,9 @@ class AuthorType extends AbstractType
                     'class' => 'bg-white mt-1 block w-full border border-gray-300 rounded-md p-2'
                 ]
             ])
-            ->add('link', TextType::class, [
-                'label' => "Lien d'une biographie de l'auteur",
-                'required' => true,
+            ->add('bioUrl', TextType::class, [
+                'label' => 'Lien associé',
+                'required' => false,
             ])
             ->add('imageFile', FileType::class, [
                 'label' => 'Photo de l\'auteur',
