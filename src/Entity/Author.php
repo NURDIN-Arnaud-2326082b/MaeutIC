@@ -38,10 +38,12 @@ class Author
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
-    private ?string $firstName = null;
+    #[Assert\NotBlank(message: 'Le prénom est obligatoire.')]
+    private string $firstName = '';
 
     #[ORM\Column(length: 255)]
-    private ?string $lastName = null;
+    #[Assert\NotBlank(message: 'Le nom est obligatoire.')]
+    private string $lastName = '';
 
     #[ORM\Column(type: 'integer', nullable: true)]
     private ?int $birthYear = null;
@@ -115,7 +117,7 @@ class Author
         return $this;
     }
 
-    public function getFirstName(): ?string
+    public function getFirstName(): string
     {
         return $this->firstName;
     }
@@ -127,7 +129,7 @@ class Author
         return $this;
     }
 
-    public function getLastName(): ?string
+    public function getLastName(): string
     {
         return $this->lastName;
     }
