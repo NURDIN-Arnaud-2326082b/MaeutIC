@@ -56,9 +56,7 @@ final class ChatApiController extends AbstractController
      * @param Request $request La requête contenant le texte du message
      * @param EntityManagerInterface $em Gestionnaire d'entités
      * @return JsonResponse Statut de l'envoi ou erreur
-     * @throws ContainerExceptionInterface
      * @throws GuzzleException
-     * @throws NotFoundExceptionInterface
      */
     #[Route('/send', name: 'api_chat_send', methods: ['POST'])]
     public function sendMessage(Request $request, EntityManagerInterface $em, LoggerInterface $logger): JsonResponse
