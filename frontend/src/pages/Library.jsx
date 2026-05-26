@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {useAuthStore} from '../store';
 import BarcodeScanner from '../components/BarcodeScanner';
@@ -38,6 +38,9 @@ const Library = () => {
     const [showScanner, setShowScanner] = useState(false);
     const [scannedBook, setScannedBook] = useState(null);
     const [selectedArticleId, setSelectedArticleId] = useState(null);
+    const [selectedAuthorId, setSelectedAuthorId] = useState(null);
+    const [selectedAuthorTab, setSelectedAuthorTab] = useState('bio');
+    // const [selectedAuthorPopupStyle, setSelectedAuthorPopupStyle] = useState(null);
     const [removeArticleImage, setRemoveArticleImage] = useState(false);
     const [removeArticlePdf, setRemoveArticlePdf] = useState(false);
     const [articleConcernType, setArticleConcernType] = useState('none');
@@ -47,11 +50,32 @@ const Library = () => {
     const [reportReason, setReportReason] = useState('');
     const [reportCustomReason, setReportCustomReason] = useState('');
     const [reportDetails, setReportDetails] = useState('');
+    const [glossaryFilter, setGlossaryFilter] = useState({authors: null, books: null, articles: null});
+    const [authorBioUrl, setAuthorBioUrl] = useState('');
+    const [authorBioFile, setAuthorBioFile] = useState(null);
+    const [authorBioContent, setAuthorBioContent] = useState('');
 
     const handleBookFound = ({title, author, image}) => {
         setScannedBook({title, author, imageUrl: image});
         setShowScanner(false);
     };
+
+    useEffect(() => {
+        if (!showAuthorModal) {
+            return;
+        }
+
+        if (!editingAuthor) {
+            setAuthorBioContent('');
+            setAuthorBioUrl('');
+            setAuthorBioFile(null);
+            return;
+        }
+
+        setAuthorBioContent(editingAuthor.bioContent || '');
+        setAuthorBioUrl(editingAuthor.bioUrl || '');
+        setAuthorBioFile(null);
+    }, [showAuthorModal, editingAuthor]);
 
     // Authors
     const {data: authors = []} = useQuery({
@@ -63,6 +87,10 @@ const Library = () => {
         mutationFn: createAuthor,
         onSuccess: () => {
             queryClient.invalidateQueries(['authors']);
+            queryClient.invalidateQueries(['articles']);
+            setAuthorBioUrl('');
+            setAuthorBioFile(null);
+            setAuthorBioContent('');
             setShowAuthorModal(false);
             setEditingAuthor(null);
         },
@@ -72,6 +100,10 @@ const Library = () => {
         mutationFn: ({id, formData}) => updateAuthor(id, formData),
         onSuccess: () => {
             queryClient.invalidateQueries(['authors']);
+            queryClient.invalidateQueries(['articles']);
+            setAuthorBioUrl('');
+            setAuthorBioFile(null);
+            setAuthorBioContent('');
             setShowAuthorModal(false);
             setEditingAuthor(null);
         },
@@ -125,6 +157,76 @@ const Library = () => {
         ? articles.find((article) => article.id === selectedArticleId)
         : null;
 
+    const selectedAuthor = selectedAuthorId
+        ? authors.find((author) => author.id === selectedAuthorId)
+        : null;
+
+    function getAuthorDisplayName(author) {
+        if (!author) return '';
+        return `${author.firstName || ''} ${author.lastName || ''}`.trim();
+    }
+
+    const selectedAuthorArticles = selectedAuthor
+        ? articles.filter((article) => article.relatedAuthorId === selectedAuthor.id || article.relatedAuthorName === getAuthorDisplayName(selectedAuthor))
+        : [];
+
+    const selectedAuthorBooks = selectedAuthor
+        ? books.filter((book) => book.authors?.some((bookAuthor) => bookAuthor.id === selectedAuthor.id))
+        : [];
+
+    const getAuthorById = (id) => authors.find((author) => author.id === id) || null;
+
+    const handleAuthorCardClick = (author, event) => {
+        // const authorCard = event?.currentTarget?.closest('[data-author-card]');
+        // const rect = authorCard?.getBoundingClientRect();
+        // const viewportWidth = window.innerWidth;
+        // const viewportHeight = window.innerHeight;
+        // const popupWidth = Math.min(900, viewportWidth - 24);
+        // const popupHeight = Math.min(640, viewportHeight - 96);
+        // const left = Math.max(12, (viewportWidth - popupWidth) / 2);
+        // const top = Math.max(12, Math.min(rect?.top ?? (viewportHeight - popupHeight) / 2, viewportHeight - popupHeight - 12));
+
+        setSelectedAuthorId(author.id);
+        setSelectedAuthorTab('bio');
+        // setSelectedAuthorPopupStyle({
+        //     left,
+        //     top,
+        //     width: popupWidth,
+        //     maxHeight: popupHeight,
+        // });
+    };
+
+    const closeAuthorPreview = () => {
+        setSelectedAuthorId(null);
+        setSelectedAuthorTab('bio');
+        // setSelectedAuthorPopupStyle(null);
+    };
+
+    const openAuthorPreviewArticle = (article) => {
+        setActiveTab('articles');
+        setSelectedArticleId(article.id);
+        closeAuthorPreview();
+    };
+
+    const openAuthorBioLink = (author) => {
+        if (author.bioUrl) {
+            window.open(author.bioUrl, '_blank', 'noopener,noreferrer');
+        }
+    };
+
+    const downloadAuthorBioPdf = (author) => {
+        if (!author.bioPdfUrl) {
+            return;
+        }
+
+        const downloadLink = document.createElement('a');
+        downloadLink.href = resolveAssetUrl(author.bioPdfUrl);
+        downloadLink.download = `${getAuthorDisplayName(author) || 'biographie'}.pdf`;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        downloadLink.remove();
+    };
+
     const createArticleMutation = useMutation({
         mutationFn: createArticle,
         onSuccess: () => {
@@ -176,6 +278,21 @@ const Library = () => {
     const handleAuthorSubmit = (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
+        const bioContentValue = authorBioContent.trim();
+        const bioUrlValue = authorBioUrl.trim();
+        const hasBioPdf = Boolean(authorBioFile);
+
+        if (!editingAuthor && !bioContentValue && !bioUrlValue && !hasBioPdf) {
+            alert('Merci de renseigner au moins un champ de fiche auteur : texte, lien ou PDF.');
+            return;
+        }
+
+        formData.set('bioContent', bioContentValue);
+        formData.set('bioUrl', bioUrlValue);
+
+        if (authorBioFile) {
+            formData.set('bioPdf', authorBioFile);
+        }
 
         if (editingAuthor) {
             updateAuthorMutation.mutate({id: editingAuthor.id, formData});
@@ -299,31 +416,36 @@ const Library = () => {
         return /^https?:\/\//i.test(article?.link || '');
     };
 
-    const toggleDropdown = (id) => {
-        setOpenDropdownId(openDropdownId === id ? null : id);
-    };
-
-    // Glossary helpers
-    const [glossaryFilter, setGlossaryFilter] = useState({authors: null, books: null, articles: null});
-
     const removeAccents = (str) => {
         if (!str) return "";
         return String(str).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    }
-
-    const getAuthorLastName = (author) => {
-        if (!author.name) return '';
-        const parts = author.name.trim().split(/\s+/);
-        return parts[parts.length - 1];
     };
 
     const getFirstLetter = (str) => {
         if (!str) return '#';
-        const cleanStr = removeAccents(str);
-        console.log(cleanStr);
+        const cleanStr = removeAccents(String(str).trim());
         const firstChar = cleanStr.charAt(0).toUpperCase();
         return /[A-Z]/.test(firstChar) ? firstChar : '#';
-    }
+    };
+
+    const getAuthorNameParts = (author) => {
+        if (!author) {
+            return {firstName: '', lastName: ''};
+        }
+
+        return {
+            firstName: author.firstName || '',
+            lastName: author.lastName || '',
+        };
+    };
+
+    const getAuthorLastName = (author) => {
+        return (author?.lastName || '').trim();
+    };
+
+    const toggleDropdown = (id) => {
+        setOpenDropdownId((currentId) => (currentId === id ? null : id));
+    };
 
     const getAvailableLetters = (items, keyFn) => {
         const letters = new Set(items.map((item) => getFirstLetter(keyFn(item))));
@@ -345,7 +467,7 @@ const Library = () => {
                 if (!item[f]) return false;
 
                 if (Array.isArray(item[f])) {
-                    const combinedNames = item[f].map(val => val.name || '').join(' ');
+                    const combinedNames = item[f].map(val => getAuthorDisplayName(val)).join(' ');
                     return removeAccents(combinedNames.toLowerCase()).includes(q);
                 }
 
@@ -472,7 +594,7 @@ const Library = () => {
 
                     <div className="flex flex-wrap w-full">
                         {(() => {
-                            const searched = filterBySearch(authors, ['name', 'nationality']);
+                            const searched = filterBySearch(authors, ['firstName', 'lastName', 'nationality']);
                             const filtered = filterByLetter(searched, (a) => getAuthorLastName(a), 'authors');
                             const grouped = groupByLetter(filtered, (a) => getAuthorLastName(a));
                             return Object.keys(grouped).sort().map((letter) => (
@@ -485,29 +607,40 @@ const Library = () => {
                                         {grouped[letter].map((author) => (
                                             <div
                                                 key={author.id}
+                                                data-author-card
                                                 className="bg-white hover:bg-blue-50 rounded-lg overflow-hidden relative w-44 h-72 m-4 p-3 border border-gray-200 shadow-xl flex flex-col cursor-pointer transition-all duration-300 ease-in-out hover:shadow-2xl hover:-translate-y-1 hover:border-gray-300"
                                             >
-                                                <a href={author.link} target="_blank" rel="noopener noreferrer">
+                                                <button
+                                                    type="button"
+                                                    onClick={(event) => handleAuthorCardClick(author, event)}
+                                                    onKeyDown={(event) => {
+                                                        if (event.key === 'Enter' || event.key === ' ') {
+                                                            event.preventDefault();
+                                                            handleAuthorCardClick(author, event);
+                                                        }
+                                                    }}
+                                                    className="text-left flex-1 flex flex-col outline-none"
+                                                >
                                                     <img
                                                         src={resolveAssetUrl(author.image)}
-                                                        alt={author.name}
+                                                        alt={getAuthorDisplayName(author)}
                                                         className="w-full aspect-square object-cover rounded-lg"
                                                     />
-                                                </a>
 
-                                                <div className="pt-3 px-1 flex flex-col">
-                                                    <h3
-                                                        className="text-base font-semibold text-gray-800 line-clamp-2 leading-tight"
-                                                        title={author.name}
-                                                    >
-                                                        {author.name}
-                                                    </h3>
-                                                    {(author.birthYear || author.deathYear) && (
-                                                        <p className="text-sm text-gray-600 mt-1">
-                                                            {author.birthYear || '?'} - {author.deathYear || '...'}
-                                                        </p>
-                                                    )}
-                                                </div>
+                                                    <div className="pt-3 px-1 flex flex-col">
+                                                        <h3
+                                                            className="text-base font-semibold text-gray-800 line-clamp-2 leading-tight"
+                                                            title={getAuthorDisplayName(author)}
+                                                        >
+                                                            {getAuthorDisplayName(author)}
+                                                        </h3>
+                                                        {(author.birthYear || author.deathYear) && (
+                                                            <p className="text-sm text-gray-600 mt-1">
+                                                                {author.birthYear || '?'} - {author.deathYear || '...'}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </button>
 
                                                 {author.nationality && (
                                                     <img
@@ -516,19 +649,26 @@ const Library = () => {
                                                         className="absolute bottom-2 right-2 w-8 h-7 rounded-lg"
                                                     />
                                                 )}
+
                                                 {canEdit(author) && (
-                                                    <div className="absolute top-3 right-3">
+                                                    <div className="absolute top-3 right-3 z-20">
                                                         <button
-                                                            onClick={() => toggleDropdown(`author-${author.id}`)}
-                                                            className="focus:outline-none px-2 py-1"
+                                                            type="button"
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                toggleDropdown(`author-${author.id}`);
+                                                            }}
+                                                            className="focus:outline-none px-2 py-1 rounded bg-white/90 hover:bg-white shadow"
                                                         >
                                                             &#9776;
                                                         </button>
                                                         {openDropdownId === `author-${author.id}` && (
                                                             <div
-                                                                className="absolute right-0 mt-2 bg-white rounded shadow-lg z-50">
+                                                                className="absolute right-0 mt-2 bg-white rounded shadow-lg z-50 min-w-[120px]">
                                                                 <button
-                                                                    onClick={() => {
+                                                                    type="button"
+                                                                    onClick={(event) => {
+                                                                        event.stopPropagation();
                                                                         setEditingAuthor(author);
                                                                         setShowAuthorModal(true);
                                                                         setOpenDropdownId(null);
@@ -538,7 +678,9 @@ const Library = () => {
                                                                     Modifier
                                                                 </button>
                                                                 <button
-                                                                    onClick={() => {
+                                                                    type="button"
+                                                                    onClick={(event) => {
+                                                                        event.stopPropagation();
                                                                         handleDeleteAuthor(author.id);
                                                                         setOpenDropdownId(null);
                                                                     }}
@@ -683,7 +825,8 @@ const Library = () => {
                                                     &#9776;
                                                 </button>
                                                 {openDropdownId === `article-${article.id}` && (
-                                                    <div className="absolute right-0 mt-2 bg-white rounded shadow-lg z-50 min-w-[120px]">
+                                                    <div
+                                                        className="absolute right-0 mt-2 bg-white rounded shadow-lg z-50 min-w-[120px]">
                                                         {canEdit(article) ? (
                                                             <>
                                                                 <button
@@ -810,7 +953,7 @@ const Library = () => {
                                                         {book.title}
                                                     </h3>
                                                     <p className="text-sm text-gray-600 truncate mt-1">
-                                                        {book.authors?.map(a => a.name).join(', ') || 'Auteur inconnu'}
+                                                        {book.authors?.map((bookAuthor) => getAuthorDisplayName(bookAuthor)).join(', ') || 'Auteur inconnu'}
                                                     </p>
                                                 </div>
                                                 {canEdit(book) && (
@@ -861,56 +1004,61 @@ const Library = () => {
             {showAuthorModal && (
                 <div
                     className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-[12000] overflow-y-auto px-4 pt-24 pb-6">
-                    <div className="bg-white rounded-lg p-6 w-full max-w-md mt-4 mb-6">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-2xl mt-4 mb-6">
                         <h2 className="text-xl font-bold mb-4">
                             {editingAuthor ? 'Modifier l\'auteur' : 'Ajouter un auteur'}
                         </h2>
                         <form onSubmit={handleAuthorSubmit}>
-                            <div className="mb-4">
-                                <label className="block text-gray-700 mb-2">Nom</label>
-                                <input
-                                    type="text"
-                                    name="name"
-                                    defaultValue={editingAuthor?.name || ''}
-                                    className="w-full px-3 py-2 border rounded"
-                                    required
-                                />
+                            <div className="grid grid-cols-3 gap-4 mb-4">
+                                <div>
+                                    <label className="block text-gray-700 mb-2">Prénom *</label>
+                                    <input
+                                        type="text"
+                                        name="firstName"
+                                        defaultValue={getAuthorNameParts(editingAuthor).firstName}
+                                        className="w-full px-3 py-2 border rounded"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-gray-700 mb-2">Nom *</label>
+                                    <input
+                                        type="text"
+                                        name="lastName"
+                                        defaultValue={getAuthorNameParts(editingAuthor).lastName}
+                                        className="w-full px-3 py-2 border rounded"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-gray-700 mb-2">Nationalité</label>
+                                    <input
+                                        type="text"
+                                        name="nationality"
+                                        defaultValue={editingAuthor?.nationality || ''}
+                                        className="w-full px-3 py-2 border rounded"
+                                    />
+                                </div>
                             </div>
-                            <div className="mb-4">
-                                <label className="block text-gray-700 mb-2">Année de naissance</label>
-                                <input
-                                    type="number"
-                                    name="birthYear"
-                                    defaultValue={editingAuthor?.birthYear || ''}
-                                    className="w-full px-3 py-2 border rounded"
-                                />
-                            </div>
-                            <div className="mb-4">
-                                <label className="block text-gray-700 mb-2">Année de décès</label>
-                                <input
-                                    type="number"
-                                    name="deathYear"
-                                    defaultValue={editingAuthor?.deathYear || ''}
-                                    className="w-full px-3 py-2 border rounded"
-                                />
-                            </div>
-                            <div className="mb-4">
-                                <label className="block text-gray-700 mb-2">Nationalité</label>
-                                <input
-                                    type="text"
-                                    name="nationality"
-                                    defaultValue={editingAuthor?.nationality || ''}
-                                    className="w-full px-3 py-2 border rounded"
-                                />
-                            </div>
-                            <div className="mb-4">
-                                <label className="block text-gray-700 mb-2">Lien</label>
-                                <input
-                                    type="url"
-                                    name="link"
-                                    defaultValue={editingAuthor?.link || ''}
-                                    className="w-full px-3 py-2 border rounded"
-                                />
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label className="block text-gray-700 mb-2">Année de naissance</label>
+                                    <input
+                                        type="number"
+                                        name="birthYear"
+                                        defaultValue={editingAuthor?.birthYear || ''}
+                                        className="w-full px-3 py-2 border rounded"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-gray-700 mb-2">Année de décès</label>
+                                    <input
+                                        type="number"
+                                        name="deathYear"
+                                        defaultValue={editingAuthor?.deathYear || ''}
+                                        className="w-full px-3 py-2 border rounded"
+                                    />
+                                </div>
                             </div>
                             <div className="mb-4">
                                 <label className="block text-gray-700 mb-2">Image</label>
@@ -921,12 +1069,57 @@ const Library = () => {
                                     className="w-full px-3 py-2 border rounded"
                                 />
                             </div>
-                            <div className="flex justify-end space-x-2">
+
+                            {/* Biography Section */}
+                            <div className="border-t pt-4 mt-4">
+                                <h3 className="font-bold text-lg mb-4">Fiche auteur</h3>
+                                <div className="mb-4">
+                                    <label className="block text-gray-700 mb-2">Texte de biographie</label>
+                                    <textarea
+                                        value={authorBioContent}
+                                        onChange={(e) => setAuthorBioContent(e.target.value)}
+                                        className="w-full px-3 py-2 border rounded"
+                                        rows="6"
+                                        placeholder="Écrivez la biographie..."
+                                    />
+                                </div>
+                                <div className="mb-4">
+                                    <label className="block text-gray-700 mb-2">Lien associé</label>
+                                    <input
+                                        type="url"
+                                        value={authorBioUrl}
+                                        onChange={(e) => setAuthorBioUrl(e.target.value)}
+                                        className="w-full px-3 py-2 border rounded"
+                                        placeholder="https://..."
+                                    />
+                                </div>
+                                <div className="mb-4">
+                                    <label className="block text-gray-700 mb-2">PDF associé</label>
+                                    <input
+                                        type="file"
+                                        accept=".pdf"
+                                        onChange={(e) => setAuthorBioFile(e.target.files?.[0] || null)}
+                                        className="w-full px-3 py-2 border rounded"
+                                    />
+                                    {authorBioFile ? (
+                                        <p className="text-sm text-gray-600 mt-1">Fichier
+                                            sélectionné: {authorBioFile.name}</p>
+                                    ) : editingAuthor?.bioPdfUrl ? (
+                                        <p className="text-sm text-gray-600 mt-1">PDF actuel conservé si aucun nouveau
+                                            fichier n’est choisi.</p>
+                                    ) : null}
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end space-x-2 mt-6">
                                 <button
                                     type="button"
                                     onClick={() => {
                                         setShowAuthorModal(false);
                                         setEditingAuthor(null);
+                                        setAuthorBioUrl('');
+                                        setAuthorBioFile(null);
+                                        setAuthorBioContent('');
                                     }}
                                     className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
                                 >
@@ -993,7 +1186,7 @@ const Library = () => {
                                 >
                                     {authors.map((author) => (
                                         <option key={author.id} value={author.id}>
-                                            {author.name}
+                                            {getAuthorDisplayName(author)}
                                         </option>
                                     ))}
                                 </select>
@@ -1115,7 +1308,7 @@ const Library = () => {
                                             ))}
                                             {articleConcernType === 'author' && authors.map((author) => (
                                                 <option key={author.id} value={author.id}>
-                                                    {author.name}
+                                                    {getAuthorDisplayName(author)}
                                                 </option>
                                             ))}
                                         </select>
@@ -1241,6 +1434,200 @@ const Library = () => {
                     onBookFound={handleBookFound}
                     onClose={() => setShowScanner(false)}
                 />
+            )}
+
+            {selectedAuthor && (
+                <div
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-[12000] overflow-y-auto px-4 pt-24 pb-6"
+                    onClick={closeAuthorPreview}
+                >
+                    <div
+                        className="relative w-full max-w-4xl mt-4 mb-6 overflow-hidden rounded-3xl shadow-2xl bg-white/95 text-slate-800 ring-1 ring-slate-200 grid grid-cols-1 lg:grid-cols-[260px_1fr]"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <div
+                            className="relative bg-gradient-to-br from-white via-slate-50 to-blue-50/70 p-4 border-b lg:border-b-0 lg:border-r border-slate-200 overflow-y-auto">
+                            <button
+                                type="button"
+                                onClick={closeAuthorPreview}
+                                className="absolute top-4 right-4 px-3 py-1.5 rounded-full bg-white/90 text-slate-600 text-sm font-medium border border-slate-200 shadow-sm hover:bg-white hover:text-slate-800 transition"
+                            >
+                                Fermer
+                            </button>
+
+                            <div
+                                className="h-20 rounded-3xl bg-gradient-to-br from-blue-600 via-cyan-600 to-amber-500 shadow-inner"/>
+                            <div
+                                className="relative -mt-10 ml-3 w-20 h-20 rounded-full p-1 bg-white shadow-lg ring-4 ring-white">
+                                <img
+                                    src={resolveAssetUrl(selectedAuthor.image)}
+                                    alt={getAuthorDisplayName(selectedAuthor)}
+                                    className="w-full h-full rounded-full object-cover"
+                                />
+                            </div>
+
+                            <div className="mt-4">
+                                <span
+                                    className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 ring-1 ring-blue-100">
+                                    Fiche auteur
+                                </span>
+                                <h2 className="mt-3 text-xl font-black leading-tight text-slate-900">
+                                    {getAuthorDisplayName(selectedAuthor)} {selectedAuthor.nationality ? <img
+                                            src={`https://flagicons.lipis.dev/flags/4x3/${selectedAuthor.nationality}.svg`}
+                                            alt={selectedAuthor.nationality}
+                                            className="w-5 h-3.5 rounded mt-1"
+                                        />
+                                        : null
+                                    }
+                                </h2>
+                                {(selectedAuthor.birthYear || selectedAuthor.deathYear) && (
+                                    <p className="text-sm text-slate-400 mt-1">
+                                        {selectedAuthor.birthYear || '?'} - {selectedAuthor.deathYear || '...'}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                                <div className="rounded-2xl bg-white p-3 border border-slate-200 shadow-sm">
+                                    <div className="text-slate-500">Articles</div>
+                                    <div
+                                        className="mt-1 text-xl font-bold text-slate-900">{selectedAuthorArticles.length}</div>
+                                </div>
+                                <div className="rounded-2xl bg-white p-3 border border-slate-200 shadow-sm">
+                                    <div className="text-slate-500">Livres</div>
+                                    <div
+                                        className="mt-1 text-xl font-bold text-slate-900">{selectedAuthorBooks.length}</div>
+                                </div>
+
+                                {(selectedAuthor.bioContent || selectedAuthor.bioUrl || selectedAuthor.bioPdfUrl) && (
+                                    <div>
+                                        <div className="uppercase tracking-wider text-xs text-slate-400">Biographie
+                                        </div>
+                                        <div className="mt-1 whitespace-pre-wrap leading-relaxed">
+                                            {selectedAuthor.bioContent || 'Biographie sans texte associé.'}
+                                        </div>
+                                    </div>
+                                )}
+                                {selectedAuthor.bioUrl && (
+                                    <button
+                                        type="button"
+                                        onClick={() => openAuthorBioLink(selectedAuthor)}
+                                        className="mt-2 inline-flex px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold shadow-sm hover:bg-blue-700 transition"
+                                    >
+                                        Ouvrir le lien associé
+                                    </button>
+                                )}
+                                {selectedAuthor.bioPdfUrl && (
+                                    <button
+                                        type="button"
+                                        onClick={() => downloadAuthorBioPdf(selectedAuthor)}
+                                        className="mt-2 ml-2 inline-flex px-4 py-2 rounded-xl bg-amber-500 text-white text-sm font-semibold shadow-sm hover:bg-amber-600 transition"
+                                    >
+                                        Télécharger le PDF associé
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="p-4 overflow-y-auto bg-slate-50/70">
+                            <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
+                                {[
+                                    {key: 'bio', label: 'Biographie'},
+                                    {key: 'articles', label: `Articles (${selectedAuthorArticles.length})`},
+                                    {key: 'books', label: `Livres (${selectedAuthorBooks.length})`},
+                                ].map((tab) => (
+                                    <button
+                                        key={tab.key}
+                                        type="button"
+                                        onClick={() => setSelectedAuthorTab(tab.key)}
+                                        className={`px-4 py-2 rounded-full text-sm font-semibold transition ${
+                                            selectedAuthorTab === tab.key
+                                                ? 'bg-blue-600 text-white shadow-sm'
+                                                : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:text-slate-900'
+                                        }`}
+                                    >
+                                        {tab.label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="pt-4">
+                                {selectedAuthorTab === 'bio' && (
+                                    <div className="space-y-4">
+                                        <div className="rounded-3xl bg-white p-4 border border-slate-200 shadow-sm">
+                                            <h3 className="text-lg font-bold text-slate-900">Biographie</h3>
+                                            <div className="mt-3 whitespace-pre-wrap text-slate-700 leading-relaxed">
+                                                {selectedAuthor.bioContent || 'Aucune biographie n’est associée à cet auteur.'}
+                                            </div>
+                                            {selectedAuthor.bioUrl && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openAuthorBioLink(selectedAuthor)}
+                                                    className="mt-4 px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold shadow-sm hover:bg-blue-700 transition"
+                                                >
+                                                    Ouvrir le lien associé
+                                                </button>
+                                            )}
+                                            {selectedAuthor.bioPdfUrl && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => downloadAuthorBioPdf(selectedAuthor)}
+                                                    className="mt-4 ml-3 px-4 py-2 rounded-xl bg-amber-500 text-white text-sm font-semibold shadow-sm hover:bg-amber-600 transition"
+                                                >
+                                                    Télécharger le PDF associé
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {selectedAuthorTab === 'articles' && (
+                                    <div className="space-y-3">
+                                        {selectedAuthorArticles.length > 0 ? selectedAuthorArticles.map((article) => (
+                                            <button
+                                                key={article.id}
+                                                type="button"
+                                                onClick={() => openAuthorPreviewArticle(article)}
+                                                className="w-full text-left rounded-2xl bg-white p-4 border border-slate-200 shadow-sm hover:border-blue-200 hover:shadow-md transition"
+                                            >
+                                                <div className="font-semibold text-slate-900">{article.title}</div>
+                                                <div className="mt-1 text-sm text-slate-500 truncate">
+                                                    {article.content || 'Aucun extrait disponible.'}
+                                                </div>
+                                            </button>
+                                        )) : (
+                                            <div
+                                                className="rounded-2xl bg-white p-5 border border-slate-200 text-slate-500 shadow-sm">
+                                                Aucun article lié à cet auteur.
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {selectedAuthorTab === 'books' && (
+                                    <div className="space-y-3">
+                                        {selectedAuthorBooks.length > 0 ? selectedAuthorBooks.map((book) => (
+                                            <div
+                                                key={book.id}
+                                                className="rounded-2xl bg-white p-4 border border-slate-200 shadow-sm"
+                                            >
+                                                <div className="font-semibold text-slate-900">{book.title}</div>
+                                                <div className="mt-1 text-sm text-slate-500 truncate">
+                                                    {book.authors?.map((bookAuthor) => getAuthorDisplayName(bookAuthor)).join(', ') || 'Auteur inconnu'}
+                                                </div>
+                                            </div>
+                                        )) : (
+                                            <div
+                                                className="rounded-2xl bg-white p-5 border border-slate-200 text-slate-500 shadow-sm">
+                                                Aucun livre lié à cet auteur.
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
 
             <ReportModal

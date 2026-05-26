@@ -1,16 +1,24 @@
 <?php
 
 /**
- * Entité Author - Représente un auteur dans la bibliothèque
+ * Author entity — représente un auteur dans la bibliothèque.
  *
- * Cette entité gère les auteurs référencés dans la bibliothèque académique :
- * - Nom de l'auteur
- * - Années de naissance et décès
- * - Nationalité
- * - Lien vers une ressource externe
- * - Photo/image de l'auteur
- * - Tags associés pour catégorisation
- * - Utilisateur ayant ajouté l'auteur
+ * Modèle actuel :
+ * - `firstName` / `lastName` (séparés) — accessible via `getFirstName()`/`setFirstName()`,
+ *   et utilitaires `getName()` / `setName()` pour lecture/écriture conviviale.
+ * - `birthYear` / `deathYear` (nullable)
+ * - `nationality` (nullable)
+ * - `image` (nom de fichier local ou URL externe)
+ * - `user` (relation vers l'utilisateur qui a ajouté l'auteur)
+ * - `books` (relation ManyToMany)
+ * - Biographie :
+ *   - `bioContent` (texte libre, nullable)
+ *   - `bioUrl` (URL externe valide, nullable)
+ *   - `bioPdfPath` (nom de fichier PDF uploadé, nullable)
+ *
+ * Notes :
+ * - `getName()` compose `firstName` + `lastName` et retourne `null` si vide.
+ * - `setName()` répartit une chaîne en `firstName`/`lastName` (heuristique simple).
  */
 
 namespace App\Entity;
@@ -30,7 +38,12 @@ class Author
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
-    private ?string $name = null;
+    #[Assert\NotBlank(message: 'Le prénom est obligatoire.')]
+    private string $firstName = '';
+
+    #[ORM\Column(length: 255)]
+    #[Assert\NotBlank(message: 'Le nom est obligatoire.')]
+    private string $lastName = '';
 
     #[ORM\Column(type: 'integer', nullable: true)]
     private ?int $birthYear = null;
@@ -40,9 +53,6 @@ class Author
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $nationality = null;
-
-    #[ORM\Column(length: 255, nullable: true)]
-    private ?string $link = null;
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $image = null;
@@ -67,6 +77,15 @@ class Author
     #[ORM\ManyToMany(targetEntity: Book::class, mappedBy: 'authors')]
     private Collection $books;
 
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $bioContent = null;
+
+    #[ORM\Column(length: 512, nullable: true)]
+    private ?string $bioUrl = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $bioPdfPath = null;
+
     public function __construct()
     {
         $this->books = new ArrayCollection();
@@ -79,12 +98,45 @@ class Author
 
     public function getName(): ?string
     {
-        return $this->name;
+        $fullName = trim((string) ($this->firstName ?? '') . ' ' . (string) ($this->lastName ?? ''));
+        return $fullName !== '' ? $fullName : null;
     }
 
     public function setName(string $name): static
     {
-        $this->name = $name;
+        $parts = preg_split('/\s+/', trim($name)) ?: [];
+        if (count($parts) <= 1) {
+            $this->firstName = $parts[0] ?? '';
+            $this->lastName = $parts[0] ?? '';
+            return $this;
+        }
+
+        $this->lastName = array_pop($parts) ?: '';
+        $this->firstName = implode(' ', $parts);
+
+        return $this;
+    }
+
+    public function getFirstName(): string
+    {
+        return $this->firstName;
+    }
+
+    public function setFirstName(string $firstName): static
+    {
+        $this->firstName = trim($firstName);
+
+        return $this;
+    }
+
+    public function getLastName(): string
+    {
+        return $this->lastName;
+    }
+
+    public function setLastName(string $lastName): static
+    {
+        $this->lastName = trim($lastName);
 
         return $this;
     }
@@ -121,18 +173,6 @@ class Author
     public function setNationality(?string $nationality): static
     {
         $this->nationality = $nationality;
-
-        return $this;
-    }
-
-    public function getLink(): ?string
-    {
-        return $this->link;
-    }
-
-    public function setLink(?string $link): static
-    {
-        $this->link = $link;
 
         return $this;
     }
@@ -195,6 +235,42 @@ class Author
         if ($this->books->removeElement($book)) {
             $book->removeAuthor($this);
         }
+
+        return $this;
+    }
+
+    public function getBioContent(): ?string
+    {
+        return $this->bioContent;
+    }
+
+    public function setBioContent(?string $bioContent): static
+    {
+        $this->bioContent = $bioContent;
+
+        return $this;
+    }
+
+    public function getBioUrl(): ?string
+    {
+        return $this->bioUrl;
+    }
+
+    public function setBioUrl(?string $bioUrl): static
+    {
+        $this->bioUrl = $bioUrl;
+
+        return $this;
+    }
+
+    public function getBioPdfPath(): ?string
+    {
+        return $this->bioPdfPath;
+    }
+
+    public function setBioPdfPath(?string $bioPdfPath): static
+    {
+        $this->bioPdfPath = $bioPdfPath;
 
         return $this;
     }

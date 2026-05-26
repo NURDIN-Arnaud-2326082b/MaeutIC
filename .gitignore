@@ -8,6 +8,8 @@
 /config/secrets/prod/prod.decrypt.private.php
 /public/bundles/
 /public/author_images/
+/public/author_bios/
+/public/book_images/
 /public/profile_images/
 /public/post_images/
 /public/post_pdfs/
