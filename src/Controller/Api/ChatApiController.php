@@ -93,17 +93,24 @@ final class ChatApiController extends AbstractController
                 'content' => $message->getContent(),
             ];
 
-            $pusher = new Pusher(
-                $_ENV['PUSHER_KEY'],
-                $_ENV['PUSHER_SECRET'],
-                $_ENV['PUSHER_APP_ID'],
-                [
-                    'cluster' => $_ENV['PUSHER_CLUSTER'],
-                    'useTLS' => true
-                ]
-            );
+            try {
+                $pusher = new Pusher(
+                    $_ENV['PUSHER_KEY'],
+                    $_ENV['PUSHER_SECRET'],
+                    $_ENV['PUSHER_APP_ID'],
+                    [
+                        'cluster' => $_ENV['PUSHER_CLUSTER'],
+                        'useTLS' => true
+                    ]
+                );
 
-            $pusher->trigger('chat-global', 'new-message', $messageData);
+                $pusher->trigger('chat-global', 'new-message', $messageData);
+            } catch (Exception $e) {
+                $logger->error('Chat realtime publish error: ' . $e->getMessage(), [
+                    'exception' => $e,
+                    'messageId' => $message->getId(),
+                ]);
+            }
 
             return new JsonResponse(['status' => 'Message sent']);
         } catch (Exception $e) {
