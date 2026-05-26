@@ -232,7 +232,16 @@ class NetworkApiController extends AbstractController
             'createdAt' => $notification->getCreatedAt()->format(\DateTime::ATOM),
         ];
 
-        $pusher->trigger('private-user-' . $targetUser->getId(), 'new-notification', $notifData);
+        try {
+            $pusher->trigger('private-user-' . $targetUser->getId(), 'new-notification', $notifData);
+        } catch (\Throwable $e) {
+            error_log(sprintf(
+                'Pusher notification publish failed for target user %d and notification %d: %s',
+                $targetUser->getId(),
+                $notification->getId(),
+                $e->getMessage()
+            ));
+        }
 
         return $this->json([
             'success' => true,
