@@ -543,31 +543,36 @@ class AdminApiController extends AbstractController
         $entityManager->flush();
 
         if ($statusNotif) {
-            $pusher = new Pusher(
-                $_ENV['PUSHER_KEY'],
-                $_ENV['PUSHER_SECRET'],
-                $_ENV['PUSHER_APP_ID'],
-                [
-                    'cluster' => $_ENV['PUSHER_CLUSTER'],
-                    'useTLS' => true
-                ]
-            );
+            try {
+                $pusher = new Pusher(
+                    $_ENV['PUSHER_KEY'],
+                    $_ENV['PUSHER_SECRET'],
+                    $_ENV['PUSHER_APP_ID'],
+                    [
+                        'cluster' => $_ENV['PUSHER_CLUSTER'],
+                        'useTLS' => true
+                    ]
+                );
 
-            $notifData = [
-                'id' => $statusNotif->getId(),
-                'type' => $statusNotif->getType(),
-                'data' => $statusNotif->getData(),
-                'status' => $statusNotif->getStatus(),
-                'isRead' => $statusNotif->isRead(),
-                'sender' => [
-                    'id' => $user->getId(),
-                    'username' => $user->getUsername(),
-                    'profileImage' => $user->getProfileImage() ? '/profile_images/' . $user->getProfileImage() : null
-                ],
-                'createdAt' => $statusNotif->getCreatedAt()->format(\DateTime::ATOM),
-            ];
+                $notifData = [
+                    'id' => $statusNotif->getId(),
+                    'type' => $statusNotif->getType(),
+                    'data' => $statusNotif->getData(),
+                    'status' => $statusNotif->getStatus(),
+                    'isRead' => $statusNotif->isRead(),
+                    'sender' => [
+                        'id' => $user->getId(),
+                        'username' => $user->getUsername(),
+                        'profileImage' => $user->getProfileImage() ? '/profile_images/' . $user->getProfileImage() : null
+                    ],
+                    'createdAt' => $statusNotif->getCreatedAt()->format(\DateTime::ATOM),
+                ];
 
-            $pusher->trigger('private-user-' . $requester->getId(), 'new-notification', $notifData);
+                $pusher->trigger('private-user-' . $requester->getId(), 'new-notification', $notifData);
+            } catch (\Throwable $e) {
+                // Log error but don't fail the request after the moderation action has been persisted
+                error_log('Error publishing data access request notification: ' . $e->getMessage());
+            }
         }
 
         // Send secure download link by email if request was approved
