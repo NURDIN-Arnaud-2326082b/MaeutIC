@@ -221,6 +221,8 @@ class PostApiController extends AbstractController
 
         /** @var User $user */
         $user = $this->getUser();
+
+        $notif = null;
         
         $existingLike = $postLikeRepository->findByUserAndPost($user, $post);
 
