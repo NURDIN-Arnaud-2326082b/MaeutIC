@@ -10,6 +10,7 @@ use App\Repository\CommentRepository;
 use App\Repository\PostRepository;
 use App\Repository\LikeRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Pusher\Pusher;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -97,10 +98,11 @@ class CommentApiController extends AbstractController
 
         $this->entityManager->persist($comment);
 
+        $notif = null;
+
         // Notification pour l'auteur du post
         /** @var User $commenter */
         $commenter = $this->getUser();
-        $postAuthor = $post->getUser();
         if ($postAuthor && $postAuthor->getId() !== $commenter->getId()) {
             if (
                 !$postAuthor->isBlocked($commenter->getId()) &&
@@ -125,6 +127,34 @@ class CommentApiController extends AbstractController
         }
 
         $this->entityManager->flush();
+
+        if ($notif) {
+            $pusher = new Pusher(
+                $_ENV['PUSHER_KEY'],
+                $_ENV['PUSHER_SECRET'],
+                $_ENV['PUSHER_APP_ID'],
+                [
+                    'cluster' => $_ENV['PUSHER_CLUSTER'],
+                    'useTLS' => true
+                ]
+            );
+
+            $notifData = [
+                'id' => $notif->getId(),
+                'type' => $notif->getType(),
+                'data' => $notif->getData(),
+                'status' => $notif->getStatus(),
+                'isRead' => $notif->isRead(),
+                'sender' => [
+                    'id' => $commenter->getId(),
+                    'username' => $commenter->getUsername(),
+                    'profileImage' => $commenter->getProfileImage() ? '/profile_images/' . $commenter->getProfileImage() : null
+                ],
+                'createdAt' => $notif->getCreatedAt()->format(\DateTime::ATOM),
+            ];
+
+            $pusher->trigger('private-user-' . $postAuthor->getId(), 'new-notification', $notifData);
+        }
 
         return $this->json(['success' => true, 'id' => $comment->getId()], 201);
     }

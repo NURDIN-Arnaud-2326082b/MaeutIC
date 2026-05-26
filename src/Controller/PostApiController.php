@@ -11,6 +11,7 @@ use App\Repository\ForumRepository;
 use App\Repository\PostLikeRepository;
 use App\Repository\PostRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Pusher\Pusher;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\Exception\FileException;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -264,6 +265,34 @@ class PostApiController extends AbstractController
         }
 
         $entityManager->flush();
+
+        if ($notif) {
+            $pusher = new Pusher(
+                $_ENV['PUSHER_KEY'],
+                $_ENV['PUSHER_SECRET'],
+                $_ENV['PUSHER_APP_ID'],
+                [
+                    'cluster' => $_ENV['PUSHER_CLUSTER'],
+                    'useTLS' => true
+                ]
+            );
+
+            $notifData = [
+                'id' => $notif->getId(),
+                'type' => $notif->getType(),
+                'data' => $notif->getData(),
+                'status' => $notif->getStatus(),
+                'isRead' => $notif->isRead(),
+                'sender' => [
+                    'id' => $user->getId(),
+                    'username' => $user->getUsername(),
+                    'profileImage' => $user->getProfileImage() ? '/profile_images/' . $user->getProfileImage() : null
+                ],
+                'createdAt' => $notif->getCreatedAt()->format(\DateTime::ATOM),
+            ];
+
+            $pusher->trigger('private-user-' . $postAuthor->getId(), 'new-notification', $notifData);
+        }
 
         return $this->json([
             'success' => true,

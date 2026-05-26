@@ -44,9 +44,27 @@ final class PusherAuthController extends AbstractController
                 ]
             );
 
-            $auth = $pusher->authorizeChannel($channelName, $socketId);
+            return new Response($pusher->authorizeChannel($channelName, $socketId), Response::HTTP_OK, ['Content-Type' => 'application/json']);
+        }
 
-            return new Response($auth, Response::HTTP_OK, ['Content-Type' => 'application/json']);
+        if (preg_match('/^private-user-(\d+)$/', $channelName, $matches)) {
+            $targetUserId = (int) $matches[1];
+
+            if ($user->getId() !== $targetUserId) {
+                return new Response('Forbidden', Response::HTTP_FORBIDDEN);
+            }
+
+            $pusher = new Pusher(
+                $_ENV['PUSHER_KEY'],
+                $_ENV['PUSHER_SECRET'],
+                $_ENV['PUSHER_APP_ID'],
+                [
+                    'cluster' => $_ENV['PUSHER_CLUSTER'],
+                    'useTLS' => true
+                ]
+            );
+
+            return new Response($pusher->authorizeChannel($channelName, $socketId), Response::HTTP_OK, ['Content-Type' => 'application/json']);
         }
 
         return new Response('Invalid channel', Response::HTTP_BAD_REQUEST);

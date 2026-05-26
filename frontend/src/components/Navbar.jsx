@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store'
 import { getNotifications, acceptNetworkRequest, declineNetworkRequest, markNotificationRead, deleteNotification, clearAllNotifications } from '../services/networkApi'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-
+import Pusher from 'pusher-js'
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuthStore()
   const [isProfileOpen, setIsProfileOpen] = useState(false)
@@ -23,7 +23,6 @@ export default function Navbar() {
     queryKey: ['notifications'],
     queryFn: getNotifications,
     enabled: isAuthenticated,
-    refetchInterval: 30000, // Poll every 30 seconds
   })
 
   const notifications = notificationsData?.notifications || []
@@ -117,6 +116,43 @@ export default function Navbar() {
     document.addEventListener('click', handleClickOutside)
     return () => document.removeEventListener('click', handleClickOutside)
   }, [])
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+
+    const pusher = new Pusher(import.meta.env.VITE_PUSHER_KEY, {
+      cluster: import.meta.env.VITE_PUSHER_CLUSTER,
+      channelAuthorization: {
+        endpoint: '/api/pusher/auth',
+        transport: 'ajax',
+      },
+    });
+
+    const channel = pusher.subscribe(`private-user-${user.id}`);
+
+    channel.bind('new-notification', (newNotif) => {
+      queryClient.setQueryData(['notifications'], (oldData) => {
+        if (!oldData) return oldData;
+
+        if (oldData.notifications.some((n) => n.id === newNotif.id)) {
+          return oldData;
+        }
+
+        return {
+          ...oldData,
+          notifications: [newNotif, ...oldData.notifications],
+          count: oldData.count + 1,
+          unread: oldData.unread + 1,
+        };
+      });
+    });
+
+    return () => {
+      channel.unbind_all();
+      channel.unsubscribe();
+      pusher.disconnect();
+    };
+  }, [isAuthenticated, user, queryClient]);
 
   return (
     <nav className="sticky top-0 bg-white shadow-lg shadow-black/5" style={{ isolation: 'isolate', zIndex: 2147483647, pointerEvents: 'auto' }}>
