@@ -26,6 +26,10 @@ final class PusherAuthController extends AbstractController
         $channelName = $request->request->get('channel_name');
         $socketId = $request->request->get('socket_id');
 
+        if (!is_string($channelName) || '' === trim($channelName) || !is_string($socketId) || '' === trim($socketId)) {
+            return new Response('Missing or invalid parameters', Response::HTTP_BAD_REQUEST);
+        }
+
         if (preg_match('/^private-conversation-(\d+)$/', $channelName, $matches)) {
             $conversationId = $matches[1];
             $conversation = $repo->find($conversationId);
