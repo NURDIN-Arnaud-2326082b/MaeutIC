@@ -7,9 +7,10 @@ use App\Entity\Notification;
 use App\Entity\User;
 use App\Entity\UserLike;
 use App\Repository\CommentRepository;
-use App\Repository\PostRepository;
 use App\Repository\LikeRepository;
+use App\Repository\PostRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Pusher\Pusher;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -21,16 +22,18 @@ class CommentApiController extends AbstractController
 {
     public function __construct(
         private EntityManagerInterface $entityManager,
-        private CommentRepository $commentRepository,
-        private PostRepository $postRepository,
-        private LikeRepository $likeRepository
-    ) {}
+        private CommentRepository      $commentRepository,
+        private PostRepository         $postRepository,
+        private LikeRepository         $likeRepository
+    )
+    {
+    }
 
     #[Route('/post/{postId}/comments', name: 'api_post_comments', methods: ['GET'])]
     public function getComments(int $postId): JsonResponse
     {
         $post = $this->postRepository->find($postId);
-        
+
         if (!$post) {
             return $this->json(['error' => 'Post not found'], 404);
         }
@@ -41,8 +44,8 @@ class CommentApiController extends AbstractController
         }
 
         $comments = $this->commentRepository->findBy(['post' => $post], ['creationDate' => 'DESC']);
-        
-        $data = array_map(function(Comment $comment) {
+
+        $data = array_map(function (Comment $comment) {
             $user = $comment->getUser();
             return [
                 'id' => $comment->getId(),
@@ -53,7 +56,7 @@ class CommentApiController extends AbstractController
                     'firstName' => $user->getFirstName(),
                     'lastName' => $user->getLastName(),
                     'username' => $user->getUsername(),
-                    'profileImage' => $user->getProfileImage() 
+                    'profileImage' => $user->getProfileImage()
                         ? '/profile_images/' . $user->getProfileImage()
                         : null,
                 ] : null,
@@ -69,12 +72,12 @@ class CommentApiController extends AbstractController
     }
 
     #[Route('/post/{postId}/comment', name: 'api_comment_create', methods: ['POST'])]
-    public function createComment(int $postId, Request $request): JsonResponse
+    public function createComment(int $postId, Request $request, LoggerInterface $logger): JsonResponse
     {
         $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
-        
+
         $post = $this->postRepository->find($postId);
-        
+
         if (!$post) {
             return $this->json(['error' => 'Post not found'], 404);
         }
@@ -129,31 +132,37 @@ class CommentApiController extends AbstractController
         $this->entityManager->flush();
 
         if ($notif) {
-            $pusher = new Pusher(
-                $_ENV['PUSHER_KEY'],
-                $_ENV['PUSHER_SECRET'],
-                $_ENV['PUSHER_APP_ID'],
-                [
-                    'cluster' => $_ENV['PUSHER_CLUSTER'],
-                    'useTLS' => true
-                ]
-            );
+            try {
+                $pusher = new Pusher(
+                    $_ENV['PUSHER_KEY'],
+                    $_ENV['PUSHER_SECRET'],
+                    $_ENV['PUSHER_APP_ID'],
+                    [
+                        'cluster' => $_ENV['PUSHER_CLUSTER'],
+                        'useTLS' => true
+                    ]
+                );
 
-            $notifData = [
-                'id' => $notif->getId(),
-                'type' => $notif->getType(),
-                'data' => $notif->getData(),
-                'status' => $notif->getStatus(),
-                'isRead' => $notif->isRead(),
-                'sender' => [
-                    'id' => $commenter->getId(),
-                    'username' => $commenter->getUsername(),
-                    'profileImage' => $commenter->getProfileImage() ? '/profile_images/' . $commenter->getProfileImage() : null
-                ],
-                'createdAt' => $notif->getCreatedAt()->format(\DateTime::ATOM),
-            ];
+                $notifData = [
+                    'id' => $notif->getId(),
+                    'type' => $notif->getType(),
+                    'data' => $notif->getData(),
+                    'status' => $notif->getStatus(),
+                    'isRead' => $notif->isRead(),
+                    'sender' => [
+                        'id' => $commenter->getId(),
+                        'username' => $commenter->getUsername(),
+                        'profileImage' => $commenter->getProfileImage() ? '/profile_images/' . $commenter->getProfileImage() : null
+                    ],
+                    'createdAt' => $notif->getCreatedAt()->format(\DateTime::ATOM),
+                ];
 
-            $pusher->trigger('private-user-' . $postAuthor->getId(), 'new-notification', $notifData);
+                $pusher->trigger('private-user-' . $postAuthor->getId(), 'new-notification', $notifData);
+            } catch (\Throwable $e) {
+                $logger->error('Erreur Pusher lors de la création \'un commentaire : ' . $e->getMessage(), [
+                    'exception' => $e,
+                ]);
+            }
         }
 
         return $this->json(['success' => true, 'id' => $comment->getId()], 201);
@@ -163,9 +172,9 @@ class CommentApiController extends AbstractController
     public function updateComment(int $id, Request $request): JsonResponse
     {
         $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
-        
+
         $comment = $this->commentRepository->find($id);
-        
+
         if (!$comment) {
             return $this->json(['error' => 'Comment not found'], 404);
         }
@@ -177,7 +186,7 @@ class CommentApiController extends AbstractController
         }
 
         $data = json_decode($request->getContent(), true);
-        
+
         if (isset($data['content'])) {
             $comment->setBody($data['content']);
         }
@@ -191,9 +200,9 @@ class CommentApiController extends AbstractController
     public function deleteComment(int $id): JsonResponse
     {
         $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
-        
+
         $comment = $this->commentRepository->find($id);
-        
+
         if (!$comment) {
             return $this->json(['error' => 'Comment not found'], 404);
         }
@@ -214,31 +223,31 @@ class CommentApiController extends AbstractController
     public function likeComment(int $id): JsonResponse
     {
         $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
-        
+
         $comment = $this->commentRepository->find($id);
-        
+
         if (!$comment) {
             return $this->json(['error' => 'Comment not found'], 404);
         }
 
         /** @var User $user */
         $user = $this->getUser();
-        
+
         // Check if already liked
         $existingLike = $this->likeRepository->findOneBy(['user' => $user, 'comment' => $comment]);
-        
+
         if ($existingLike) {
             // Unlike
             $this->entityManager->remove($existingLike);
             $this->entityManager->flush();
             return $this->json(['success' => true, 'liked' => false, 'likesCount' => $comment->getUserLikes()->count()]);
         }
-        
+
         // Like
         $like = new UserLike();
         $like->setUser($user);
         $like->setComment($comment);
-        
+
         $this->entityManager->persist($like);
         $this->entityManager->flush();
 
