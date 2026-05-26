@@ -854,31 +854,40 @@ class AdminApiController extends AbstractController
         $entityManager->flush();
 
         if ($warningNotif && $warningNotif->getRecipient()) {
-            $pusher = new Pusher(
-                $_ENV['PUSHER_KEY'],
-                $_ENV['PUSHER_SECRET'],
-                $_ENV['PUSHER_APP_ID'],
-                [
-                    'cluster' => $_ENV['PUSHER_CLUSTER'],
-                    'useTLS' => true
-                ]
-            );
+            try {
+                $pusher = new Pusher(
+                    $_ENV['PUSHER_KEY'],
+                    $_ENV['PUSHER_SECRET'],
+                    $_ENV['PUSHER_APP_ID'],
+                    [
+                        'cluster' => $_ENV['PUSHER_CLUSTER'],
+                        'useTLS' => true
+                    ]
+                );
 
-            $notifData = [
-                'id' => $warningNotif->getId(),
-                'type' => $warningNotif->getType(),
-                'data' => $warningNotif->getData(),
-                'status' => $warningNotif->getStatus(),
-                'isRead' => $warningNotif->isRead(),
-                'sender' => [
-                    'id' => $user->getId(),
-                    'username' => $user->getUsername(),
-                    'profileImage' => $user->getProfileImage() ? '/profile_images/' . $user->getProfileImage() : null
-                ],
-                'createdAt' => $warningNotif->getCreatedAt()->format(\DateTime::ATOM),
-            ];
+                $notifData = [
+                    'id' => $warningNotif->getId(),
+                    'type' => $warningNotif->getType(),
+                    'data' => $warningNotif->getData(),
+                    'status' => $warningNotif->getStatus(),
+                    'isRead' => $warningNotif->isRead(),
+                    'sender' => [
+                        'id' => $user->getId(),
+                        'username' => $user->getUsername(),
+                        'profileImage' => $user->getProfileImage() ? '/profile_images/' . $user->getProfileImage() : null
+                    ],
+                    'createdAt' => $warningNotif->getCreatedAt()->format(\DateTime::ATOM),
+                ];
 
-            $pusher->trigger('private-user-' . $warningNotif->getRecipient()->getId(), 'new-notification', $notifData);
+                $pusher->trigger('private-user-' . $warningNotif->getRecipient()->getId(), 'new-notification', $notifData);
+            } catch (\Throwable $e) {
+                error_log(sprintf(
+                    'Pusher notification publish failed for notification %s to recipient %s: %s',
+                    (string) $warningNotif->getId(),
+                    (string) $warningNotif->getRecipient()->getId(),
+                    $e->getMessage()
+                ));
+            }
         }
 
         return $this->json([
