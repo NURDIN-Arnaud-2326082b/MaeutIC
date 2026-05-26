@@ -217,7 +217,16 @@ final class ConversationApiController extends AbstractController
             ]
         );
 
-        $pusher->trigger('private-conversation-' . $conversation->getId(), 'new-message', $pusherMessageData);
+        try {
+            $pusher->trigger('private-conversation-' . $conversation->getId(), 'new-message', $pusherMessageData);
+        } catch (\Throwable $e) {
+            error_log(sprintf(
+                'Failed to trigger Pusher new-message event for conversation %d, message %d: %s',
+                $conversation->getId(),
+                $message->getId(),
+                $e->getMessage()
+            ));
+        }
 
         return new JsonResponse([
             'id' => $message->getId(),
