@@ -269,31 +269,35 @@ class PostApiController extends AbstractController
         $entityManager->flush();
 
         if ($notif) {
-            $pusher = new Pusher(
-                $_ENV['PUSHER_KEY'],
-                $_ENV['PUSHER_SECRET'],
-                $_ENV['PUSHER_APP_ID'],
-                [
-                    'cluster' => $_ENV['PUSHER_CLUSTER'],
-                    'useTLS' => true
-                ]
-            );
+            try {
+                $pusher = new Pusher(
+                    $_ENV['PUSHER_KEY'],
+                    $_ENV['PUSHER_SECRET'],
+                    $_ENV['PUSHER_APP_ID'],
+                    [
+                        'cluster' => $_ENV['PUSHER_CLUSTER'],
+                        'useTLS' => true
+                    ]
+                );
 
-            $notifData = [
-                'id' => $notif->getId(),
-                'type' => $notif->getType(),
-                'data' => $notif->getData(),
-                'status' => $notif->getStatus(),
-                'isRead' => $notif->isRead(),
-                'sender' => [
-                    'id' => $user->getId(),
-                    'username' => $user->getUsername(),
-                    'profileImage' => $user->getProfileImage() ? '/profile_images/' . $user->getProfileImage() : null
-                ],
-                'createdAt' => $notif->getCreatedAt()->format(\DateTime::ATOM),
-            ];
+                $notifData = [
+                    'id' => $notif->getId(),
+                    'type' => $notif->getType(),
+                    'data' => $notif->getData(),
+                    'status' => $notif->getStatus(),
+                    'isRead' => $notif->isRead(),
+                    'sender' => [
+                        'id' => $user->getId(),
+                        'username' => $user->getUsername(),
+                        'profileImage' => $user->getProfileImage() ? '/profile_images/' . $user->getProfileImage() : null
+                    ],
+                    'createdAt' => $notif->getCreatedAt()->format(\DateTime::ATOM),
+                ];
 
-            $pusher->trigger('private-user-' . $postAuthor->getId(), 'new-notification', $notifData);
+                $pusher->trigger('private-user-' . $postAuthor->getId(), 'new-notification', $notifData);
+            } catch (\Throwable $e) {
+                error_log('Failed to publish Pusher notification for post like: ' . $e->getMessage());
+            }
         }
 
         return $this->json([
