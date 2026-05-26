@@ -20,6 +20,7 @@
         <env name="PUSHER_APP_ID" value=""/>
         <env name="PUSHER_KEY" value=""/>
         <env name="PUSHER_SECRET" value=""/>
+        <env name="PUSHER_CLUSTER" value=""/>
         <!-- ###- pusher/pusher-php-server ### -->
     </php>
 
