@@ -54,9 +54,16 @@ export default function Conversation() {
           return oldData;
         }
 
+        const currentUserId = oldData.messages.find(
+          (msg) => msg.isOwn && msg.sender?.id != null
+        )?.sender?.id;
+
         const formattedMessage = {
           ...newMessage,
-          isOwn: false,
+          isOwn:
+            typeof newMessage.isOwn === 'boolean'
+              ? newMessage.isOwn
+              : currentUserId != null && newMessage.sender?.id === currentUserId,
         };
 
         return {
