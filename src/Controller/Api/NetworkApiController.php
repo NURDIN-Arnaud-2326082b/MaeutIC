@@ -208,16 +208,6 @@ class NetworkApiController extends AbstractController
         $entityManager->persist($notification);
         $entityManager->flush();
 
-        $pusher = new Pusher(
-            $_ENV['PUSHER_KEY'],
-            $_ENV['PUSHER_SECRET'],
-            $_ENV['PUSHER_APP_ID'],
-            [
-                'cluster' => $_ENV['PUSHER_CLUSTER'],
-                'useTLS' => true
-            ]
-        );
-
         $notifData = [
             'id' => $notification->getId(),
             'type' => $notification->getType(),
@@ -233,6 +223,16 @@ class NetworkApiController extends AbstractController
         ];
 
         try {
+            $pusher = new Pusher(
+                $_ENV['PUSHER_KEY'],
+                $_ENV['PUSHER_SECRET'],
+                $_ENV['PUSHER_APP_ID'],
+                [
+                    'cluster' => $_ENV['PUSHER_CLUSTER'],
+                    'useTLS' => true
+                ]
+            );
+
             $pusher->trigger('private-user-' . $targetUser->getId(), 'new-notification', $notifData);
         } catch (\Throwable $e) {
             error_log(sprintf(
