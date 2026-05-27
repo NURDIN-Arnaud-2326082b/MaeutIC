@@ -7,6 +7,7 @@ use App\Entity\Notification;
 use App\Entity\Conversation;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Pusher\Pusher;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -206,6 +207,41 @@ class NetworkApiController extends AbstractController
 
         $entityManager->persist($notification);
         $entityManager->flush();
+
+        $notifData = [
+            'id' => $notification->getId(),
+            'type' => $notification->getType(),
+            'data' => $notification->getData(),
+            'status' => $notification->getStatus(),
+            'isRead' => $notification->isRead(),
+            'sender' => [
+                'id' => $currentUser->getId(),
+                'username' => $currentUser->getUsername(),
+                'profileImage' => $currentUser->getProfileImage() ? '/profile_images/' . $currentUser->getProfileImage() : null
+            ],
+            'createdAt' => $notification->getCreatedAt()->format(\DateTime::ATOM),
+        ];
+
+        try {
+            $pusher = new Pusher(
+                $_ENV['PUSHER_KEY'],
+                $_ENV['PUSHER_SECRET'],
+                $_ENV['PUSHER_APP_ID'],
+                [
+                    'cluster' => $_ENV['PUSHER_CLUSTER'],
+                    'useTLS' => true
+                ]
+            );
+
+            $pusher->trigger('private-user-' . $targetUser->getId(), 'new-notification', $notifData);
+        } catch (\Throwable $e) {
+            error_log(sprintf(
+                'Pusher notification publish failed for target user %d and notification %d: %s',
+                $targetUser->getId(),
+                $notification->getId(),
+                $e->getMessage()
+            ));
+        }
 
         return $this->json([
             'success' => true,

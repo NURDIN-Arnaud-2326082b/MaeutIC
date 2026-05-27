@@ -6,6 +6,7 @@ import { chatApi } from '../services/chatApi';
 import { createReport } from '../services/reportApi';
 import ReportModal from '../components/ReportModal';
 import { useAuthStore } from '../store';
+import Pusher from "pusher-js";
 
 export default function Chat() {
   const [showGlobalChat, setShowGlobalChat] = useState(true);
@@ -29,18 +30,41 @@ export default function Chat() {
   const { data: globalMessages, isLoading: messagesLoading } = useQuery({
     queryKey: ['globalMessages'],
     queryFn: chatApi.getGlobalMessages,
-    refetchInterval: showGlobalChat ? 2000 : false, // Polling seulement si le chat global est affiché
     enabled: showGlobalChat,
   });
 
   // Mutation pour envoyer un message global
   const sendMessageMutation = useMutation({
     mutationFn: (text) => chatApi.sendGlobalMessage(text),
-    onSuccess: () => {
+    onSuccess: async () => {
       setMessageText('');
-      queryClient.invalidateQueries(['globalMessages']);
+      await queryClient.invalidateQueries({ queryKey: ['globalMessages'] });
     },
   });
+
+  useEffect(() => {
+    if (!showGlobalChat) return;
+
+    const pusher = new Pusher(import.meta.env.VITE_PUSHER_KEY, {
+      cluster: import.meta.env.VITE_PUSHER_CLUSTER,
+    });
+
+    const channel = pusher.subscribe('chat-global');
+
+    channel.bind('new-message', (newMessage) => {
+      queryClient.setQueryData(['globalMessages'], (oldMessages) => {
+        if (!oldMessages) return [newMessage];
+        if (oldMessages.some(msg => msg.id === newMessage.id)) return oldMessages;
+        return [...oldMessages, newMessage];
+      });
+    });
+
+    return () => {
+      channel.unbind_all();
+      channel.unsubscribe();
+      pusher.disconnect();
+    };
+  }, [showGlobalChat, queryClient]);
 
   const reportGlobalMessageMutation = useMutation({
     mutationFn: createReport,
@@ -143,31 +167,41 @@ export default function Chat() {
   } else if (!globalMessages || globalMessages.length === 0) {
     globalMessagesPanel = <div className="text-gray-500">Aucun message.</div>;
   } else {
-    globalMessagesPanel = globalMessages.map((msg) => (
-      <div key={msg.id} className="flex justify-start mb-4">
-        <div className="px-4 py-2">
-          <div className="flex flex-row items-center">
-            {msg.sender ? (
-              <Link
-                to={`/profile/${msg.sender.username}`}
-                className="flex flex-row items-center mr-3"
-              >
-                <img
-                  src={msg.sender.profileImage ? `/profile_images/${msg.sender.profileImage}` : '/images/default-profile.png'}
-                  alt="Profil"
-                  className="w-10 h-10 mr-3 rounded-full"
-                />
-                <div className="text-sm font-semibold">{msg.sender.username}</div>
-              </Link>
-            ) : (
-              <div className="flex flex-row items-center mr-3">
-                <img src="/images/default-profile.png" alt="Profil" className="w-10 h-10 mr-3 rounded-full" />
-                <div className="text-sm font-semibold text-gray-500">Ancien utilisateur</div>
+    globalMessagesPanel = globalMessages.map((msg, index) => {
+      const previousMsg = index > 0 ? globalMessages[index - 1] : null;
+
+      const isSameSender = previousMsg && msg.sender?.username === previousMsg.sender?.username;
+
+      return (
+      <div key={msg.id} className={`flex justify-start ${isSameSender ? 'mb-1' : 'mb-4'}`}>
+        <div className="px-4 py-1">
+
+          {!isSameSender && (
+              <div className="flex flex-row items-center mb-1">
+                {msg.sender ? (
+                    <Link
+                        to={`/profile/${msg.sender.username}`}
+                        className="flex flex-row items-center mr-3"
+                    >
+                      <img
+                          src={msg.sender.profileImage ? `/profile_images/${msg.sender.profileImage}` : '/images/default-profile.png'}
+                          alt="Profil"
+                          className="w-10 h-10 mr-3 rounded-full object-cover"
+                      />
+                      <div className="text-sm font-semibold">{msg.sender.username}</div>
+                    </Link>
+                ) : (
+                    <div className="flex flex-row items-center mr-3">
+                      <img src="/images/default-profile.png" alt="Profil" className="w-10 h-10 mr-3 rounded-full" />
+                      <div className="text-sm font-semibold text-gray-500">Ancien utilisateur</div>
+                    </div>
+                )}
+                <div className="text-xs text-gray-400 mt-1">{msg.sentAt}</div>
               </div>
-            )}
-            <div className="text-xs text-gray-400 mt-1">{msg.sentAt}</div>
-          </div>
+          )}
+
           <div className="ml-[52px]">{msg.content}</div>
+
           {currentUser && msg.sender?.username !== currentUser.username && (
             <button
               onClick={() => openReportModal(msg.id, msg.content)}
@@ -179,7 +213,8 @@ export default function Chat() {
           )}
         </div>
       </div>
-    ));
+      );
+  });
   }
 
   return (
