@@ -25,6 +25,8 @@ jobs:
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
           FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+          VITE_PUSHER_KEY: ${{ secrets.VITE_PUSHER_KEY }}
+          VITE_PUSHER_CLUSTER: ${{ secrets.VITE_PUSHER_CLUSTER }}
         run: |
           cd frontend
           npm ci
