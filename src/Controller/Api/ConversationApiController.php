@@ -238,17 +238,17 @@ final class ConversationApiController extends AbstractController
             ),
         ];
 
-        $pusher = new Pusher(
-            $_ENV['PUSHER_KEY'],
-            $_ENV['PUSHER_SECRET'],
-            $_ENV['PUSHER_APP_ID'],
-            [
-                'cluster' => $_ENV['PUSHER_CLUSTER'],
-                'useTLS' => true
-            ]
-        );
-
         try {
+            $pusher = new Pusher(
+                $_ENV['PUSHER_KEY'],
+                $_ENV['PUSHER_SECRET'],
+                $_ENV['PUSHER_APP_ID'],
+                [
+                    'cluster' => $_ENV['PUSHER_CLUSTER'],
+                    'useTLS' => true
+                ]
+            );
+
             $pusher->trigger('private-conversation-' . $conversation->getId(), 'new-message', $pusherMessageData);
             $pusher->trigger('private-user-' . $other->getId(), 'new-notification', $notificationData);
         } catch (\Throwable $e) {
