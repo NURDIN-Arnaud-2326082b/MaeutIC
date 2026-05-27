@@ -36,8 +36,9 @@ export default function Chat() {
   // Mutation pour envoyer un message global
   const sendMessageMutation = useMutation({
     mutationFn: (text) => chatApi.sendGlobalMessage(text),
-    onSuccess: () => {
+    onSuccess: async () => {
       setMessageText('');
+      await queryClient.invalidateQueries({ queryKey: ['globalMessages'] });
     },
   });
 
