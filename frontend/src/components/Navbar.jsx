@@ -70,6 +70,9 @@ export default function Navbar() {
 
   const getNotifUrl = (notif) => {
     const { type, data, sender } = notif
+    if (type === 'private_message') {
+      return data?.conversationId ? `/messages/${data.conversationId}` : null
+    }
     if (type === 'post_like' || type === 'post_comment') {
       if (!data?.postId || !data?.forumCategory) return null
       const base = data.forumSpecial === 'methodology'
@@ -91,8 +94,13 @@ export default function Navbar() {
     // Don't trigger if clicking any button (Accept/Decline/Delete)
     if (e.target.closest('[data-notif-action]')) return
     const url = getNotifUrl(notif)
+    // Mark message notifications as read, keep them in the list
+    if (notif.type === 'private_message') {
+      if (!notif.isRead) {
+        markReadMutation.mutate(notif.id)
+      }
     // For non-network-request notifications, delete on click
-    if (notif.type !== 'network_request') {
+    } else if (notif.type !== 'network_request') {
       deleteNotifMutation.mutate(notif.id)
     } else if (!notif.isRead) {
       markReadMutation.mutate(notif.id)
@@ -214,6 +222,11 @@ export default function Navbar() {
                                   {notif.type === 'network_request' ? (
                                     <>
                                       <strong>{notif.sender?.username}</strong> souhaite rejoindre votre réseau
+                                    </>
+                                  ) : notif.type === 'private_message' ? (
+                                    <>
+                                      <strong>{notif.sender?.username}</strong> vous a envoyé un message
+                                      {notif.data?.message ? `: ${notif.data.message}` : ''}
                                     </>
                                   ) : (
                                     notif.data?.message || 'Nouvelle notification'

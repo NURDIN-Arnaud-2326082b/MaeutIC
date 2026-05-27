@@ -4,6 +4,7 @@ namespace App\Controller\Api;
 
 use App\Entity\Conversation;
 use App\Entity\Message;
+use App\Entity\Notification;
 use App\Entity\User;
 use App\Repository\ConversationRepository;
 use App\Repository\MessageRepository;
@@ -197,6 +198,20 @@ final class ConversationApiController extends AbstractController
         $em->persist($message);
         $em->flush();
 
+        $notification = new Notification();
+        $notification->setType('private_message');
+        $notification->setSender($user);
+        $notification->setRecipient($other);
+        $notification->setStatus('unread');
+        $notification->setData([
+            'conversationId' => $conversation->getId(),
+            'messageId' => $message->getId(),
+            'message' => mb_strlen($content) > 150 ? mb_substr($content, 0, 150) . '...' : $content,
+        ]);
+
+        $em->persist($notification);
+        $em->flush();
+
         $pusherMessageData = [
             'id' => $message->getId(),
             'content' => $message->getContent(),
@@ -205,6 +220,22 @@ final class ConversationApiController extends AbstractController
                 'username' => $user->getUsername(),
             ],
             'sentAt' => $message->getSentAt()->format('d/m/Y H:i'),
+        ];
+
+        $notificationData = [
+            'id' => $notification->getId(),
+            'type' => $notification->getType(),
+            'data' => $notification->getData(),
+            'status' => $notification->getStatus(),
+            'isRead' => $notification->isRead(),
+            'sender' => [
+                'id' => $user->getId(),
+                'username' => $user->getUsername(),
+                'profileImage' => $user->getProfileImage() ? '/profile_images/' . $user->getProfileImage() : null,
+            ],
+            'createdAt' => $notification->getCreatedAt()->format(
+                \DateTime::ATOM
+            ),
         ];
 
         $pusher = new Pusher(
@@ -219,6 +250,7 @@ final class ConversationApiController extends AbstractController
 
         try {
             $pusher->trigger('private-conversation-' . $conversation->getId(), 'new-message', $pusherMessageData);
+            $pusher->trigger('private-user-' . $other->getId(), 'new-notification', $notificationData);
         } catch (\Throwable $e) {
             error_log(sprintf(
                 'Failed to trigger Pusher new-message event for conversation %d, message %d: %s',
