@@ -21,6 +21,7 @@ use App\Repository\ReportRepository;
 use App\Repository\ResourceRepository;
 use App\Repository\TagRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Pusher\Pusher;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -527,9 +528,10 @@ class AdminApiController extends AbstractController
         $dataAccessRequest->setProcessedAt(new \DateTimeImmutable());
         $dataAccessRequest->setAdminNote($adminNote !== '' ? $adminNote : null);
 
+        $statusNotif = null;
         $requester = $dataAccessRequest->getRequester();
         if ($requester instanceof User && $previousStatus !== $status) {
-            $this->createDataAccessRequestStatusNotification(
+            $statusNotif = $this->createDataAccessRequestStatusNotification(
                 $entityManager,
                 $requester,
                 $user,
@@ -539,6 +541,39 @@ class AdminApiController extends AbstractController
         }
 
         $entityManager->flush();
+
+        if ($statusNotif) {
+            try {
+                $pusher = new Pusher(
+                    $_ENV['PUSHER_KEY'],
+                    $_ENV['PUSHER_SECRET'],
+                    $_ENV['PUSHER_APP_ID'],
+                    [
+                        'cluster' => $_ENV['PUSHER_CLUSTER'],
+                        'useTLS' => true
+                    ]
+                );
+
+                $notifData = [
+                    'id' => $statusNotif->getId(),
+                    'type' => $statusNotif->getType(),
+                    'data' => $statusNotif->getData(),
+                    'status' => $statusNotif->getStatus(),
+                    'isRead' => $statusNotif->isRead(),
+                    'sender' => [
+                        'id' => $user->getId(),
+                        'username' => $user->getUsername(),
+                        'profileImage' => $user->getProfileImage() ? '/profile_images/' . $user->getProfileImage() : null
+                    ],
+                    'createdAt' => $statusNotif->getCreatedAt()->format(\DateTime::ATOM),
+                ];
+
+                $pusher->trigger('private-user-' . $requester->getId(), 'new-notification', $notifData);
+            } catch (\Throwable $e) {
+                // Log error but don't fail the request after the moderation action has been persisted
+                error_log('Error publishing data access request notification: ' . $e->getMessage());
+            }
+        }
 
         // Send secure download link by email if request was approved
         if ($status === DataAccessRequest::STATUS_PROCESSED) {
@@ -701,6 +736,7 @@ class AdminApiController extends AbstractController
         $contentAuthor = null;
         $removedContentType = null;
         $cleanedPendingReportsCount = 0;
+        $warningNotif = null;
 
         if ($action === 'delete_target') {
             if ($targetType === Report::TARGET_POST) {
@@ -756,7 +792,7 @@ class AdminApiController extends AbstractController
             }
 
             if ($contentAuthor instanceof User && is_string($removedContentType)) {
-                $this->createModerationWarningNotification(
+                $warningNotif = $this->createModerationWarningNotification(
                     $entityManager,
                     $contentAuthor,
                     $user,
@@ -817,6 +853,43 @@ class AdminApiController extends AbstractController
 
         $entityManager->flush();
 
+        if ($warningNotif && $warningNotif->getRecipient()) {
+            try {
+                $pusher = new Pusher(
+                    $_ENV['PUSHER_KEY'],
+                    $_ENV['PUSHER_SECRET'],
+                    $_ENV['PUSHER_APP_ID'],
+                    [
+                        'cluster' => $_ENV['PUSHER_CLUSTER'],
+                        'useTLS' => true
+                    ]
+                );
+
+                $notifData = [
+                    'id' => $warningNotif->getId(),
+                    'type' => $warningNotif->getType(),
+                    'data' => $warningNotif->getData(),
+                    'status' => $warningNotif->getStatus(),
+                    'isRead' => $warningNotif->isRead(),
+                    'sender' => [
+                        'id' => $user->getId(),
+                        'username' => $user->getUsername(),
+                        'profileImage' => $user->getProfileImage() ? '/profile_images/' . $user->getProfileImage() : null
+                    ],
+                    'createdAt' => $warningNotif->getCreatedAt()->format(\DateTime::ATOM),
+                ];
+
+                $pusher->trigger('private-user-' . $warningNotif->getRecipient()->getId(), 'new-notification', $notifData);
+            } catch (\Throwable $e) {
+                error_log(sprintf(
+                    'Pusher notification publish failed for notification %s to recipient %s: %s',
+                    (string) $warningNotif->getId(),
+                    (string) $warningNotif->getRecipient()->getId(),
+                    $e->getMessage()
+                ));
+            }
+        }
+
         return $this->json([
             'message' => 'Action automatique appliquée',
             'result' => $resultMessage,
@@ -835,7 +908,7 @@ class AdminApiController extends AbstractController
         User $admin,
         Report $report,
         string $contentType
-    ): void {
+    ): Notification {
         $reason = trim((string) $report->getReason());
         if ($reason === '') {
             $reason = 'non précisé';
@@ -859,6 +932,7 @@ class AdminApiController extends AbstractController
         ]);
 
         $entityManager->persist($notification);
+        return $notification;
     }
 
     private function createDataAccessRequestStatusNotification(
@@ -867,7 +941,7 @@ class AdminApiController extends AbstractController
         User $admin,
         DataAccessRequest $dataAccessRequest,
         string $status
-    ): void {
+    ): Notification {
         $message = $status === DataAccessRequest::STATUS_PROCESSED
             ? 'Votre demande d\'accès à vos données RGPD a été acceptée. Un email avec le fichier JSON vous a été envoyé.'
             : 'Votre demande d\'accès à vos données RGPD a été refusée. Consultez la note d\'administration pour plus de détails.';
@@ -885,6 +959,7 @@ class AdminApiController extends AbstractController
         ]);
 
         $entityManager->persist($notification);
+        return $notification;
     }
 
     private function deletePostDependencies(Post $post, EntityManagerInterface $entityManager): void

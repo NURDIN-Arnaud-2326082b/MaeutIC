@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store'
 import { getNotifications, acceptNetworkRequest, declineNetworkRequest, markNotificationRead, deleteNotification, clearAllNotifications } from '../services/networkApi'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-
+import Pusher from 'pusher-js'
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuthStore()
   const [isProfileOpen, setIsProfileOpen] = useState(false)
@@ -23,7 +23,6 @@ export default function Navbar() {
     queryKey: ['notifications'],
     queryFn: getNotifications,
     enabled: isAuthenticated,
-    refetchInterval: 30000, // Poll every 30 seconds
   })
 
   const notifications = notificationsData?.notifications || []
@@ -71,6 +70,9 @@ export default function Navbar() {
 
   const getNotifUrl = (notif) => {
     const { type, data, sender } = notif
+    if (type === 'private_message') {
+      return data?.conversationId ? `/messages/${data.conversationId}` : null
+    }
     if (type === 'post_like' || type === 'post_comment') {
       if (!data?.postId || !data?.forumCategory) return null
       const base = data.forumSpecial === 'methodology'
@@ -92,8 +94,13 @@ export default function Navbar() {
     // Don't trigger if clicking any button (Accept/Decline/Delete)
     if (e.target.closest('[data-notif-action]')) return
     const url = getNotifUrl(notif)
+    // Mark message notifications as read, keep them in the list
+    if (notif.type === 'private_message') {
+      if (!notif.isRead) {
+        markReadMutation.mutate(notif.id)
+      }
     // For non-network-request notifications, delete on click
-    if (notif.type !== 'network_request') {
+    } else if (notif.type !== 'network_request') {
       deleteNotifMutation.mutate(notif.id)
     } else if (!notif.isRead) {
       markReadMutation.mutate(notif.id)
@@ -117,6 +124,43 @@ export default function Navbar() {
     document.addEventListener('click', handleClickOutside)
     return () => document.removeEventListener('click', handleClickOutside)
   }, [])
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+
+    const pusher = new Pusher(import.meta.env.VITE_PUSHER_KEY, {
+      cluster: import.meta.env.VITE_PUSHER_CLUSTER,
+      channelAuthorization: {
+        endpoint: '/api/pusher/auth',
+        transport: 'ajax',
+      },
+    });
+
+    const channel = pusher.subscribe(`private-user-${user.id}`);
+
+    channel.bind('new-notification', (newNotif) => {
+      queryClient.setQueryData(['notifications'], (oldData) => {
+        if (!oldData) return oldData;
+
+        if (oldData.notifications.some((n) => n.id === newNotif.id)) {
+          return oldData;
+        }
+
+        return {
+          ...oldData,
+          notifications: [newNotif, ...oldData.notifications],
+          count: oldData.count + 1,
+          unread: oldData.unread + 1,
+        };
+      });
+    });
+
+    return () => {
+      channel.unbind_all();
+      channel.unsubscribe();
+      pusher.disconnect();
+    };
+  }, [isAuthenticated, user, queryClient]);
 
   return (
     <nav className="sticky top-0 bg-white shadow-lg shadow-black/5" style={{ isolation: 'isolate', zIndex: 2147483647, pointerEvents: 'auto' }}>
@@ -178,6 +222,11 @@ export default function Navbar() {
                                   {notif.type === 'network_request' ? (
                                     <>
                                       <strong>{notif.sender?.username}</strong> souhaite rejoindre votre réseau
+                                    </>
+                                  ) : notif.type === 'private_message' ? (
+                                    <>
+                                      <strong>{notif.sender?.username}</strong> vous a envoyé un message
+                                      {notif.data?.message ? `: ${notif.data.message}` : ''}
                                     </>
                                   ) : (
                                     notif.data?.message || 'Nouvelle notification'
