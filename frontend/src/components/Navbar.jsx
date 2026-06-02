@@ -166,9 +166,9 @@ export default function Navbar() {
     <nav className="sticky top-0 bg-white shadow-lg shadow-black/5" style={{ isolation: 'isolate', zIndex: 2147483647, pointerEvents: 'auto' }}>
       <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4 h-20">
         {/* Logo */}
-        <div className="flex-shrink-0 h-full">
+        <div className="flex-shrink-0 h-full flex items-center">
           <Link to="/">
-            <img src="/images/logo.png" alt="logo" className="h-full" />
+            <img src="/images/logo.png" alt="logo" className="h-24 w-auto max-w-none origin-left object-contain" />
           </Link>
         </div>
 
