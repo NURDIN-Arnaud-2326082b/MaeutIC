@@ -2,23 +2,23 @@ import { assetPath } from '../features/thesisDashboard/utils/assetPath'
 
 export default function Footer() {
   return (
-    <footer className="z-20 m-0 bg-white shadow-lg shadow-black/5">
+    <footer className="z-20 m-0 bg-white/90 backdrop-blur border-t-4 border-mandarine-500 shadow-[0_-12px_35px_rgba(1,109,118,0.06)]">
       <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4 h-40">
         {/* Navigation à gauche */}
         <nav className="flex flex-row">
-          <div className="flex flex-col mr-14 h-full text-gray-700">
-            <h2 className="font-medium mb-1">Navigation</h2>
-            <a href="/" className="text-gray-700 hover:text-blue-600">Accueil</a>
-            <a href="/forums/General" className="text-gray-700 hover:text-blue-600">Forums</a>
-            <a href="/library" className="text-gray-700 hover:text-blue-600">Bibliothèque</a>
+          <div className="flex flex-col mr-14 h-full text-slate-700">
+            <h2 className="font-semibold mb-1 text-slate-900">Navigation</h2>
+            <a href="/" className="text-slate-700 hover:text-canard-700">Accueil</a>
+            <a href="/forums/General" className="text-slate-700 hover:text-canard-700">Forums</a>
+            <a href="/library" className="text-slate-700 hover:text-canard-700">Bibliothèque</a>
           </div>
-          <div className="flex flex-col mr-14 h-full text-gray-700">
-            <h2 className="font-medium mb-1">Code source</h2>
-            <a href="https://github.com/NURDIN-Arnaud-2326082b/MaeutIC" target="_blank" rel="noopener noreferrer" className="text-gray-700 hover:text-blue-600">GitHub</a>
+          <div className="flex flex-col mr-14 h-full text-slate-700">
+            <h2 className="font-semibold mb-1 text-slate-900">Code source</h2>
+            <a href="https://github.com/NURDIN-Arnaud-2326082b/MaeutIC" target="_blank" rel="noopener noreferrer" className="text-slate-700 hover:text-canard-700">GitHub</a>
           </div>
-          <div className="flex flex-col h-full text-gray-700">
-            <h2 className="font-medium mb-1">Nous contacter</h2>
-            <a href="mailto:maieuticprojet@proton.me" className="text-gray-700 hover:text-blue-600">Email</a>
+          <div className="flex flex-col h-full text-slate-700">
+            <h2 className="font-semibold mb-1 text-slate-900">Nous contacter</h2>
+            <a href="mailto:maieuticprojet@proton.me" className="text-slate-700 hover:text-canard-700">Email</a>
           </div>
         </nav>
 

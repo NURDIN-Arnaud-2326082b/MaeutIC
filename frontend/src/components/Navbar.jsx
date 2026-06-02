@@ -163,12 +163,12 @@ export default function Navbar() {
   }, [isAuthenticated, user, queryClient]);
 
   return (
-    <nav className="sticky top-0 bg-white shadow-lg shadow-black/5" style={{ isolation: 'isolate', zIndex: 2147483647, pointerEvents: 'auto' }}>
-      <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4 h-20">
+    <nav className="sticky top-0 bg-white/90 backdrop-blur-xl border-b border-canard-100 shadow-[0_14px_35px_rgba(1,109,118,0.08)]" style={{ isolation: 'isolate', zIndex: 2147483647, pointerEvents: 'auto' }}>
+      <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto px-4 py-3 h-24">
         {/* Logo */}
         <div className="flex-shrink-0 h-full flex items-center">
           <Link to="/">
-            <img src="/images/logo.png" alt="logo" className="h-24 w-auto max-w-none origin-left object-contain" />
+            <img src="/images/logo.png" alt="logo" className="h-20 w-auto max-w-none origin-left object-contain" />
           </Link>
         </div>
 
@@ -185,28 +185,28 @@ export default function Navbar() {
                   title="Notifications"
                   type="button"
                 >
-                  <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <svg className="w-6 h-6 text-canard-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
                       d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
                   </svg>
                 </button>
                 {notifCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1">
+                  <span className="absolute -top-1 -right-1 bg-mandarine-500 text-white text-xs rounded-full px-1">
                     {notifCount}
                   </span>
                 )}
 
                 {isNotifOpen && (
-                  <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl z-[10000] border border-gray-200">
-                    <div className="p-3 border-b border-gray-200">
-                      <h3 className="font-semibold text-gray-800">Notifications</h3>
+                  <div className="absolute right-0 mt-2 w-96 bg-white/95 backdrop-blur rounded-2xl shadow-2xl z-[10000] border border-canard-100 overflow-hidden">
+                    <div className="p-3 border-b border-canard-100">
+                      <h3 className="font-semibold text-slate-800">Notifications</h3>
                     </div>
                     <div className="max-h-96 overflow-y-auto">
                       {notifications.length > 0 ? (
                         notifications.map((notif) => (
                           <div
                             key={notif.id}
-                            className={`p-3 border-b border-gray-100 ${!notif.isRead ? 'bg-blue-50' : ''} ${getNotifUrl(notif) ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+                            className={`p-3 border-b border-gray-100 ${!notif.isRead ? 'bg-canard-50' : ''} ${getNotifUrl(notif) ? 'cursor-pointer hover:bg-slate-50' : ''}`}
                             onClick={(e) => handleNotifClick(e, notif)}
                           >
                             <div className="flex items-start gap-3">
@@ -218,7 +218,7 @@ export default function Navbar() {
                                 />
                               )}
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm text-gray-800">
+                                <p className="text-sm text-slate-800">
                                   {notif.type === 'network_request' ? (
                                     <>
                                       <strong>{notif.sender?.username}</strong> souhaite rejoindre votre réseau
@@ -232,7 +232,7 @@ export default function Navbar() {
                                     notif.data?.message || 'Nouvelle notification'
                                   )}
                                 </p>
-                                <p className="text-xs text-gray-500 mt-1">
+                                <p className="text-xs text-slate-500 mt-1">
                                   {new Date(notif.createdAt).toLocaleString('fr-FR')}
                                 </p>
                                 
@@ -242,7 +242,7 @@ export default function Navbar() {
                                       data-notif-action
                                       onClick={() => acceptMutation.mutate(notif.id)}
                                       disabled={acceptMutation.isLoading}
-                                      className="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                                      className="px-3 py-1 bg-canard-600 text-white text-sm rounded-lg hover:bg-canard-700 disabled:opacity-50"
                                     >
                                       Accepter
                                     </button>
@@ -302,17 +302,17 @@ export default function Navbar() {
                   />
                 </button>
                 {isProfileOpen && (
-                  <div className="absolute top-full mt-2 w-48 bg-white rounded-lg shadow-xl z-[10000] border border-gray-200">
+                  <div className="absolute top-full mt-2 w-48 bg-white/95 backdrop-blur rounded-2xl shadow-2xl z-[10000] border border-canard-100 overflow-hidden">
                     <Link
                       to={`/profile/${user?.username}`}
-                      className="block px-4 py-2 text-black hover:bg-gray-100"
+                      className="block px-4 py-2 text-slate-800 hover:bg-canard-50"
                       onClick={() => setIsProfileOpen(false)}
                     >
                       Mon Profil
                     </Link>
                     <Link
                       to="/settings"
-                      className="block px-4 py-2 text-black hover:bg-gray-100"
+                      className="block px-4 py-2 text-slate-800 hover:bg-canard-50"
                       onClick={() => setIsProfileOpen(false)}
                     >
                       Paramètres
@@ -322,7 +322,7 @@ export default function Navbar() {
                         setIsProfileOpen(false)
                         handleLogout()
                       }}
-                      className="block w-full text-left px-4 py-2 text-black hover:bg-gray-100"
+                      className="block w-full text-left px-4 py-2 text-slate-800 hover:bg-canard-50"
                     >
                       Se Déconnecter
                     </button>
@@ -335,14 +335,14 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => navigate('/login')}
-                className="text-gray-700 hover:text-blue-600 font-medium"
+                className="text-slate-700 hover:text-canard-700 font-medium"
               >
                 Se connecter
               </button>
               <button
                 type="button"
                 onClick={() => navigate('/register')}
-                className="text-white bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-indigo-500 font-medium rounded-lg text-sm px-5 py-2.5 focus:outline-none"
+                className="text-white bg-canard-600 hover:bg-canard-700 focus:ring-2 focus:ring-canard-300 font-medium rounded-lg text-sm px-5 py-2.5 focus:outline-none"
               >
                 S'inscrire
               </button>
