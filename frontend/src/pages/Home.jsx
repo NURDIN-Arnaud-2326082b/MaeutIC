@@ -1,58 +1,20 @@
-import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../store'
 
 export default function Home() {
   const { user, isAuthenticated } = useAuthStore()
-  const [showPopup, setShowPopup] = useState(true)
-  const popupDuration = 10000
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowPopup(false)
-    }, popupDuration)
-
-    return () => clearTimeout(timer)
-  }, [])
-
-  const closePopup = () => {
-    setShowPopup(false)
-  }
 
   return (
     <>
       <div className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(1,141,150,0.16),transparent_28%),radial-gradient(circle_at_top_right,rgba(237,138,39,0.14),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.9),rgba(245,250,250,1))]" />
-        {/* Popup notification */}
-        {showPopup && (
-          <div className="fixed top-28 right-5 z-50">
-            <div className="relative max-w-80 overflow-hidden rounded-2xl border border-red-200 bg-red-200 px-6 py-4 pr-10 text-gray-700 shadow-2xl shadow-red-950/10 backdrop-blur">
-              <span className="block text-sm leading-6">
-                <b className="text-canard-800">Important :</b> Ce site est toujours en développement, certaines fonctionnalités ne sont donc pas encore disponibles.<br />
-                Si vous rencontrez des bugs ou des problèmes, n'hésitez pas à nous contacter à l'adresse suivante : maieuticprojet@proton.me
-              </span>
-              <button
-                onClick={closePopup}
-                className="absolute right-3 top-3 text-gray-700 font-bold text-xl leading-none hover:text-black"
-              >
-                &times;
-              </button>
-              <div
-                className="absolute left-0 bottom-0 h-1 bg-red-400"
-                style={{
-                  animation: `progress ${popupDuration}ms linear forwards`
-                }}
-              ></div>
-            </div>
-          </div>
-        )}
 
         <div className="relative flex-1 flex flex-col items-center max-w-7xl mx-auto px-4 py-8">
           <div className="mb-6 flex flex-col items-center text-center">
             <img
               src={`${import.meta.env.BASE_URL}images/logo2.png`}
               alt="M@ieutIC"
-              className="mx-auto h-auto w-full max-w-[360px] object-contain"
+              className="mx-auto h-auto w-full max-w-full sm:max-w-[360px] object-contain"
             />
             <p className="mt-1 text-center text-lg font-semibold text-canard-600 md:text-xl">La plateforme par et pour les doctorant·es.</p>
           </div>
@@ -65,10 +27,10 @@ export default function Home() {
               className="relative block group"
             >
               <img
-                src="/images/bureau.jpg"
-                alt="bureau"
-                className="h-64 w-full rounded-3xl border border-white/70 object-cover shadow-xl shadow-canard-950/10 brightness-[0.58] transition-all duration-300 group-hover:brightness-100 group-hover:-translate-y-1"
-              />
+                  src="/images/bureau.jpg"
+                  alt="bureau"
+                  className="h-48 md:h-64 w-full rounded-3xl border border-white/70 object-cover shadow-xl shadow-canard-950/10 brightness-[0.58] transition-all duration-300 group-hover:brightness-100 group-hover:-translate-y-1"
+                />
                   <div className="absolute bottom-5 left-5 rounded-2xl border border-transparent bg-transparent px-4 py-3 text-white shadow-lg transition-opacity duration-200 group-hover:opacity-0">
                     <div className="text-xl font-bold text-white">Bureau</div>
                     <div className="text-sm text-white/90">Profil</div>
@@ -79,10 +41,10 @@ export default function Home() {
           {/* Salon */}
           <li>
             <Link to="/forums/General" className="relative block group">
-              <img
+                <img
                 src="/images/salon.jpg"
                 alt="salon"
-                className="h-64 w-full rounded-3xl border border-white/70 object-cover shadow-xl shadow-canard-950/10 brightness-[0.58] transition-all duration-300 group-hover:brightness-100 group-hover:-translate-y-1"
+                className="h-48 md:h-64 w-full rounded-3xl border border-white/70 object-cover shadow-xl shadow-canard-950/10 brightness-[0.58] transition-all duration-300 group-hover:brightness-100 group-hover:-translate-y-1"
               />
                 <div className="absolute bottom-5 left-5 rounded-2xl border border-transparent bg-transparent px-4 py-3 text-white shadow-lg transition-opacity duration-200 group-hover:opacity-0">
                   <div className="text-xl font-bold text-white">Salon</div>
@@ -94,10 +56,10 @@ export default function Home() {
           {/* Salle à manger */}
           <li>
             <Link to="/maps" className="relative block group">
-              <img
+                <img
                 src="/images/salle_a_manger.png"
                 alt="salle à manger"
-                className="h-64 w-full rounded-3xl border border-white/70 object-cover shadow-xl shadow-canard-950/10 brightness-[0.58] transition-all duration-300 group-hover:brightness-100 group-hover:-translate-y-1"
+                className="h-48 md:h-64 w-full rounded-3xl border border-white/70 object-cover shadow-xl shadow-canard-950/10 brightness-[0.58] transition-all duration-300 group-hover:brightness-100 group-hover:-translate-y-1"
               />
                 <div className="absolute bottom-5 left-5 rounded-2xl border border-transparent bg-transparent px-4 py-3 text-white shadow-lg transition-opacity duration-200 group-hover:opacity-0">
                   <div className="text-xl font-bold text-white">Salle à manger</div>
@@ -109,10 +71,10 @@ export default function Home() {
           {/* Bibliothèque */}
           <li>
             <Link to="/library" className="relative block group">
-              <img
+                <img
                 src="/images/bibliotèque.jpg"
                 alt="bibliotèque"
-                className="h-64 w-full rounded-3xl border border-white/70 object-cover shadow-xl shadow-canard-950/10 brightness-[0.58] transition-all duration-300 group-hover:brightness-100 group-hover:-translate-y-1"
+                className="h-48 md:h-64 w-full rounded-3xl border border-white/70 object-cover shadow-xl shadow-canard-950/10 brightness-[0.58] transition-all duration-300 group-hover:brightness-100 group-hover:-translate-y-1"
               />
                 <div className="absolute bottom-5 left-5 rounded-2xl border border-transparent bg-transparent px-4 py-3 text-white shadow-lg transition-opacity duration-200 group-hover:opacity-0">
                   <div className="text-xl font-bold text-white">Bibliothèque</div>
@@ -124,10 +86,10 @@ export default function Home() {
           {/* Cuisine */}
           <li>
             <Link to="/methodology" className="relative block group">
-              <img
+                <img
                 src="/images/cuisine.jpg"
                 alt="cuisine"
-                className="h-64 w-full rounded-3xl border border-white/70 object-cover shadow-xl shadow-canard-950/10 brightness-[0.58] transition-all duration-300 group-hover:brightness-100 group-hover:-translate-y-1"
+                className="h-48 md:h-64 w-full rounded-3xl border border-white/70 object-cover shadow-xl shadow-canard-950/10 brightness-[0.58] transition-all duration-300 group-hover:brightness-100 group-hover:-translate-y-1"
               />
                 <div className="absolute bottom-5 left-5 rounded-2xl border border-transparent bg-transparent px-4 py-3 text-white shadow-lg transition-opacity duration-200 group-hover:opacity-0">
                   <div className="text-xl font-bold text-white">Cuisine</div>
@@ -139,10 +101,10 @@ export default function Home() {
           {/* Détente */}
           <li>
             <Link to="/chill" className="relative block group">
-              <img
+                <img
                 src="/images/détente.jpeg"
                 alt="salle à manger"
-                className="h-64 w-full rounded-3xl border border-white/70 object-cover shadow-xl shadow-canard-950/10 brightness-[0.58] transition-all duration-300 group-hover:brightness-100 group-hover:-translate-y-1"
+                className="h-48 md:h-64 w-full rounded-3xl border border-white/70 object-cover shadow-xl shadow-canard-950/10 brightness-[0.58] transition-all duration-300 group-hover:brightness-100 group-hover:-translate-y-1"
               />
                 <div className="absolute bottom-5 left-5 rounded-2xl border border-transparent bg-transparent px-4 py-3 text-white shadow-lg transition-opacity duration-200 group-hover:opacity-0">
                   <div className="text-xl font-bold text-white">Détente</div>
@@ -154,10 +116,10 @@ export default function Home() {
           {/* Administratif */}
           <li>
             <Link to="/administrative" className="relative block group">
-              <img
+                <img
                 src="/images/administratif.png"
                 alt="administratif"
-                className="h-64 w-full rounded-3xl border border-white/70 object-cover shadow-xl shadow-canard-950/10 brightness-[0.58] transition-all duration-300 group-hover:brightness-100 group-hover:-translate-y-1"
+                className="h-48 md:h-64 w-full rounded-3xl border border-white/70 object-cover shadow-xl shadow-canard-950/10 brightness-[0.58] transition-all duration-300 group-hover:brightness-100 group-hover:-translate-y-1"
               />
                 <div className="absolute bottom-5 left-5 rounded-2xl border border-transparent bg-transparent px-4 py-3 text-white shadow-lg transition-opacity duration-200 group-hover:opacity-0">
                   <div className="text-xl font-bold text-white">Administratif</div>
@@ -168,10 +130,10 @@ export default function Home() {
           {/* Discussions */}
           <li>
             <Link to={isAuthenticated ? '/chat' : '/login'} className="relative block group">
-              <img
+                <img
                 src="/images/discussion.jpg"
                 alt="discussion"
-                className="h-64 w-full rounded-3xl border border-white/70 object-cover shadow-xl shadow-canard-950/10 brightness-[0.58] transition-all duration-300 group-hover:brightness-100 group-hover:-translate-y-1"
+                className="h-48 md:h-64 w-full rounded-3xl border border-white/70 object-cover shadow-xl shadow-canard-950/10 brightness-[0.58] transition-all duration-300 group-hover:brightness-100 group-hover:-translate-y-1"
               />
                 <div className="absolute bottom-5 left-5 rounded-2xl border border-transparent bg-transparent px-4 py-3 text-white shadow-lg transition-opacity duration-200 group-hover:opacity-0">
                   <div className="text-xl font-bold text-white">Discussions</div>

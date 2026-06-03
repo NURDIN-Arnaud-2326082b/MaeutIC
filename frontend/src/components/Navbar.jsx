@@ -164,11 +164,11 @@ export default function Navbar() {
 
   return (
     <nav className="sticky top-0 bg-white/90 backdrop-blur-xl border-b border-canard-100 shadow-[0_14px_35px_rgba(1,109,118,0.08)]" style={{ isolation: 'isolate', zIndex: 2147483647, pointerEvents: 'auto' }}>
-      <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto px-4 py-3 h-24">
+      <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto px-4 py-3 h-16 md:h-24">
         {/* Logo */}
         <div className="flex-shrink-0 h-full flex items-center">
           <Link to="/">
-            <img src={`${import.meta.env.BASE_URL}images/logo.png`} alt="logo" className="h-24 w-auto max-w-none origin-left object-contain" />
+            <img src={`${import.meta.env.BASE_URL}images/logo.png`} alt="logo" className="h-12 md:h-24 w-auto max-w-none origin-left object-contain" />
           </Link>
         </div>
 
@@ -197,11 +197,11 @@ export default function Navbar() {
                 )}
 
                 {isNotifOpen && (
-                  <div className="absolute right-0 mt-2 w-96 bg-white/95 backdrop-blur rounded-2xl shadow-2xl z-[10000] border border-canard-100 overflow-hidden">
+                  <div className="absolute right-0 mt-2 w-full sm:w-96 bg-white/95 backdrop-blur rounded-2xl shadow-2xl z-[10000] border border-canard-100 overflow-hidden">
                     <div className="p-3 border-b border-canard-100">
                       <h3 className="font-semibold text-slate-800">Notifications</h3>
                     </div>
-                    <div className="max-h-96 overflow-y-auto">
+                    <div className="max-h-60 md:max-h-96 overflow-y-auto">
                       {notifications.length > 0 ? (
                         notifications.map((notif) => (
                           <div
@@ -302,7 +302,7 @@ export default function Navbar() {
                   />
                 </button>
                 {isProfileOpen && (
-                  <div className="absolute top-full mt-2 w-48 bg-white/95 backdrop-blur rounded-2xl shadow-2xl z-[10000] border border-canard-100 overflow-hidden">
+                  <div className="absolute top-full mt-2 w-full sm:w-48 bg-white/95 backdrop-blur rounded-2xl shadow-2xl z-[10000] border border-canard-100 overflow-hidden">
                     <Link
                       to={`/profile/${user?.username}`}
                       className="block px-4 py-2 text-slate-800 hover:bg-canard-50"

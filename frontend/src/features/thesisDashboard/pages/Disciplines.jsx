@@ -452,7 +452,7 @@ export default function Disciplines({ data, filters, isDarkMode }) {
       )}
 
       {/* Chart 2 & 3: Keyword Trends and Drill-Down */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 min-h-[500px] mt-4">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 min-h-0 md:min-h-[500px] mt-4">
         {/* Trend Chart */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 flex flex-col shadow-sm h-full">
           <p className="text-sm font-semibold text-slate-700 dark:text-slate-100 mb-1">Tendances des mots-clés</p>
@@ -461,7 +461,7 @@ export default function Disciplines({ data, filters, isDarkMode }) {
               ? `Top mot-clé par domaine (CNU) pour l'année ${filters.annee}.`
               : "Chaque courbe représente une discipline (CNU). Survolez les points pour découvrir quel était le mot le plus utilisé cette année-là !"}
           </p>
-          <div className="flex-1 w-full relative" style={{ minHeight: 400 }}>
+          <div className="flex-1 w-full relative min-h-64 md:min-h-[400px]">
             <KeywordTrends data={data || []} selectedYear={filters?.annee} />
           </div>
         </div>
@@ -469,7 +469,7 @@ export default function Disciplines({ data, filters, isDarkMode }) {
         {/* Drill-down Chart */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 flex flex-col shadow-sm h-full">
           <p className="text-sm font-semibold text-slate-700 dark:text-slate-100 mb-4">Top 10 des mots clés les plus utilisés par CNU</p>
-          <div className="flex-1 w-full relative" style={{ minHeight: 400 }}>
+          <div className="flex-1 w-full relative min-h-64 md:min-h-[400px]">
             <KeywordDrillDown data={data} filters={filters} isDarkMode={isDarkMode} />
           </div>
         </div>
