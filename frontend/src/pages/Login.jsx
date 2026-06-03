@@ -29,19 +29,28 @@ export default function Login() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="bg-white/60 p-8 rounded-lg shadow-lg w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-6 text-center">Connexion</h1>
+    <div className="relative flex items-center justify-center min-h-screen px-4 py-12">
+      <Link
+        to="/"
+        className="absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-full bg-white/85 px-3 py-2 text-sm font-medium text-canard-700 shadow-sm backdrop-blur transition hover:bg-white"
+        aria-label="Retour à l'accueil"
+      >
+        <span aria-hidden="true">←</span>
+        <span>Accueil</span>
+      </Link>
+
+      <div className="brand-surface w-full max-w-md p-8">
+        <h1 className="brand-title mb-6 text-center text-4xl text-canard-900 uppercase">Connexion</h1>
         
         {error && (
-          <div className="mb-4 p-3 rounded bg-red-100 border border-red-400 text-red-700 text-center">
+          <div className="mb-4 rounded-xl border border-mandarine-200 bg-mandarine-50 p-3 text-center text-mandarine-700">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} autoComplete="on">
           <div className="mb-4">
-            <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="username" className="block text-sm font-medium text-slate-700">
               Nom d'utilisateur
             </label>
             <input
@@ -50,7 +59,7 @@ export default function Login() {
               onChange={(e) => setFormData({ ...formData, username: e.target.value })}
               name="username"
               id="username"
-              className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+              className="mt-1 block w-full rounded-xl border border-slate-200 bg-white/80 p-3 text-slate-800 shadow-sm outline-none transition focus:border-canard-400 focus:ring-2 focus:ring-canard-200"
               autoComplete="username"
               required
               autoFocus
@@ -58,7 +67,7 @@ export default function Login() {
           </div>
           
           <div className="mb-4">
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="password" className="block text-sm font-medium text-slate-700">
               Mot de passe
             </label>
             <input
@@ -67,14 +76,14 @@ export default function Login() {
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               name="password"
               id="password"
-              className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+              className="mt-1 block w-full rounded-xl border border-slate-200 bg-white/80 p-3 text-slate-800 shadow-sm outline-none transition focus:border-canard-400 focus:ring-2 focus:ring-canard-200"
               autoComplete="current-password"
               required
             />
           </div>
           
           <button
-            className="w-full bg-blue-700 text-white py-2 rounded hover:bg-blue-800"
+            className="w-full rounded-xl bg-canard-600 py-3 text-white shadow-lg shadow-canard-950/10 transition hover:bg-canard-700 focus:outline-none focus:ring-2 focus:ring-canard-300"
             type="submit"
             disabled={isLoading}
           >
@@ -84,7 +93,7 @@ export default function Login() {
           <div className="mt-4 text-center">
             <Link
               to="/forgot-password"
-              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+              className="text-canard-700 hover:text-canard-900 text-sm font-medium"
             >
               Mot de passe oublié ?
             </Link>

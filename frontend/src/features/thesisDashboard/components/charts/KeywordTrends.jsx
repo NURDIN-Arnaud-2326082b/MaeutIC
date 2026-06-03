@@ -23,7 +23,7 @@ const CustomTooltip = ({ active, payload, label, isBar }) => {
     if (isBar) {
       const p = payload[0]
       return (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl rounded-xl p-3 text-sm min-w-[200px] z-50">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl rounded-xl p-3 text-sm min-w-0 sm:min-w-[200px] z-50">
           <p className="font-bold text-slate-700 dark:text-slate-100 mb-1 leading-tight">{p.payload.fullCnu}</p>
           <div className="mt-2 text-slate-600 dark:text-slate-300">
             Mot n°1 : <span className="font-bold text-base" style={{ color: p.fill }}>"{p.payload.word}"</span>
@@ -38,7 +38,7 @@ const CustomTooltip = ({ active, payload, label, isBar }) => {
     const sortedPayload = [...payload].sort((a, b) => b.value - a.value)
 
     return (
-      <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border border-slate-200 dark:border-slate-800 shadow-2xl rounded-xl p-3 text-sm min-w-[250px] z-50 pointer-events-none">
+      <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border border-slate-200 dark:border-slate-800 shadow-2xl rounded-xl p-3 text-sm min-w-0 sm:min-w-[250px] z-50 pointer-events-none">
         <p className="font-bold text-slate-800 dark:text-slate-100 border-b border-slate-100 dark:border-slate-800 pb-1.5 mb-1.5 sticky top-0 bg-transparent">Année {label}</p>
         <div className="flex flex-col gap-1">
           {sortedPayload.map(p => {
@@ -158,15 +158,15 @@ export default function KeywordTrends({ data, selectedYear }) {
 
   if (!chartData.length) {
     return (
-      <div className="h-[400px] flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
+      <div className="h-64 md:h-[400px] flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
         <p className="text-slate-400 dark:text-slate-500 text-sm">Pas assez de données pour afficher les tendances.</p>
       </div>
     )
   }
 
   return (
-    <div className="w-full mt-4 bg-transparent rounded-xl">
-      <ResponsiveContainer width="100%" height={400}>
+    <div className="w-full mt-4 bg-transparent rounded-xl h-64 md:h-[400px]">
+      <ResponsiveContainer width="100%" height="100%">
         {isBar ? (
           <BarChart data={chartData} layout="vertical" margin={{ left: -10, right: 100, top: 10, bottom: 10 }}>
             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />

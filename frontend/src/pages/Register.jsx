@@ -220,7 +220,16 @@ export default function Register() {
   );
 
   return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="relative min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+        <Link
+            to="/"
+            className="absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-full bg-white/85 px-3 py-2 text-sm font-medium text-canard-700 shadow-sm backdrop-blur transition hover:bg-white"
+            aria-label="Retour à l'accueil"
+        >
+          <span aria-hidden="true">←</span>
+          <span>Accueil</span>
+        </Link>
+
         <div className="max-w-xl w-full mx-auto space-y-8">
           <div>
             <h1 className="mt-6 text-center text-4xl font-black text-gray-900 tracking-tight">

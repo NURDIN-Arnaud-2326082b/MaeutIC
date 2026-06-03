@@ -651,7 +651,7 @@ const Library = () => {
                                                 )}
 
                                                 {canEdit(author) && (
-                                                    <div className="absolute top-3 right-3 z-20">
+                                                            <div className="absolute top-3 right-3 z-20">
                                                         <button
                                                             type="button"
                                                             onClick={(event) => {
@@ -662,9 +662,9 @@ const Library = () => {
                                                         >
                                                             &#9776;
                                                         </button>
-                                                        {openDropdownId === `author-${author.id}` && (
+                                                            {openDropdownId === `author-${author.id}` && (
                                                             <div
-                                                                className="absolute right-0 mt-2 bg-white rounded shadow-lg z-50 min-w-[120px]">
+                                                                className="absolute right-0 mt-2 bg-white rounded shadow-lg z-50 min-w-0 sm:min-w-[120px]">
                                                                 <button
                                                                     type="button"
                                                                     onClick={(event) => {
@@ -824,9 +824,9 @@ const Library = () => {
                                                 >
                                                     &#9776;
                                                 </button>
-                                                {openDropdownId === `article-${article.id}` && (
+                                                    {openDropdownId === `article-${article.id}` && (
                                                     <div
-                                                        className="absolute right-0 mt-2 bg-white rounded shadow-lg z-50 min-w-[120px]">
+                                                        className="absolute right-0 mt-2 bg-white rounded shadow-lg z-50 min-w-0 sm:min-w-[120px]">
                                                         {canEdit(article) ? (
                                                             <>
                                                                 <button
@@ -1181,7 +1181,7 @@ const Library = () => {
                                     name="author_ids[]"
                                     multiple
                                     defaultValue={editingBook?.authors?.map(a => a.id) || []}
-                                    className="w-full px-3 py-2 border rounded min-h-[100px]"
+                                    className="w-full px-3 py-2 border rounded min-h-24 md:min-h-[100px]"
                                     required
                                 >
                                     {authors.map((author) => (

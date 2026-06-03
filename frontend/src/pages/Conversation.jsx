@@ -198,7 +198,7 @@ export default function Conversation() {
       </div>
 
       {/* Zone des messages */}
-      <div className="bg-white shadow px-4 py-6 h-[500px] overflow-y-auto">
+      <div className="bg-white shadow px-4 py-6 h-64 md:h-[500px] overflow-y-auto">
         <div className="flex flex-col gap-4">
           {data.messages.length === 0 ? (
             <div className="text-center text-gray-500">Aucun message pour le moment</div>

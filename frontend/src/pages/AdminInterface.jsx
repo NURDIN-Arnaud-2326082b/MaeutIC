@@ -631,7 +631,7 @@ export default function AdminInterface() {
                           <div className="text-sm text-indigo-700 mt-2">Note admin: {report.adminNote}</div>
                         )}
                       </div>
-                      <div className="flex flex-col items-end gap-2 min-w-[160px]">
+                      <div className="flex flex-col items-end gap-2 min-w-0 sm:min-w-[160px]">
                         <span className={`px-2 py-1 rounded text-xs font-medium ${
                           report.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                           report.status === 'reviewed' ? 'bg-green-100 text-green-800' :
@@ -732,7 +732,7 @@ export default function AdminInterface() {
                             </div>
                           )}
                         </div>
-                        <div className="flex flex-col items-end gap-2 min-w-[160px]">
+                        <div className="flex flex-col items-end gap-2 min-w-0 sm:min-w-[160px]">
                           <span className="px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
                             signalé
                           </span>
@@ -795,7 +795,7 @@ export default function AdminInterface() {
                           <div className="text-sm text-indigo-700 mt-2">Note admin: {request.adminNote}</div>
                         )}
                       </div>
-                      <div className="flex flex-col items-end gap-2 min-w-[200px]">
+                      <div className="flex flex-col items-end gap-2 min-w-0 sm:min-w-[200px]">
                         <span className={`px-2 py-1 rounded text-xs font-medium ${
                           request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                           request.status === 'processed' ? 'bg-green-100 text-green-800' :
@@ -845,7 +845,7 @@ export default function AdminInterface() {
                     Fermer
                   </button>
                 </div>
-                <pre className="text-xs bg-gray-50 border rounded p-3 overflow-auto max-h-[420px]">
+                <pre className="text-xs bg-gray-50 border rounded p-3 overflow-auto max-h-60 md:max-h-[420px]">
                   {JSON.stringify(dataExportPreview, null, 2)}
                 </pre>
               </div>

@@ -200,13 +200,13 @@ export default function Chat() {
               </div>
           )}
 
-          <div className="ml-[52px]">{msg.content}</div>
+          <div className="pl-14">{msg.content}</div>
 
           {currentUser && msg.sender?.username !== currentUser.username && (
             <button
               onClick={() => openReportModal(msg.id, msg.content)}
               disabled={reportGlobalMessageMutation.isPending}
-              className="mt-1 ml-[52px] text-xs text-orange-700 hover:text-orange-900 disabled:opacity-50"
+              className="mt-1 pl-14 text-xs text-orange-700 hover:text-orange-900 disabled:opacity-50"
             >
               Signaler ce message
             </button>
@@ -218,9 +218,9 @@ export default function Chat() {
   }
 
   return (
-    <div className="flex-1 flex flex-row w-full text-gray-700 min-h-0 max-h-[calc(100vh-80px)]">
+    <div className="flex-1 flex flex-col md:flex-row w-full text-gray-700 min-h-0 max-h-[calc(100vh-80px)]">
       {/* Chat Navigation */}
-      <div className="bg-white m-6 rounded-lg p-4 w-52 shadow-xl overflow-y-auto flex-shrink-0">
+      <div className="bg-white m-6 rounded-lg p-4 w-full md:w-52 shadow-xl overflow-y-auto flex-shrink-0">
         {/* Salons */}
         <div className="inline-block">
           <h2 className="text-2xl">Salons</h2>

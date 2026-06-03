@@ -107,19 +107,19 @@ export default function KeywordDrillDown({ data = [], filters, isDarkMode }) {
 
   if (!rootCnus.length) {
     return (
-      <div className="h-[400px] flex items-center justify-center bg-slate-50 dark:bg-slate-900 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl mt-4">
+      <div className="h-64 md:h-[400px] flex items-center justify-center bg-slate-50 dark:bg-slate-900 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl mt-4">
         <p className="text-slate-400">Aucune donnée disponible.</p>
       </div>
     )
   }
 
   return (
-    <div className="relative w-full h-[450px] flex flex-col mt-2">
+    <div className="relative w-full h-72 md:h-[450px] flex flex-col mt-2">
       <div className={`flex items-center px-2 z-10 ${drillCnu ? 'justify-between mb-2' : ''}`}>
         {drillCnu && (
           <span className="text-xs font-medium text-canard-600 bg-canard-50 px-3 py-1 rounded-full border border-canard-100 shadow-sm flex items-center gap-1.5 transition-all">
             <span>📍</span>
-            <span className="truncate max-w-[250px]">
+            <span className="truncate max-w-[180px] sm:max-w-[250px]">
               {drillCnu}
             </span>
           </span>

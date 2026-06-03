@@ -795,7 +795,7 @@ export default function Forums({ specialCategory = null }) {
                   <img
                     src={resolvePostAssetUrl(selectedPost.imageUrl)}
                     alt="Visuel du post"
-                    className="mt-4 rounded-xl w-full max-h-[420px] object-cover border border-gray-200"
+                    className="mt-4 rounded-xl w-full max-h-64 md:max-h-[420px] object-cover border border-gray-200"
                   />
                 )}
                 {selectedPost.pdfUrl && (
@@ -1080,7 +1080,7 @@ export default function Forums({ specialCategory = null }) {
             </div>
 
             {/* Posts List with Custom Scrollbar */}
-            <div className="custom-scrollbar max-h-[600px] overflow-y-auto">
+            <div className="custom-scrollbar max-h-80 md:max-h-[600px] overflow-y-auto">
               {isLoading ? (
                 <div className="text-center py-8">Chargement...</div>
               ) : listPosts.length === 0 ? (
@@ -1171,7 +1171,7 @@ export default function Forums({ specialCategory = null }) {
       {/* Create Post Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-[1200] bg-black/50 overflow-y-auto px-4 pt-24 pb-6">
-          <div className="relative mx-auto w-full max-w-[500px] rounded-lg bg-white/95 p-5 text-gray-700 shadow-lg max-h-[calc(100vh-7rem)] overflow-y-auto">
+          <div className="relative mx-auto w-full max-w-full sm:max-w-[500px] rounded-lg bg-white/95 p-5 text-gray-700 shadow-lg max-h-[calc(100vh-7rem)] overflow-y-auto">
             <span
               className="absolute top-2 right-2 text-2xl cursor-pointer hover:text-gray-600"
               onClick={closeCreateModal}
