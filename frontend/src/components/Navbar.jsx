@@ -168,7 +168,7 @@ export default function Navbar() {
         {/* Logo */}
         <div className="flex-shrink-0 h-full flex items-center">
           <Link to="/">
-            <img src="/images/logo.png" alt="logo" className="h-20 w-auto max-w-none origin-left object-contain" />
+            <img src={`${import.meta.env.BASE_URL}images/logo.png`} alt="logo" className="h-24 w-auto max-w-none origin-left object-contain" />
           </Link>
         </div>
 
