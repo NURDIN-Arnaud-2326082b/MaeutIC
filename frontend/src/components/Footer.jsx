@@ -5,12 +5,20 @@ export default function Footer() {
     <footer className="z-20 m-0 bg-white/90 backdrop-blur border-t-4 border-mandarine-500 shadow-[0_-12px_35px_rgba(1,109,118,0.06)]">
       <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4 py-6">
         {/* Navigation à gauche */}
-        <nav className="flex flex-col sm:flex-row w-full sm:w-auto gap-4 sm:gap-14 text-slate-700">
+        <nav className="flex flex-col sm:flex-row w-full sm:w-auto gap-4 sm:gap-10 text-slate-700">
           <div className="flex flex-col">
             <h2 className="font-semibold mb-1 text-slate-900">Navigation</h2>
-            <a href="/" className="text-slate-700 hover:text-canard-700">Accueil</a>
-            <a href="/forums/General" className="text-slate-700 hover:text-canard-700">Forums</a>
-            <a href="/library" className="text-slate-700 hover:text-canard-700">Bibliothèque</a>
+            <a href="/chill" className="text-slate-700 hover:text-canard-700">Détente</a>
+            <a href="/administrative" className="text-slate-700 hover:text-canard-700">Administratif</a>
+            <a href="/chat" className="text-slate-700 hover:text-canard-700">Discussions</a>
+            <a href="/settings" className="text-slate-700 hover:text-canard-700">Paramètres</a>
+          </div>
+          <div className="flex flex-col">
+             <br />
+            <a href="/chill" className="text-slate-700 hover:text-canard-700">Détente</a>
+            <a href="/administrative" className="text-slate-700 hover:text-canard-700">Administratif</a>
+            <a href="/chat" className="text-slate-700 hover:text-canard-700">Discussions</a>
+            <a href="/settings" className="text-slate-700 hover:text-canard-700">Paramètres</a>
           </div>
           <div className="flex flex-col">
             <h2 className="font-semibold mb-1 text-slate-900">Code source</h2>
