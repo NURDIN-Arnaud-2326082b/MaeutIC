@@ -187,14 +187,16 @@ class UserApiController extends AbstractController
 
         $entityManager->flush();
 
-        try {
-            $emailService->sendWelcomeEmail($user);
-        } catch (\Throwable $e) {
-            error_log(sprintf(
-                'Failed to send welcome email for user %d: %s',
-                $user->getId(),
-                $e->getMessage()
-            ));
+        if (isset($_ENV['MAILER_DSN']) && $_ENV['MAILER_DSN'] !== 'null://null') {
+            try {
+                $emailService->sendWelcomeEmail($user);
+            } catch (\Throwable $e) {
+                error_log(sprintf(
+                    'Failed to send welcome email for user %d: %s',
+                    $user->getId(),
+                    $e->getMessage()
+                ));
+            }
         }
 
         return $this->json([
