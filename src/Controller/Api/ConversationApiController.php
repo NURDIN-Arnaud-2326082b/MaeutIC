@@ -84,12 +84,13 @@ final class ConversationApiController extends AbstractController
                 $other = $user1;
             }
 
-            if (!$other) {
-                return null;
+            // Si l'autre participant a été supprimé, on garde la conversation visible
+            // et on laisse serializeConversationUser(null) produire un placeholder.
+            $isBlocked = false;
+            if ($other) {
+                // Vérifier les blocages
+                $isBlocked = $user->isBlocked($other->getId()) || $other->isBlocked($user->getId());
             }
-            
-            // Vérifier les blocages
-            $isBlocked = $user->isBlocked($other->getId()) || $other->isBlocked($user->getId());
 
             // Récupérer le dernier message
             $messages = $conversation->getMessages()->toArray();
@@ -106,8 +107,6 @@ final class ConversationApiController extends AbstractController
                 'isBlocked' => $isBlocked,
             ];
         }, $conversations);
-
-        $data = array_values(array_filter($data));
 
         return new JsonResponse($data);
     }
@@ -140,12 +139,9 @@ final class ConversationApiController extends AbstractController
             $other = $conversation->getUser1();
         }
 
-        if (!$other) {
-            return new JsonResponse(['error' => 'Access denied'], Response::HTTP_FORBIDDEN);
-        }
-        
-        // Vérifier les blocages
-        if ($user->isBlocked($other->getId()) || $other->isBlocked($user->getId())) {
+        // Si l'autre participant a été supprimé, on autorise l'accès à l'historique
+        // et serializeConversationUser(null) renverra un placeholder.
+        if ($other && ($user->isBlocked($other->getId()) || $other->isBlocked($user->getId()))) {
             return new JsonResponse(['error' => 'Conversation blocked'], Response::HTTP_FORBIDDEN);
         }
 
