@@ -63,7 +63,7 @@ class EmailService
             ->context([
                 'user' => $recipient,
                 'baseUrl' => $baseUrl,
-                'accountUrl' => $profileUrl,
+                'accountUrl' => $baseUrl,
                 'profileUrl' => $profileUrl,
                 'mapsUrl' => $baseUrl . '/maps',
                 'libraryUrl' => $baseUrl . '/library',
