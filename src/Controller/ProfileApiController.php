@@ -144,7 +144,11 @@ class ProfileApiController extends AbstractController
         if (!$dataStr) {
             return $this->json(['error' => 'Aucune donnée reçue'], 400);
         }
+
         $data = json_decode($dataStr, true);
+        if (!is_array($data)) {
+            return $this->json(['error' => 'JSON invalide'], 400);
+        }
 
         if (isset($data['targetUserId'])) {
             if ($currentUser->getUserType() !== 1) {
