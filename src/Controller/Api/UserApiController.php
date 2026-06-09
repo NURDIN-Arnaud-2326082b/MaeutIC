@@ -9,6 +9,7 @@ use App\Repository\DataAccessRequestRepository;
 use App\Repository\UserRepository;
 use App\Repository\TagRepository;
 use App\Service\DataExportService;
+use App\Service\EmailService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -74,7 +75,8 @@ class UserApiController extends AbstractController
         EntityManagerInterface $entityManager,
         TagRepository $tagRepository,
         SluggerInterface $slugger,
-        UserRepository $userRepository
+        UserRepository $userRepository,
+        EmailService $emailService
     ): JsonResponse {
         $data = $request->request->all();
 
@@ -184,6 +186,16 @@ class UserApiController extends AbstractController
         }
 
         $entityManager->flush();
+
+        try {
+            $emailService->sendWelcomeEmail($user);
+        } catch (\Throwable $e) {
+            error_log(sprintf(
+                'Failed to send welcome email for user %d: %s',
+                $user->getId(),
+                $e->getMessage()
+            ));
+        }
 
         return $this->json([
             'message' => 'Inscription réussie',
