@@ -53,6 +53,8 @@ class EmailService
      */
     public function sendWelcomeEmail(User $recipient): void
     {
+        $baseUrl = rtrim($this->frontendUrl, '/');
+        $profileUrl = sprintf('%s/profile/%s', $baseUrl, urlencode($recipient->getUsername()));
         $email = (new TemplatedEmail())
             ->from($this->mailerFrom)
             ->to($recipient->getEmail())
@@ -60,6 +62,11 @@ class EmailService
             ->htmlTemplate('email/welcome.html.twig')
             ->context([
                 'user' => $recipient,
+                'baseUrl' => $baseUrl,
+                'accountUrl' => $profileUrl,
+                'profileUrl' => $profileUrl,
+                'mapsUrl' => $baseUrl . '/maps',
+                'libraryUrl' => $baseUrl . '/library',
             ]);
 
         $this->mailer->send($email);
