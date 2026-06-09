@@ -25,8 +25,16 @@ final class ConversationApiController extends AbstractController
     private const DELETED_DISPLAY_NAME = 'utilisateur supprimé';
     private const DEFAULT_PROFILE_IMAGE = '/images/default-profile.png';
 
-    private function serializeConversationUser(User $user): array
+    private function serializeConversationUser(?User $user): array
     {
+        if (!$user) {
+            return [
+                'id' => null,
+                'username' => self::DELETED_DISPLAY_NAME,
+                'profileImage' => self::DEFAULT_PROFILE_IMAGE,
+            ];
+        }
+
         if ($user->isBanned()) {
             return [
                 'id' => $user->getId(),
@@ -65,7 +73,20 @@ final class ConversationApiController extends AbstractController
             ->getResult();
 
         $data = array_map(function (Conversation $conversation) use ($user) {
-            $other = ($conversation->getUser1() === $user) ? $conversation->getUser2() : $conversation->getUser1();
+            $userId = $user->getId();
+            $user1 = $conversation->getUser1();
+            $user2 = $conversation->getUser2();
+
+            $other = null;
+            if ($user1 && $user1->getId() === $userId) {
+                $other = $user2;
+            } elseif ($user2 && $user2->getId() === $userId) {
+                $other = $user1;
+            }
+
+            if (!$other) {
+                return null;
+            }
             
             // Vérifier les blocages
             $isBlocked = $user->isBlocked($other->getId()) || $other->isBlocked($user->getId());
@@ -85,6 +106,8 @@ final class ConversationApiController extends AbstractController
                 'isBlocked' => $isBlocked,
             ];
         }, $conversations);
+
+        $data = array_values(array_filter($data));
 
         return new JsonResponse($data);
     }
@@ -110,7 +133,16 @@ final class ConversationApiController extends AbstractController
             return new JsonResponse(['error' => 'Access denied'], Response::HTTP_FORBIDDEN);
         }
 
-        $other = ($conversation->getUser1() === $user) ? $conversation->getUser2() : $conversation->getUser1();
+        $other = null;
+        if ($conversation->getUser1() && $conversation->getUser1()->getId() === $user->getId()) {
+            $other = $conversation->getUser2();
+        } elseif ($conversation->getUser2() && $conversation->getUser2()->getId() === $user->getId()) {
+            $other = $conversation->getUser1();
+        }
+
+        if (!$other) {
+            return new JsonResponse(['error' => 'Access denied'], Response::HTTP_FORBIDDEN);
+        }
         
         // Vérifier les blocages
         if ($user->isBlocked($other->getId()) || $other->isBlocked($user->getId())) {
