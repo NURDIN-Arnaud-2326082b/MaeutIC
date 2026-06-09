@@ -197,7 +197,7 @@ export default function Navbar() {
                 )}
 
                 {isNotifOpen && (
-                  <div className="absolute right-0 mt-2 w-full sm:w-96 bg-white/95 backdrop-blur rounded-2xl shadow-2xl z-[10000] border border-canard-100 overflow-hidden">
+                  <div className="absolute right-0 top-full mt-2 left-auto w-64 sm:w-96 max-w-[calc(100vw-1rem)] bg-white/95 backdrop-blur rounded-2xl shadow-2xl z-[10000] border border-canard-100 overflow-hidden">
                     <div className="p-3 border-b border-canard-100">
                       <h3 className="font-semibold text-slate-800">Notifications</h3>
                     </div>
@@ -302,7 +302,7 @@ export default function Navbar() {
                   />
                 </button>
                 {isProfileOpen && (
-                  <div className="absolute top-full mt-2 w-full sm:w-48 bg-white/95 backdrop-blur rounded-2xl shadow-2xl z-[10000] border border-canard-100 overflow-hidden">
+                  <div className="absolute right-0 top-full mt-2 left-auto w-48 max-w-[calc(100vw-1rem)] bg-white/95 backdrop-blur rounded-2xl shadow-2xl z-[10000] border border-canard-100 overflow-hidden">
                     <Link
                       to={`/profile/${user?.username}`}
                       className="block px-4 py-2 text-slate-800 hover:bg-canard-50"
