@@ -47,4 +47,28 @@ class EmailService
 
         $this->mailer->send($email);
     }
+
+    /**
+     * Send a welcome email after account creation.
+     */
+    public function sendWelcomeEmail(User $recipient): void
+    {
+        $baseUrl = rtrim($this->frontendUrl, '/');
+        $profileUrl = sprintf('%s/profile/%s', $baseUrl, urlencode($recipient->getUsername()));
+        $email = (new TemplatedEmail())
+            ->from($this->mailerFrom)
+            ->to($recipient->getEmail())
+            ->subject('Bienvenue sur MaieutIC')
+            ->htmlTemplate('email/welcome.html.twig')
+            ->context([
+                'user' => $recipient,
+                'baseUrl' => $baseUrl,
+                'accountUrl' => $baseUrl,
+                'profileUrl' => $profileUrl,
+                'mapsUrl' => $baseUrl . '/maps',
+                'libraryUrl' => $baseUrl . '/library',
+            ]);
+
+        $this->mailer->send($email);
+    }
 }

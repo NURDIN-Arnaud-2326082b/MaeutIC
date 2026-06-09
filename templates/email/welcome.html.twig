@@ -22,7 +22,7 @@
     </ul>
     
     <p style="text-align: center; margin: 30px 0;">
-        <a href="{{ url('app_home') }}" class="button">Accéder à mon compte</a>
+        <a href="{{ accountUrl }}" class="button">Accéder à mon compte</a>
     </p>
     
     <hr class="divider">
@@ -40,10 +40,10 @@
 
 {% block footer_extra %}
     <p style="margin-top: 15px;">
-        <a href="{{ url('app_profile', {username: user.username}) }}" style="color: #1e40af; text-decoration: none;">Voir mon profil</a>
+        <a href="{{ profileUrl }}" style="color: #1e40af; text-decoration: none;">Voir mon profil</a>
         •
-        <a href="{{ url('app_maps') }}" style="color: #1e40af; text-decoration: none;">Explorer la carte</a>
+        <a href="{{ mapsUrl }}" style="color: #1e40af; text-decoration: none;">Explorer la carte</a>
         •
-        <a href="{{ url('app_library') }}" style="color: #1e40af; text-decoration: none;">Bibliothèque</a>
+        <a href="{{ libraryUrl }}" style="color: #1e40af; text-decoration: none;">Bibliothèque</a>
     </p>
 {% endblock %}
