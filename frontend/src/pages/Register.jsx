@@ -11,12 +11,14 @@ const TAGGABLE_QUESTIONS = [
 // Index 0 est obligatoire (2 tags min), Index 1 est devenu optionnel (0 tag min)
 const MIN_TAGS_REQUIRED = [2, 0]
 
-// Les 3 questions extraites qui deviennent obligatoires
+// Les 2 premières questions extraites restent obligatoires, la citation est optionnelle
 const MANDATORY_QUESTIONS = [
   'Quelles sont les méthodologies de recherche que vous utilisez dans votre domaine d\'étude ?',
   'Si vous deviez choisir 4 auteurs qui vous ont marquée, quels seraient-ils?',
   'Quelle est la phrase ou la citation qui vous représente le mieux ?'
 ]
+
+const REQUIRED_MANDATORY_QUESTIONS = 2
 
 // Les questions restantes, qui restent optionnelles
 const DYNAMIC_QUESTIONS = [
@@ -101,9 +103,11 @@ export default function Register() {
     }
 
     // Validation des questions obligatoires
-    const missingMandatory = formData.mandatoryQuestions.some(q => q.trim() === '')
+    const missingMandatory = formData.mandatoryQuestions
+      .slice(0, REQUIRED_MANDATORY_QUESTIONS)
+      .some(q => q.trim() === '')
     if (missingMandatory) {
-      setErrors({ mandatory: 'Veuillez répondre à toutes les questions obligatoires sur votre profil.' })
+      setErrors({ mandatory: 'Veuillez répondre aux questions obligatoires sur votre profil.' })
       return
     }
 
@@ -426,14 +430,17 @@ export default function Register() {
                     </div>
                 )}
 
-                {/* Les 3 questions extraites */}
+                {/* Les questions principales du profil */}
                 {MANDATORY_QUESTIONS.map((question, index) => (
                     <div key={`mandatory-${index}`} className="mt-5 group">
                       <label className="block text-sm font-semibold text-gray-700 mb-1">
-                        {question} <span className="text-red-500">*</span>
+                        {question}{' '}
+                        {index < REQUIRED_MANDATORY_QUESTIONS && (
+                          <span className="text-red-500">*</span>
+                        )}
                       </label>
                       <textarea
-                          required
+                          required={index < REQUIRED_MANDATORY_QUESTIONS}
                           value={formData.mandatoryQuestions[index]}
                           onChange={(e) => {
                             const newQuestions = [...formData.mandatoryQuestions]

@@ -25,8 +25,16 @@ final class ConversationApiController extends AbstractController
     private const DELETED_DISPLAY_NAME = 'utilisateur supprimé';
     private const DEFAULT_PROFILE_IMAGE = '/images/default-profile.png';
 
-    private function serializeConversationUser(User $user): array
+    private function serializeConversationUser(?User $user): array
     {
+        if (!$user) {
+            return [
+                'id' => null,
+                'username' => self::DELETED_DISPLAY_NAME,
+                'profileImage' => self::DEFAULT_PROFILE_IMAGE,
+            ];
+        }
+
         if ($user->isBanned()) {
             return [
                 'id' => $user->getId(),
@@ -65,10 +73,24 @@ final class ConversationApiController extends AbstractController
             ->getResult();
 
         $data = array_map(function (Conversation $conversation) use ($user) {
-            $other = ($conversation->getUser1() === $user) ? $conversation->getUser2() : $conversation->getUser1();
-            
-            // Vérifier les blocages
-            $isBlocked = $user->isBlocked($other->getId()) || $other->isBlocked($user->getId());
+            $userId = $user->getId();
+            $user1 = $conversation->getUser1();
+            $user2 = $conversation->getUser2();
+
+            $other = null;
+            if ($user1 && $user1->getId() === $userId) {
+                $other = $user2;
+            } elseif ($user2 && $user2->getId() === $userId) {
+                $other = $user1;
+            }
+
+            // Si l'autre participant a été supprimé, on garde la conversation visible
+            // et on laisse serializeConversationUser(null) produire un placeholder.
+            $isBlocked = false;
+            if ($other) {
+                // Vérifier les blocages
+                $isBlocked = $user->isBlocked($other->getId()) || $other->isBlocked($user->getId());
+            }
 
             // Récupérer le dernier message
             $messages = $conversation->getMessages()->toArray();
@@ -110,10 +132,16 @@ final class ConversationApiController extends AbstractController
             return new JsonResponse(['error' => 'Access denied'], Response::HTTP_FORBIDDEN);
         }
 
-        $other = ($conversation->getUser1() === $user) ? $conversation->getUser2() : $conversation->getUser1();
-        
-        // Vérifier les blocages
-        if ($user->isBlocked($other->getId()) || $other->isBlocked($user->getId())) {
+        $other = null;
+        if ($conversation->getUser1() && $conversation->getUser1()->getId() === $user->getId()) {
+            $other = $conversation->getUser2();
+        } elseif ($conversation->getUser2() && $conversation->getUser2()->getId() === $user->getId()) {
+            $other = $conversation->getUser1();
+        }
+
+        // Si l'autre participant a été supprimé, on autorise l'accès à l'historique
+        // et serializeConversationUser(null) renverra un placeholder.
+        if ($other && ($user->isBlocked($other->getId()) || $other->isBlocked($user->getId()))) {
             return new JsonResponse(['error' => 'Conversation blocked'], Response::HTTP_FORBIDDEN);
         }
 
