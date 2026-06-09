@@ -22,6 +22,224 @@ import ReportModal from '../components/ReportModal';
 const BACKEND_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8000';
 const ENABLE_ISBN_SCANNER = false;
 
+const COUNTRY_OPTIONS = [
+    {code: 'af', label: 'Afghanistan'},
+    {code: 'za', label: 'Afrique du Sud'},
+    {code: 'al', label: 'Albanie'},
+    {code: 'dz', label: 'Algérie'},
+    {code: 'de', label: 'Allemagne'},
+    {code: 'ad', label: 'Andorre'},
+    {code: 'ao', label: 'Angola'},
+    {code: 'sa', label: 'Arabie Saoudite'},
+    {code: 'ar', label: 'Argentine'},
+    {code: 'am', label: 'Arménie'},
+    {code: 'au', label: 'Australie'},
+    {code: 'at', label: 'Autriche'},
+    {code: 'az', label: 'Azerbaïdjan'},
+    {code: 'bs', label: 'Bahamas'},
+    {code: 'bh', label: 'Bahreïn'},
+    {code: 'bd', label: 'Bangladesh'},
+    {code: 'bb', label: 'Barbade'},
+    {code: 'be', label: 'Belgique'},
+    {code: 'bj', label: 'Bénin'},
+    {code: 'bt', label: 'Bhoutan'},
+    {code: 'by', label: 'Biélorussie'},
+    {code: 'mm', label: 'Birmanie'},
+    {code: 'bo', label: 'Bolivie'},
+    {code: 'ba', label: 'Bosnie-Herzégovine'},
+    {code: 'bw', label: 'Botswana'},
+    {code: 'br', label: 'Brésil'},
+    {code: 'bn', label: 'Brunei'},
+    {code: 'bg', label: 'Bulgarie'},
+    {code: 'bf', label: 'Burkina Faso'},
+    {code: 'bi', label: 'Burundi'},
+    {code: 'kh', label: 'Cambodge'},
+    {code: 'cm', label: 'Cameroun'},
+    {code: 'ca', label: 'Canada'},
+    {code: 'cv', label: 'Cap-Vert'},
+    {code: 'cl', label: 'Chili'},
+    {code: 'cn', label: 'Chine'},
+    {code: 'cy', label: 'Chypre'},
+    {code: 'co', label: 'Colombie'},
+    {code: 'km', label: 'Comores'},
+    {code: 'cg', label: 'Congo (Brazzaville)'},
+    {code: 'cd', label: 'Congo (Kinshasa)'},
+    {code: 'kp', label: 'Corée du Nord'},
+    {code: 'kr', label: 'Corée du Sud'},
+    {code: 'cr', label: 'Costa Rica'},
+    {code: 'ci', label: 'Côte d\'Ivoire'},
+    {code: 'hr', label: 'Croatie'},
+    {code: 'cu', label: 'Cuba'},
+    {code: 'dk', label: 'Danemark'},
+    {code: 'dj', label: 'Djibouti'},
+    {code: 'dm', label: 'Dominique'},
+    {code: 'eg', label: 'Égypte'},
+    {code: 'ae', label: 'Émirats arabes unis'},
+    {code: 'ec', label: 'Équateur'},
+    {code: 'er', label: 'Érythrée'},
+    {code: 'es', label: 'Espagne'},
+    {code: 'ee', label: 'Estonie'},
+    {code: 'sz', label: 'Eswatini'},
+    {code: 'us', label: 'États-Unis'},
+    {code: 'et', label: 'Éthiopie'},
+    {code: 'fj', label: 'Fidji'},
+    {code: 'fi', label: 'Finlande'},
+    {code: 'fr', label: 'France'},
+    {code: 'ga', label: 'Gabon'},
+    {code: 'gm', label: 'Gambie'},
+    {code: 'ge', label: 'Géorgie'},
+    {code: 'gh', label: 'Ghana'},
+    {code: 'gr', label: 'Grèce'},
+    {code: 'gd', label: 'Grenade'},
+    {code: 'gt', label: 'Guatemala'},
+    {code: 'gn', label: 'Guinée'},
+    {code: 'gw', label: 'Guinée-Bissau'},
+    {code: 'gq', label: 'Guinée équatoriale'},
+    {code: 'gy', label: 'Guyana'},
+    {code: 'ht', label: 'Haïti'},
+    {code: 'hn', label: 'Honduras'},
+    {code: 'hu', label: 'Hongrie'},
+    {code: 'in', label: 'Inde'},
+    {code: 'id', label: 'Indonésie'},
+    {code: 'iq', label: 'Irak'},
+    {code: 'ir', label: 'Iran'},
+    {code: 'ie', label: 'Irlande'},
+    {code: 'is', label: 'Islande'},
+    {code: 'il', label: 'Israël'},
+    {code: 'it', label: 'Italie'},
+    {code: 'jm', label: 'Jamaïque'},
+    {code: 'jp', label: 'Japon'},
+    {code: 'jo', label: 'Jordanie'},
+    {code: 'kz', label: 'Kazakhstan'},
+    {code: 'ke', label: 'Kenya'},
+    {code: 'kg', label: 'Kirghizistan'},
+    {code: 'ki', label: 'Kiribati'},
+    {code: 'kw', label: 'Koweït'},
+    {code: 'la', label: 'Laos'},
+    {code: 'ls', label: 'Lesotho'},
+    {code: 'lv', label: 'Lettonie'},
+    {code: 'lb', label: 'Liban'},
+    {code: 'lr', label: 'Libéria'},
+    {code: 'ly', label: 'Libye'},
+    {code: 'li', label: 'Liechtenstein'},
+    {code: 'lt', label: 'Lituanie'},
+    {code: 'lu', label: 'Luxembourg'},
+    {code: 'mk', label: 'Macédoine du Nord'},
+    {code: 'mg', label: 'Madagascar'},
+    {code: 'my', label: 'Malaisie'},
+    {code: 'mw', label: 'Malawi'},
+    {code: 'mv', label: 'Maldives'},
+    {code: 'ml', label: 'Mali'},
+    {code: 'mt', label: 'Malte'},
+    {code: 'ma', label: 'Maroc'},
+    {code: 'mh', label: 'Marshall'},
+    {code: 'mu', label: 'Maurice'},
+    {code: 'mr', label: 'Mauritanie'},
+    {code: 'mx', label: 'Mexique'},
+    {code: 'fm', label: 'Micronésie'},
+    {code: 'md', label: 'Moldavie'},
+    {code: 'mc', label: 'Monaco'},
+    {code: 'mn', label: 'Mongolie'},
+    {code: 'me', label: 'Monténégro'},
+    {code: 'mz', label: 'Mozambique'},
+    {code: 'na', label: 'Namibie'},
+    {code: 'nr', label: 'Nauru'},
+    {code: 'np', label: 'Népal'},
+    {code: 'ni', label: 'Nicaragua'},
+    {code: 'ne', label: 'Niger'},
+    {code: 'ng', label: 'Nigéria'},
+    {code: 'no', label: 'Norvège'},
+    {code: 'nz', label: 'Nouvelle-Zélande'},
+    {code: 'om', label: 'Oman'},
+    {code: 'ug', label: 'Ouganda'},
+    {code: 'uz', label: 'Ouzbékistan'},
+    {code: 'pk', label: 'Pakistan'},
+    {code: 'pw', label: 'Palaos'},
+    {code: 'ps', label: 'Palestine'},
+    {code: 'pa', label: 'Panama'},
+    {code: 'pg', label: 'Papouasie-Nouvelle-Guinée'},
+    {code: 'py', label: 'Paraguay'},
+    {code: 'nl', label: 'Pays-Bas'},
+    {code: 'pe', label: 'Pérou'},
+    {code: 'ph', label: 'Philippines'},
+    {code: 'pl', label: 'Pologne'},
+    {code: 'pt', label: 'Portugal'},
+    {code: 'qa', label: 'Qatar'},
+    {code: 'ro', label: 'Roumanie'},
+    {code: 'gb', label: 'Royaume-Uni'},
+    {code: 'ru', label: 'Russie'},
+    {code: 'rw', label: 'Rwanda'},
+    {code: 'kn', label: 'Saint-Christophe-et-Niévès'},
+    {code: 'sm', label: 'Saint-Marin'},
+    {code: 'vc', label: 'Saint-Vincent-et-les-Grenadines'},
+    {code: 'lc', label: 'Sainte-Lucie'},
+    {code: 'sb', label: 'Salomon'},
+    {code: 'sv', label: 'Salvador'},
+    {code: 'ws', label: 'Samoa'},
+    {code: 'st', label: 'Sao Tomé-et-Principe'},
+    {code: 'sn', label: 'Sénégal'},
+    {code: 'rs', label: 'Serbie'},
+    {code: 'sc', label: 'Seychelles'},
+    {code: 'sl', label: 'Sierra Leone'},
+    {code: 'sg', label: 'Singapour'},
+    {code: 'sk', label: 'Slovaquie'},
+    {code: 'si', label: 'Slovénie'},
+    {code: 'so', label: 'Somalie'},
+    {code: 'sd', label: 'Soudan'},
+    {code: 'ss', label: 'Soudan du Sud'},
+    {code: 'lk', label: 'Sri Lanka'},
+    {code: 'se', label: 'Suède'},
+    {code: 'ch', label: 'Suisse'},
+    {code: 'sr', label: 'Suriname'},
+    {code: 'sy', label: 'Syrie'},
+    {code: 'tj', label: 'Tadjikistan'},
+    {code: 'tz', label: 'Tanzanie'},
+    {code: 'td', label: 'Tchad'},
+    {code: 'cz', label: 'Tchéquie'},
+    {code: 'th', label: 'Thaïlande'},
+    {code: 'tl', label: 'Timor oriental'},
+    {code: 'tg', label: 'Togo'},
+    {code: 'to', label: 'Tonga'},
+    {code: 'tt', label: 'Trinité-et-Tobago'},
+    {code: 'tn', label: 'Tunisie'},
+    {code: 'tm', label: 'Turkménistan'},
+    {code: 'tr', label: 'Turquie'},
+    {code: 'tv', label: 'Tuvalu'},
+    {code: 'ua', label: 'Ukraine'},
+    {code: 'uy', label: 'Uruguay'},
+    {code: 'vu', label: 'Vanuatu'},
+    {code: 'va', label: 'Vatican'},
+    {code: 've', label: 'Venezuela'},
+    {code: 'vn', label: 'Viêt Nam'},
+    {code: 'ye', label: 'Yémen'},
+    {code: 'zm', label: 'Zambie'},
+    {code: 'zw', label: 'Zimbabwe'},
+];
+
+const normalizeText = (value) => String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+const getNationalityCode = (value) => {
+    if (!value) return '';
+
+    const normalizedValue = String(value).trim().toLowerCase();
+    if (/^[a-z]{2}$/.test(normalizedValue)) {
+        return normalizedValue;
+    }
+
+    const match = COUNTRY_OPTIONS.find((country) => normalizeText(country.label) === normalizeText(value));
+    return match?.code || normalizedValue;
+};
+
+const getNationalityLabel = (value) => {
+    const code = getNationalityCode(value);
+    const match = COUNTRY_OPTIONS.find((country) => country.code === code);
+    return match?.label || value || '';
+};
+
 const Library = () => {
     const {user} = useAuthStore();
     const queryClient = useQueryClient();
@@ -416,14 +634,9 @@ const Library = () => {
         return /^https?:\/\//i.test(article?.link || '');
     };
 
-    const removeAccents = (str) => {
-        if (!str) return "";
-        return String(str).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    };
-
     const getFirstLetter = (str) => {
         if (!str) return '#';
-        const cleanStr = removeAccents(String(str).trim());
+        const cleanStr = normalizeText(str);
         const firstChar = cleanStr.charAt(0).toUpperCase();
         return /[A-Z]/.test(firstChar) ? firstChar : '#';
     };
@@ -460,19 +673,23 @@ const Library = () => {
 
     const filterBySearch = (items, fields) => {
         if (!searchQuery.trim()) return items;
-        const q = removeAccents(searchQuery.toLowerCase());
+        const q = normalizeText(searchQuery);
 
         return items.filter((item) =>
             fields.some((f) => {
                 if (!item[f]) return false;
 
-                if (Array.isArray(item[f])) {
-                    const combinedNames = item[f].map(val => getAuthorDisplayName(val)).join(' ');
-                    return removeAccents(combinedNames.toLowerCase()).includes(q);
+                if (f === 'nationality') {
+                    return normalizeText(getNationalityLabel(item[f])).includes(q)
+                        || normalizeText(getNationalityCode(item[f])).includes(q);
                 }
 
-                const val = String(item[f]).toLowerCase();
-                return removeAccents(val).includes(q);
+                if (Array.isArray(item[f])) {
+                    const combinedNames = item[f].map(val => getAuthorDisplayName(val)).join(' ');
+                    return normalizeText(combinedNames).includes(q);
+                }
+
+                return normalizeText(item[f]).includes(q);
             })
         );
     };
@@ -644,8 +861,9 @@ const Library = () => {
 
                                                 {author.nationality && (
                                                     <img
-                                                        src={`https://flagicons.lipis.dev/flags/4x3/${author.nationality}.svg`}
-                                                        alt={author.nationality}
+                                                        src={`https://flagicons.lipis.dev/flags/4x3/${getNationalityCode(author.nationality)}.svg`}
+                                                        alt={getNationalityLabel(author.nationality)}
+                                                        title={getNationalityLabel(author.nationality)}
                                                         className="absolute bottom-2 right-2 w-8 h-7 rounded-lg"
                                                     />
                                                 )}
@@ -1032,12 +1250,18 @@ const Library = () => {
                                 </div>
                                 <div>
                                     <label className="block text-gray-700 mb-2">Nationalité</label>
-                                    <input
-                                        type="text"
+                                    <select
                                         name="nationality"
-                                        defaultValue={editingAuthor?.nationality || ''}
-                                        className="w-full px-3 py-2 border rounded"
-                                    />
+                                        defaultValue={editingAuthor?.nationality ? getNationalityCode(editingAuthor.nationality) : ''}
+                                        className="w-full px-3 py-2 border rounded bg-white"
+                                    >
+                                        <option value="">Sélectionnez un pays</option>
+                                        {COUNTRY_OPTIONS.map((country) => (
+                                            <option key={country.code} value={country.code}>
+                                                {country.label}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4 mb-4">
@@ -1472,14 +1696,19 @@ const Library = () => {
                                     Fiche auteur
                                 </span>
                                 <h2 className="mt-3 text-xl font-black leading-tight text-slate-900">
-                                    {getAuthorDisplayName(selectedAuthor)} {selectedAuthor.nationality ? <img
-                                            src={`https://flagicons.lipis.dev/flags/4x3/${selectedAuthor.nationality}.svg`}
-                                            alt={selectedAuthor.nationality}
-                                            className="w-5 h-3.5 rounded mt-1"
-                                        />
-                                        : null
-                                    }
+                                    {getAuthorDisplayName(selectedAuthor)}
                                 </h2>
+                                {selectedAuthor.nationality ? (
+                                    <div className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+                                        <img
+                                            src={`https://flagicons.lipis.dev/flags/4x3/${getNationalityCode(selectedAuthor.nationality)}.svg`}
+                                            alt={getNationalityLabel(selectedAuthor.nationality)}
+                                            title={getNationalityLabel(selectedAuthor.nationality)}
+                                            className="w-5 h-3.5 rounded"
+                                        />
+                                        <span>{getNationalityLabel(selectedAuthor.nationality)}</span>
+                                    </div>
+                                ) : null}
                                 {(selectedAuthor.birthYear || selectedAuthor.deathYear) && (
                                     <p className="text-sm text-slate-400 mt-1">
                                         {selectedAuthor.birthYear || '?'} - {selectedAuthor.deathYear || '...'}
