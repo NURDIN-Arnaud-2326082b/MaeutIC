@@ -155,10 +155,6 @@ export const updateAnyUserProfile = async (targetUserId, formData) => {
         formData.set('data', JSON.stringify(currentData))
     }
 
-    const response = await api.post(`/user/update`, formData, {
-        headers: {
-            'Content-Type': 'multipart/form-data'
-        }
-    })
+    const response = await api.post(`/user/update`, formData)
     return response.data
 }

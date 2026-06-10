@@ -3,9 +3,7 @@ import apiClient from './api'
 // Auth APIs
 export const authApi = {
   login: (credentials) => apiClient.post('/login', credentials),
-  register: (userData) => apiClient.post('/register', userData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  }),
+  register: (userData) => apiClient.post('/register', userData),
   logout: () => apiClient.post('/logout'),
   checkAuth: () => apiClient.get('/me'),
   checkEmail: (email) => apiClient.get('/check-email', { params: { email } }),
@@ -70,9 +68,7 @@ export const userApi = {
   getNetwork: (userId) => apiClient.get(`/network/${userId}`),
   toggleNetwork: (userId) => apiClient.post(`/network/toggle/${userId}`),
   toggleBlock: (userId) => apiClient.post(`/block/toggle/${userId}`),
-  uploadProfileImage: (formData) => apiClient.post('/profile/image', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  }),
+  uploadProfileImage: (formData) => apiClient.post('/profile/image', formData),
 }
 
 // Maps APIs
