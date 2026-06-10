@@ -1727,34 +1727,6 @@ const Library = () => {
                                     <div
                                         className="mt-1 text-xl font-bold text-slate-900">{selectedAuthorBooks.length}</div>
                                 </div>
-
-                                {(selectedAuthor.bioContent || selectedAuthor.bioUrl || selectedAuthor.bioPdfUrl) && (
-                                    <div>
-                                        <div className="uppercase tracking-wider text-xs text-slate-400">Biographie
-                                        </div>
-                                        <div className="mt-1 whitespace-pre-wrap leading-relaxed">
-                                            {selectedAuthor.bioContent || 'Biographie sans texte associé.'}
-                                        </div>
-                                    </div>
-                                )}
-                                {selectedAuthor.bioUrl && (
-                                    <button
-                                        type="button"
-                                        onClick={() => openAuthorBioLink(selectedAuthor)}
-                                        className="mt-2 inline-flex px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold shadow-sm hover:bg-blue-700 transition"
-                                    >
-                                        Ouvrir le lien associé
-                                    </button>
-                                )}
-                                {selectedAuthor.bioPdfUrl && (
-                                    <button
-                                        type="button"
-                                        onClick={() => downloadAuthorBioPdf(selectedAuthor)}
-                                        className="mt-2 ml-2 inline-flex px-4 py-2 rounded-xl bg-amber-500 text-white text-sm font-semibold shadow-sm hover:bg-amber-600 transition"
-                                    >
-                                        Télécharger le PDF associé
-                                    </button>
-                                )}
                             </div>
                         </div>
 
