@@ -4,15 +4,18 @@ namespace App\Service;
 
 use App\Entity\DataAccessRequest;
 use App\Entity\User;
-use Symfony\Bridge\Twig\Mime\TemplatedEmail;
+use DateTimeImmutable;
+use Symfony\Component\Mime\Email;
 use Symfony\Component\Mailer\MailerInterface;
+use Twig\Environment;
 
 class EmailService
 {
     public function __construct(
         private MailerInterface $mailer,
         private string $mailerFrom,
-        private string $frontendUrl
+        private string $frontendUrl,
+        private Environment $twig
     ) {}
 
     /**
@@ -55,20 +58,22 @@ class EmailService
     {
         $baseUrl = rtrim($this->frontendUrl, '/');
         $profileUrl = sprintf('%s/profile/%s', $baseUrl, urlencode($recipient->getUsername()));
-        $email = (new TemplatedEmail())
+        $email = (new Email())
             ->from($this->mailerFrom)
             ->to($recipient->getEmail())
             ->subject('Bienvenue sur MaieutIC')
-            ->htmlTemplate('email/welcome.html.twig')
-            ->context([
+            ->html($this->twig->render('email/welcome.html.twig', [
                 'user' => $recipient,
                 'baseUrl' => $baseUrl,
                 'accountUrl' => $baseUrl,
                 'profileUrl' => $profileUrl,
                 'mapsUrl' => $baseUrl . '/maps',
                 'libraryUrl' => $baseUrl . '/library',
-            ]);
+                'generatedAt' => new DateTimeImmutable(),
+            ]));
 
-        $this->mailer->send($email);
+        if ($_ENV['MAILER_DSN'] !== 'null://null') {
+            $this->mailer->send($email);
+        }
     }
 }

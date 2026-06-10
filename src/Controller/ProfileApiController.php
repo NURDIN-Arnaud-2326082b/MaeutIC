@@ -6,6 +6,7 @@ use App\Entity\User;
 use App\Entity\UserQuestions;
 use App\Repository\TagRepository;
 use App\Repository\UserQuestionsRepository;
+use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\Exception\FileException;
@@ -23,7 +24,7 @@ class ProfileApiController extends AbstractController
     #[Route('/user/edit-data', name: 'api_profile_edit_data', methods: ['GET'])]
     public function getEditData(
         UserQuestionsRepository $userQuestionsRepository,
-        TagRepository $tagRepository
+        TagRepository           $tagRepository
     ): JsonResponse
     {
         /** @var User|null $user */
@@ -126,16 +127,40 @@ class ProfileApiController extends AbstractController
      */
     #[Route('/user/update', name: 'api_profile_update', methods: ['POST'])]
     public function updateProfile(
-        Request $request,
-        EntityManagerInterface $entityManager,
+        Request                 $request,
+        EntityManagerInterface  $entityManager,
         UserQuestionsRepository $userQuestionsRepository,
-        TagRepository $tagRepository
+        TagRepository           $tagRepository,
+        UserRepository          $userRepository
     ): JsonResponse
     {
-        /** @var User|null $user */
-        $user = $this->getUser();
-        if (!$user) {
+        /** @var User|null $currentUser */
+        $currentUser = $this->getUser();
+        if (!$currentUser) {
             return $this->json(['error' => 'Non authentifié'], 401);
+        }
+
+        $dataStr = $request->request->get('data');
+        if (!$dataStr) {
+            return $this->json(['error' => 'Aucune donnée reçue'], 400);
+        }
+
+        $data = json_decode($dataStr, true);
+        if (!is_array($data)) {
+            return $this->json(['error' => 'JSON invalide'], 400);
+        }
+
+        if (isset($data['targetUserId'])) {
+            if ($currentUser->getUserType() !== 1) {
+                return $this->json(['error' => 'Action non autorisée'], 403);
+            }
+            $targetUser = $userRepository->find($data['targetUserId']);
+            if (!$targetUser) {
+                return $this->json(['error' => 'Utilisateur cible non trouvé'], 404);
+            }
+            $user = $targetUser;
+        } else {
+            $user = $currentUser;
         }
 
         // Gérer l'upload de fichier

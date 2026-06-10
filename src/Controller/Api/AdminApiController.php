@@ -2,13 +2,13 @@
 
 namespace App\Controller\Api;
 
-use App\Entity\DataAccessRequest;
+use App\Entity\Article;
 use App\Entity\Comment;
+use App\Entity\DataAccessRequest;
 use App\Entity\Message;
 use App\Entity\Notification;
 use App\Entity\Post;
 use App\Entity\Report;
-use App\Entity\Article;
 use App\Entity\Resource;
 use App\Entity\Tag;
 use App\Entity\User;
@@ -20,16 +20,21 @@ use App\Repository\PostRepository;
 use App\Repository\ReportRepository;
 use App\Repository\ResourceRepository;
 use App\Repository\TagRepository;
-use Doctrine\ORM\EntityManagerInterface;
-use Pusher\Pusher;
-use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Attribute\Route;
+use App\Repository\UserQuestionsRepository;
 use App\Repository\UserRepository;
 use App\Service\DataExportService;
 use App\Service\EmailService;
+use DateTime;
+use DateTimeImmutable;
+use Doctrine\ORM\EntityManagerInterface;
+use Exception;
+use Pusher\Pusher;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Attribute\Route;
+use Throwable;
 
 #[Route('/api/admin')]
 class AdminApiController extends AbstractController
@@ -40,7 +45,7 @@ class AdminApiController extends AbstractController
     #[Route('/tags', name: 'api_admin_tags_list', methods: ['GET'])]
     public function getTags(Request $request, TagRepository $tagRepository): JsonResponse
     {
-        /** @var \App\Entity\User|null $user */
+        /** @var User|null $user */
         $user = $this->getUser();
         if (!$user || $user->getUserType() !== 1) {
             return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
@@ -54,7 +59,7 @@ class AdminApiController extends AbstractController
             $tags = $tagRepository->findByName($search);
         }
 
-        $data = array_map(function($tag) {
+        $data = array_map(function ($tag) {
             return [
                 'id' => $tag->getId(),
                 'name' => $tag->getName(),
@@ -69,11 +74,12 @@ class AdminApiController extends AbstractController
      */
     #[Route('/tags', name: 'api_admin_tags_create', methods: ['POST'])]
     public function createTag(
-        Request $request,
-        TagRepository $tagRepository,
+        Request                $request,
+        TagRepository          $tagRepository,
         EntityManagerInterface $entityManager
-    ): JsonResponse {
-        /** @var \App\Entity\User|null $user */
+    ): JsonResponse
+    {
+        /** @var User|null $user */
         $user = $this->getUser();
         if (!$user || $user->getUserType() !== 1) {
             return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
@@ -113,12 +119,13 @@ class AdminApiController extends AbstractController
      */
     #[Route('/tags/{id}', name: 'api_admin_tags_update', methods: ['PUT', 'PATCH'])]
     public function updateTag(
-        int $id,
-        Request $request,
-        TagRepository $tagRepository,
+        int                    $id,
+        Request                $request,
+        TagRepository          $tagRepository,
         EntityManagerInterface $entityManager
-    ): JsonResponse {
-        /** @var \App\Entity\User|null $user */
+    ): JsonResponse
+    {
+        /** @var User|null $user */
         $user = $this->getUser();
         if (!$user || $user->getUserType() !== 1) {
             return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
@@ -160,11 +167,12 @@ class AdminApiController extends AbstractController
      */
     #[Route('/tags/{id}', name: 'api_admin_tags_delete', methods: ['DELETE'])]
     public function deleteTag(
-        int $id,
-        TagRepository $tagRepository,
+        int                    $id,
+        TagRepository          $tagRepository,
         EntityManagerInterface $entityManager
-    ): JsonResponse {
-        /** @var \App\Entity\User|null $user */
+    ): JsonResponse
+    {
+        /** @var User|null $user */
         $user = $this->getUser();
         if (!$user || $user->getUserType() !== 1) {
             return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
@@ -187,7 +195,7 @@ class AdminApiController extends AbstractController
     #[Route('/banned-users', name: 'api_admin_banned_users_list', methods: ['GET'])]
     public function getBannedUsers(UserRepository $userRepository): JsonResponse
     {
-        /** @var \App\Entity\User|null $user */
+        /** @var User|null $user */
         $user = $this->getUser();
         if (!$user || $user->getUserType() !== 1) {
             return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
@@ -195,7 +203,7 @@ class AdminApiController extends AbstractController
 
         $bannedUsers = $userRepository->findBy(['isBanned' => true]);
 
-        $data = array_map(function($bannedUser) {
+        $data = array_map(function ($bannedUser) {
             return [
                 'id' => $bannedUser->getId(),
                 'username' => $bannedUser->getUsername(),
@@ -205,6 +213,7 @@ class AdminApiController extends AbstractController
                 'profileImage' => $bannedUser->getProfileImage() ? '/profile_images/' . $bannedUser->getProfileImage() : null,
                 'affiliationLocation' => $bannedUser->getAffiliationLocation(),
                 'specialization' => $bannedUser->getSpecialization(),
+                'userType' => $bannedUser->getUserType(),
             ];
         }, $bannedUsers);
 
@@ -217,14 +226,14 @@ class AdminApiController extends AbstractController
     #[Route('/search-users', name: 'api_admin_search_users', methods: ['GET'])]
     public function searchUsers(Request $request, UserRepository $userRepository): JsonResponse
     {
-        /** @var \App\Entity\User|null $user */
+        /** @var User|null $user */
         $user = $this->getUser();
         if (!$user || $user->getUserType() !== 1) {
             return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
         }
 
         $query = trim($request->query->get('q', ''));
-        
+
         if (empty($query)) {
             return $this->json(['users' => []]);
         }
@@ -240,7 +249,7 @@ class AdminApiController extends AbstractController
             ->getQuery()
             ->getResult();
 
-        $data = array_map(function($searchUser) {
+        $data = array_map(function ($searchUser) {
             return [
                 'id' => $searchUser->getId(),
                 'username' => $searchUser->getUsername(),
@@ -250,6 +259,7 @@ class AdminApiController extends AbstractController
                 'profileImage' => $searchUser->getProfileImage() ? '/profile_images/' . $searchUser->getProfileImage() : null,
                 'affiliationLocation' => $searchUser->getAffiliationLocation(),
                 'specialization' => $searchUser->getSpecialization(),
+                'userType' => $searchUser->getUserType(),
             ];
         }, $searchResults);
 
@@ -261,11 +271,12 @@ class AdminApiController extends AbstractController
      */
     #[Route('/users/{id}/ban', name: 'api_admin_ban_user', methods: ['POST'])]
     public function banUser(
-        int $id,
-        UserRepository $userRepository,
+        int                    $id,
+        UserRepository         $userRepository,
         EntityManagerInterface $entityManager
-    ): JsonResponse {
-        /** @var \App\Entity\User|null $user */
+    ): JsonResponse
+    {
+        /** @var User|null $user */
         $user = $this->getUser();
         if (!$user || $user->getUserType() !== 1) {
             return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
@@ -307,11 +318,12 @@ class AdminApiController extends AbstractController
      */
     #[Route('/users/{id}/unban', name: 'api_admin_unban_user', methods: ['POST'])]
     public function unbanUser(
-        int $id,
-        UserRepository $userRepository,
+        int                    $id,
+        UserRepository         $userRepository,
         EntityManagerInterface $entityManager
-    ): JsonResponse {
-        /** @var \App\Entity\User|null $user */
+    ): JsonResponse
+    {
+        /** @var User|null $user */
         $user = $this->getUser();
         if (!$user || $user->getUserType() !== 1) {
             return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
@@ -343,22 +355,23 @@ class AdminApiController extends AbstractController
      */
     #[Route('/reports', name: 'api_admin_reports_list', methods: ['GET'])]
     public function getReports(
-        Request $request,
-        ReportRepository $reportRepository,
-        PostRepository $postRepository,
-        CommentRepository $commentRepository,
-        UserRepository $userRepository,
-        MessageRepository $messageRepository,
-        ArticleRepository $articleRepository,
+        Request            $request,
+        ReportRepository   $reportRepository,
+        PostRepository     $postRepository,
+        CommentRepository  $commentRepository,
+        UserRepository     $userRepository,
+        MessageRepository  $messageRepository,
+        ArticleRepository  $articleRepository,
         ResourceRepository $resourceRepository
-    ): JsonResponse {
+    ): JsonResponse
+    {
         /** @var User|null $user */
         $user = $this->getUser();
         if (!$user || $user->getUserType() !== 1) {
             return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
         }
 
-        $status = trim((string) $request->query->get('status', ''));
+        $status = trim((string)$request->query->get('status', ''));
         $criteria = [];
         if ($status !== '') {
             $criteria['status'] = $status;
@@ -398,6 +411,110 @@ class AdminApiController extends AbstractController
         }, $reports);
 
         return $this->json(['reports' => $data]);
+    }
+
+    private function getTargetSummary(
+        Report             $report,
+        PostRepository     $postRepository,
+        CommentRepository  $commentRepository,
+        UserRepository     $userRepository,
+        MessageRepository  $messageRepository,
+        ArticleRepository  $articleRepository,
+        ResourceRepository $resourceRepository
+    ): array
+    {
+        $type = $report->getTargetType();
+        $targetId = (int)$report->getTargetId();
+
+        if ($type === Report::TARGET_POST) {
+            $post = $postRepository->find($targetId);
+            if (!$post instanceof Post) {
+                return ['exists' => false, 'label' => 'Post supprimé'];
+            }
+
+            $forum = $post->getForum();
+
+            return [
+                'exists' => true,
+                'label' => $post->getName(),
+                'postId' => $post->getId(),
+                'forumCategory' => $forum?->getTitle(),
+                'forumSpecial' => $forum?->getSpecial(),
+                'author' => $post->getUser()?->getUsername(),
+            ];
+        }
+
+        if ($type === Report::TARGET_COMMENT) {
+            $comment = $commentRepository->find($targetId);
+            if (!$comment instanceof Comment) {
+                return ['exists' => false, 'label' => 'Commentaire supprimé'];
+            }
+
+            return [
+                'exists' => true,
+                'label' => mb_substr((string)$comment->getBody(), 0, 120),
+                'author' => $comment->getUser()?->getUsername(),
+            ];
+        }
+
+        if ($type === Report::TARGET_PROFILE) {
+            $targetUser = $userRepository->find($targetId);
+            if (!$targetUser instanceof User) {
+                return ['exists' => false, 'label' => 'Profil supprimé'];
+            }
+
+            return [
+                'exists' => true,
+                'label' => $targetUser->getUsername(),
+                'author' => $targetUser->getUsername(),
+            ];
+        }
+
+        if ($type === Report::TARGET_MESSAGE) {
+            $message = $messageRepository->find($targetId);
+            if (!$message instanceof Message) {
+                return ['exists' => false, 'label' => 'Message supprimé'];
+            }
+
+            $messageContent = trim((string)$message->getContent());
+            if ($messageContent === '') {
+                $messageContent = '[message vide]';
+            }
+
+            return [
+                'exists' => true,
+                'label' => $messageContent,
+                'author' => $message->getSender()?->getUsername(),
+            ];
+        }
+
+        if ($type === Report::TARGET_ARTICLE) {
+            $article = $articleRepository->find($targetId);
+            if (!$article instanceof Article) {
+                return ['exists' => false, 'label' => 'Article supprimé'];
+            }
+
+            return [
+                'exists' => true,
+                'label' => $article->getTitle(),
+                'author' => $article->getUser()?->getUsername(),
+            ];
+        }
+
+        if ($type === Report::TARGET_RESOURCE) {
+            $resource = $resourceRepository->find($targetId);
+            if (!$resource instanceof Resource) {
+                return ['exists' => false, 'label' => 'Ressource supprimée'];
+            }
+
+            return [
+                'exists' => true,
+                'label' => $resource->getTitle(),
+                'author' => $resource->getUser()?->getUsername(),
+            ];
+        }
+
+        return ['exists' => false, 'label' => 'Cible inconnue'];
     }
 
     /**
@@ -448,16 +565,17 @@ class AdminApiController extends AbstractController
      */
     #[Route('/data-access-requests', name: 'api_admin_data_access_requests_list', methods: ['GET'])]
     public function getDataAccessRequests(
-        Request $request,
+        Request                     $request,
         DataAccessRequestRepository $dataAccessRequestRepository
-    ): JsonResponse {
+    ): JsonResponse
+    {
         /** @var User|null $user */
         $user = $this->getUser();
         if (!$user || $user->getUserType() !== 1) {
             return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
         }
 
-        $status = trim((string) $request->query->get('status', ''));
+        $status = trim((string)$request->query->get('status', ''));
         $criteria = [];
         if ($status !== '') {
             $criteria['status'] = $status;
@@ -494,12 +612,13 @@ class AdminApiController extends AbstractController
      */
     #[Route('/data-access-requests/{id}', name: 'api_admin_data_access_requests_process', methods: ['PATCH'])]
     public function processDataAccessRequest(
-        int $id,
-        Request $request,
+        int                         $id,
+        Request                     $request,
         DataAccessRequestRepository $dataAccessRequestRepository,
-        EntityManagerInterface $entityManager,
-        EmailService $emailService
-    ): JsonResponse {
+        EntityManagerInterface      $entityManager,
+        EmailService                $emailService
+    ): JsonResponse
+    {
         /** @var User|null $user */
         $user = $this->getUser();
         if (!$user || $user->getUserType() !== 1) {
@@ -515,8 +634,8 @@ class AdminApiController extends AbstractController
         if (!is_array($data)) {
             return $this->json(['error' => 'JSON invalide'], Response::HTTP_BAD_REQUEST);
         }
-        $status = trim((string) ($data['status'] ?? ''));
-        $adminNote = trim((string) ($data['adminNote'] ?? ''));
+        $status = trim((string)($data['status'] ?? ''));
+        $adminNote = trim((string)($data['adminNote'] ?? ''));
         $previousStatus = $dataAccessRequest->getStatus();
 
         if (!in_array($status, [DataAccessRequest::STATUS_PROCESSED, DataAccessRequest::STATUS_REJECTED], true)) {
@@ -525,7 +644,7 @@ class AdminApiController extends AbstractController
 
         $dataAccessRequest->setStatus($status);
         $dataAccessRequest->setProcessedBy($user);
-        $dataAccessRequest->setProcessedAt(new \DateTimeImmutable());
+        $dataAccessRequest->setProcessedAt(new DateTimeImmutable());
         $dataAccessRequest->setAdminNote($adminNote !== '' ? $adminNote : null);
 
         $statusNotif = null;
@@ -565,11 +684,11 @@ class AdminApiController extends AbstractController
                         'username' => $user->getUsername(),
                         'profileImage' => $user->getProfileImage() ? '/profile_images/' . $user->getProfileImage() : null
                     ],
-                    'createdAt' => $statusNotif->getCreatedAt()->format(\DateTime::ATOM),
+                    'createdAt' => $statusNotif->getCreatedAt()->format(DateTime::ATOM),
                 ];
 
                 $pusher->trigger('private-user-' . $requester->getId(), 'new-notification', $notifData);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 // Log error but don't fail the request after the moderation action has been persisted
                 error_log('Error publishing data access request notification: ' . $e->getMessage());
             }
@@ -581,7 +700,7 @@ class AdminApiController extends AbstractController
                 $requester = $dataAccessRequest->getRequester();
                 if ($requester instanceof User) {
                     $rawToken = bin2hex(random_bytes(32));
-                    $expiresAt = new \DateTimeImmutable('+48 hours');
+                    $expiresAt = new DateTimeImmutable('+48 hours');
 
                     $dataAccessRequest->setDownloadTokenHash(hash('sha256', $rawToken));
                     $dataAccessRequest->setDownloadTokenExpiresAt($expiresAt);
@@ -591,7 +710,7 @@ class AdminApiController extends AbstractController
                         $emailService->sendDataExportLinkEmail($requester, $dataAccessRequest, $rawToken, $expiresAt);
                     }
                 }
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 // Log error but don't fail the request
                 error_log('Error sending RGPD data export email: ' . $e->getMessage());
             }
@@ -612,15 +731,44 @@ class AdminApiController extends AbstractController
         ]);
     }
 
+    private function createDataAccessRequestStatusNotification(
+        EntityManagerInterface $entityManager,
+        User                   $recipient,
+        User                   $admin,
+        DataAccessRequest      $dataAccessRequest,
+        string                 $status
+    ): Notification
+    {
+        $message = $status === DataAccessRequest::STATUS_PROCESSED
+            ? 'Votre demande d\'accès à vos données RGPD a été acceptée. Un email avec le fichier JSON vous a été envoyé.'
+            : 'Votre demande d\'accès à vos données RGPD a été refusée. Consultez la note d\'administration pour plus de détails.';
+
+        $notification = new Notification();
+        $notification->setType('data_access_request_update');
+        $notification->setSender($admin);
+        $notification->setRecipient($recipient);
+        $notification->setStatus('unread');
+        $notification->setData([
+            'message' => $message,
+            'requestId' => $dataAccessRequest->getId(),
+            'decision' => $status,
+            'adminNote' => $dataAccessRequest->getAdminNote(),
+        ]);
+
+        $entityManager->persist($notification);
+        return $notification;
+    }
+
     /**
      * Export user data for a data-access request.
      */
     #[Route('/data-access-requests/{id}/data', name: 'api_admin_data_access_requests_data', methods: ['GET'])]
     public function getDataAccessRequestData(
-        int $id,
+        int                         $id,
         DataAccessRequestRepository $dataAccessRequestRepository,
-        DataExportService $dataExportService
-    ): JsonResponse {
+        DataExportService           $dataExportService
+    ): JsonResponse
+    {
         /** @var User|null $user */
         $user = $this->getUser();
         if (!$user || $user->getUserType() !== 1) {
@@ -654,11 +802,12 @@ class AdminApiController extends AbstractController
      */
     #[Route('/reports/{id}', name: 'api_admin_reports_process', methods: ['PATCH'])]
     public function processReport(
-        int $id,
-        Request $request,
-        ReportRepository $reportRepository,
+        int                    $id,
+        Request                $request,
+        ReportRepository       $reportRepository,
         EntityManagerInterface $entityManager
-    ): JsonResponse {
+    ): JsonResponse
+    {
         /** @var User|null $user */
         $user = $this->getUser();
         if (!$user || $user->getUserType() !== 1) {
@@ -671,8 +820,8 @@ class AdminApiController extends AbstractController
         }
 
         $data = json_decode($request->getContent(), true);
-        $status = trim((string) ($data['status'] ?? ''));
-        $adminNote = trim((string) ($data['adminNote'] ?? ''));
+        $status = trim((string)($data['status'] ?? ''));
+        $adminNote = trim((string)($data['adminNote'] ?? ''));
 
         if (!in_array($status, [Report::STATUS_REVIEWED, Report::STATUS_REJECTED], true)) {
             return $this->json(['error' => 'Statut invalide'], Response::HTTP_BAD_REQUEST);
@@ -680,7 +829,7 @@ class AdminApiController extends AbstractController
 
         $report->setStatus($status);
         $report->setReviewedBy($user);
-        $report->setReviewedAt(new \DateTimeImmutable());
+        $report->setReviewedAt(new DateTimeImmutable());
         $report->setAdminNote($adminNote !== '' ? $adminNote : null);
 
         $entityManager->flush();
@@ -700,17 +849,18 @@ class AdminApiController extends AbstractController
      */
     #[Route('/reports/{id}/auto-action', name: 'api_admin_reports_auto_action', methods: ['POST'])]
     public function autoActionFromReport(
-        int $id,
-        Request $request,
-        ReportRepository $reportRepository,
-        PostRepository $postRepository,
-        CommentRepository $commentRepository,
-        MessageRepository $messageRepository,
-        UserRepository $userRepository,
-        ArticleRepository $articleRepository,
-        ResourceRepository $resourceRepository,
+        int                    $id,
+        Request                $request,
+        ReportRepository       $reportRepository,
+        PostRepository         $postRepository,
+        CommentRepository      $commentRepository,
+        MessageRepository      $messageRepository,
+        UserRepository         $userRepository,
+        ArticleRepository      $articleRepository,
+        ResourceRepository     $resourceRepository,
         EntityManagerInterface $entityManager
-    ): JsonResponse {
+    ): JsonResponse
+    {
         /** @var User|null $user */
         $user = $this->getUser();
         if (!$user || $user->getUserType() !== 1) {
@@ -723,15 +873,15 @@ class AdminApiController extends AbstractController
         }
 
         $data = json_decode($request->getContent(), true);
-        $action = trim((string) ($data['action'] ?? ''));
-        $adminNote = trim((string) ($data['adminNote'] ?? ''));
+        $action = trim((string)($data['action'] ?? ''));
+        $adminNote = trim((string)($data['adminNote'] ?? ''));
 
         if (!in_array($action, ['delete_target', 'ban_author'], true)) {
             return $this->json(['error' => 'Action invalide'], Response::HTTP_BAD_REQUEST);
         }
 
         $targetType = $report->getTargetType();
-        $targetId = (int) $report->getTargetId();
+        $targetId = (int)$report->getTargetId();
         $resultMessage = '';
         $contentAuthor = null;
         $removedContentType = null;
@@ -804,9 +954,9 @@ class AdminApiController extends AbstractController
             // Keep the current report as reviewed trace, but purge other pending
             // reports targeting the same deleted content.
             $cleanedPendingReportsCount = $reportRepository->deletePendingByTargetExceptId(
-                (string) $targetType,
+                (string)$targetType,
                 $targetId,
-                (int) $report->getId()
+                (int)$report->getId()
             );
         }
 
@@ -845,7 +995,7 @@ class AdminApiController extends AbstractController
 
         $report->setStatus(Report::STATUS_REVIEWED);
         $report->setReviewedBy($user);
-        $report->setReviewedAt(new \DateTimeImmutable());
+        $report->setReviewedAt(new DateTimeImmutable());
 
         $autoNote = sprintf('Auto-action: %s (%s).', $action, $resultMessage);
         $finalNote = trim($autoNote . ' ' . $adminNote);
@@ -876,15 +1026,15 @@ class AdminApiController extends AbstractController
                         'username' => $user->getUsername(),
                         'profileImage' => $user->getProfileImage() ? '/profile_images/' . $user->getProfileImage() : null
                     ],
-                    'createdAt' => $warningNotif->getCreatedAt()->format(\DateTime::ATOM),
+                    'createdAt' => $warningNotif->getCreatedAt()->format(DateTime::ATOM),
                 ];
 
                 $pusher->trigger('private-user-' . $warningNotif->getRecipient()->getId(), 'new-notification', $notifData);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 error_log(sprintf(
                     'Pusher notification publish failed for notification %s to recipient %s: %s',
-                    (string) $warningNotif->getId(),
-                    (string) $warningNotif->getRecipient()->getId(),
+                    (string)$warningNotif->getId(),
+                    (string)$warningNotif->getRecipient()->getId(),
                     $e->getMessage()
                 ));
             }
@@ -900,83 +1050,6 @@ class AdminApiController extends AbstractController
                 'reviewedAt' => $report->getReviewedAt()?->format('c'),
             ],
         ]);
-    }
-
-    private function createModerationWarningNotification(
-        EntityManagerInterface $entityManager,
-        User $recipient,
-        User $admin,
-        Report $report,
-        string $contentType
-    ): Notification {
-        $reason = trim((string) $report->getReason());
-        if ($reason === '') {
-            $reason = 'non précisé';
-        }
-
-        $notification = new Notification();
-        $notification->setType('moderation_warning');
-        $notification->setSender($admin);
-        $notification->setRecipient($recipient);
-        $notification->setStatus('pending');
-        $notification->setData([
-            'message' => sprintf(
-                'Votre %s a été supprimé suite à un signalement. Motif : %s.',
-                $contentType,
-                $reason
-            ),
-            'reportId' => $report->getId(),
-            'targetType' => $report->getTargetType(),
-            'targetId' => $report->getTargetId(),
-            'reason' => $reason,
-        ]);
-
-        $entityManager->persist($notification);
-        return $notification;
-    }
-
-    private function createDataAccessRequestStatusNotification(
-        EntityManagerInterface $entityManager,
-        User $recipient,
-        User $admin,
-        DataAccessRequest $dataAccessRequest,
-        string $status
-    ): Notification {
-        $message = $status === DataAccessRequest::STATUS_PROCESSED
-            ? 'Votre demande d\'accès à vos données RGPD a été acceptée. Un email avec le fichier JSON vous a été envoyé.'
-            : 'Votre demande d\'accès à vos données RGPD a été refusée. Consultez la note d\'administration pour plus de détails.';
-
-        $notification = new Notification();
-        $notification->setType('data_access_request_update');
-        $notification->setSender($admin);
-        $notification->setRecipient($recipient);
-        $notification->setStatus('unread');
-        $notification->setData([
-            'message' => $message,
-            'requestId' => $dataAccessRequest->getId(),
-            'decision' => $status,
-            'adminNote' => $dataAccessRequest->getAdminNote(),
-        ]);
-
-        $entityManager->persist($notification);
-        return $notification;
-    }
-
-    private function deletePostDependencies(Post $post, EntityManagerInterface $entityManager): void
-    {
-        foreach ($post->getReplies() as $reply) {
-            if ($reply instanceof Post) {
-                $this->deletePostAttachments($reply);
-                $this->deletePostDependencies($reply, $entityManager);
-                $entityManager->remove($reply);
-            }
-        }
-
-        foreach ($post->getComments() as $comment) {
-            if ($comment instanceof Comment) {
-                $entityManager->remove($comment);
-            }
-        }
     }
 
     private function deletePostAttachments(Post $post): void
@@ -996,6 +1069,23 @@ class AdminApiController extends AbstractController
             $pdfFile = sprintf('%s/post_pdfs/%s', $publicDirectory, $pdfPath);
             if (is_file($pdfFile)) {
                 @unlink($pdfFile);
+            }
+        }
+    }
+
+    private function deletePostDependencies(Post $post, EntityManagerInterface $entityManager): void
+    {
+        foreach ($post->getReplies() as $reply) {
+            if ($reply instanceof Post) {
+                $this->deletePostAttachments($reply);
+                $this->deletePostDependencies($reply, $entityManager);
+                $entityManager->remove($reply);
+            }
+        }
+
+        foreach ($post->getComments() as $comment) {
+            if ($comment instanceof Comment) {
+                $entityManager->remove($comment);
             }
         }
     }
@@ -1021,107 +1111,165 @@ class AdminApiController extends AbstractController
         }
     }
 
-    private function getTargetSummary(
-        Report $report,
-        PostRepository $postRepository,
-        CommentRepository $commentRepository,
-        UserRepository $userRepository,
-        MessageRepository $messageRepository,
-        ArticleRepository $articleRepository,
-        ResourceRepository $resourceRepository
-    ): array {
-        $type = $report->getTargetType();
-        $targetId = (int) $report->getTargetId();
-
-        if ($type === Report::TARGET_POST) {
-            $post = $postRepository->find($targetId);
-            if (!$post instanceof Post) {
-                return ['exists' => false, 'label' => 'Post supprimé'];
-            }
-
-            $forum = $post->getForum();
-
-            return [
-                'exists' => true,
-                'label' => $post->getName(),
-                'postId' => $post->getId(),
-                'forumCategory' => $forum?->getTitle(),
-                'forumSpecial' => $forum?->getSpecial(),
-                'author' => $post->getUser()?->getUsername(),
-            ];
+    private function createModerationWarningNotification(
+        EntityManagerInterface $entityManager,
+        User                   $recipient,
+        User                   $admin,
+        Report                 $report,
+        string                 $contentType
+    ): Notification
+    {
+        $reason = trim((string)$report->getReason());
+        if ($reason === '') {
+            $reason = 'non précisé';
         }
 
-        if ($type === Report::TARGET_COMMENT) {
-            $comment = $commentRepository->find($targetId);
-            if (!$comment instanceof Comment) {
-                return ['exists' => false, 'label' => 'Commentaire supprimé'];
-            }
+        $notification = new Notification();
+        $notification->setType('moderation_warning');
+        $notification->setSender($admin);
+        $notification->setRecipient($recipient);
+        $notification->setStatus('pending');
+        $notification->setData([
+            'message' => sprintf(
+                'Votre %s a été supprimé suite à un signalement. Motif : %s.',
+                $contentType,
+                $reason
+            ),
+            'reportId' => $report->getId(),
+            'targetType' => $report->getTargetType(),
+            'targetId' => $report->getTargetId(),
+            'reason' => $reason,
+        ]);
 
-            return [
-                'exists' => true,
-                'label' => mb_substr((string) $comment->getBody(), 0, 120),
-                'author' => $comment->getUser()?->getUsername(),
-            ];
+        $entityManager->persist($notification);
+        return $notification;
+    }
+
+    /**
+     * Change a user's role (userType)
+     */
+    #[Route('/users/{id}/role', name: 'api_admin_change_role', methods: ['POST'])]
+    public function changeUserRole(
+        int                    $id,
+        Request                $request,
+        UserRepository         $userRepository,
+        EntityManagerInterface $entityManager
+    ): JsonResponse
+    {
+        /** @var User|null $currentUser */
+        $currentUser = $this->getUser();
+        if (!$currentUser || $currentUser->getUserType() !== 1) {
+            return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
         }
 
-        if ($type === Report::TARGET_PROFILE) {
-            $targetUser = $userRepository->find($targetId);
-            if (!$targetUser instanceof User) {
-                return ['exists' => false, 'label' => 'Profil supprimé'];
-            }
-
-            return [
-                'exists' => true,
-                'label' => $targetUser->getUsername(),
-                'author' => $targetUser->getUsername(),
-            ];
+        $targetUser = $userRepository->find($id);
+        if (!$targetUser) {
+            return $this->json(['error' => 'Utilisateur non trouvé'], Response::HTTP_NOT_FOUND);
         }
 
-        if ($type === Report::TARGET_MESSAGE) {
-            $message = $messageRepository->find($targetId);
-            if (!$message instanceof Message) {
-                return ['exists' => false, 'label' => 'Message supprimé'];
-            }
-
-            $messageContent = trim((string) $message->getContent());
-            if ($messageContent === '') {
-                $messageContent = '[message vide]';
-            }
-
-            return [
-                'exists' => true,
-                'label' => $messageContent,
-                'author' => $message->getSender()?->getUsername(),
-            ];
+        // Sécurité : Un admin ne peut pas se rétrograder lui-même pour éviter de bloquer le site
+        if ($currentUser->getId() === $id) {
+            return $this->json(['error' => 'Vous ne pouvez pas modifier votre propre rôle'], Response::HTTP_BAD_REQUEST);
         }
 
-        if ($type === Report::TARGET_ARTICLE) {
-            $article = $articleRepository->find($targetId);
-            if (!$article instanceof Article) {
-                return ['exists' => false, 'label' => 'Article supprimé'];
-            }
-
-            return [
-                'exists' => true,
-                'label' => $article->getTitle(),
-                'author' => $article->getUser()?->getUsername(),
-            ];
+        $data = json_decode($request->getContent(), true);
+        if (!isset($data['userType'])) {
+            return $this->json(['error' => 'Le type d\'utilisateur est requis'], Response::HTTP_BAD_REQUEST);
         }
 
-        if ($type === Report::TARGET_RESOURCE) {
-            $resource = $resourceRepository->find($targetId);
-            if (!$resource instanceof Resource) {
-                return ['exists' => false, 'label' => 'Ressource supprimée'];
-            }
-
-            return [
-                'exists' => true,
-                'label' => $resource->getTitle(),
-                'author' => $resource->getUser()?->getUsername(),
-            ];
+        $newUserType = (int)$data['userType'];
+        if (!in_array($newUserType, [0, 1], true)) {
+            return $this->json([
+                'error' => 'Le type d\'utilisateur doit être 0 (utilisateur) ou 1 (administrateur)'
+            ], Response::HTTP_BAD_REQUEST);
         }
 
-        return ['exists' => false, 'label' => 'Cible inconnue'];
+        $targetUser->setUserType($newUserType);
+        $entityManager->flush();
+
+        return $this->json([
+            'message' => 'Rôle mis à jour avec succès',
+            'userType' => $newUserType,
+        ]);
+    }
+
+    /**
+     * Get full user data for admin editing (similar to ProfileApiController::getEditData)
+     */
+    #[Route('/users/{id}/full-profile', name: 'api_admin_user_full_profile', methods: ['GET'])]
+    public function getFullProfileForEdit(
+        int                     $id,
+        UserRepository          $userRepository,
+        UserQuestionsRepository $userQuestionsRepository,
+        TagRepository           $tagRepository,
+    ): JsonResponse
+    {
+        /** @var User|null $currentUser */
+        $currentUser = $this->getUser();
+        if (!$currentUser || $currentUser->getUserType() !== 1) {
+            return $this->json(['error' => 'Accès refusé'], Response::HTTP_FORBIDDEN);
+        }
+
+        $targetUser = $userRepository->find($id);
+        if (!$targetUser) {
+            return $this->json(['error' => 'Utilisateur non trouvé'], Response::HTTP_NOT_FOUND);
+        }
+
+        $mandatoryLabels = ['Méthodologies', 'Auteurs marquants', 'Citation'];
+        $dynamicQuestionsCount = 10;
+
+        $userQuestions = $userQuestionsRepository->findAllByUser($targetUser->getId());
+
+        $userQuestionsData = [];
+        $mandatoryQuestionsData = ['', '', ''];
+        $taggableQuestionsData = [[], []];
+
+        foreach ($userQuestions as $uq) {
+            $questionTitle = $uq->getQuestion();
+
+            if (in_array($questionTitle, $mandatoryLabels)) {
+                $index = array_search($questionTitle, $mandatoryLabels);
+                $mandatoryQuestionsData[$index] = $uq->getAnswer();
+            } elseif (str_starts_with($questionTitle, 'Taggable')) {
+                $index = (int)filter_var($questionTitle, FILTER_SANITIZE_NUMBER_INT);
+                $answer = $uq->getAnswer();
+                $tag = $tagRepository->findOneBy(['name' => $answer]);
+
+                $taggableQuestionsData[$index][] = [
+                    'id' => $tag ? $tag->getId() : $answer,
+                    'name' => $answer
+                ];
+            } elseif (str_starts_with($questionTitle, 'Question')) {
+                $index = (int)filter_var($questionTitle, FILTER_SANITIZE_NUMBER_INT);
+                $userQuestionsData[$index] = $uq->getAnswer();
+            }
+        }
+
+        for ($i = 0; $i < $dynamicQuestionsCount; $i++) {
+            if (!array_key_exists($i, $userQuestionsData)) {
+                $userQuestionsData[$i] = '';
+            }
+        }
+
+        return $this->json([
+            'user' => [
+                'id' => $targetUser->getId(),
+                'email' => $targetUser->getEmail(),
+                'lastName' => $targetUser->getLastName(),
+                'firstName' => $targetUser->getFirstName(),
+                'username' => $targetUser->getUsername(),
+                'affiliationLocation' => $targetUser->getAffiliationLocation(),
+                'specialization' => $targetUser->getSpecialization(),
+                'researchTopic' => $targetUser->getResearchTopic(),
+                'profileImage' => $targetUser->getProfileImage(),
+                'genre' => $targetUser->getGenre(),
+                'researcherTitle' => $targetUser->getResearcherTitle(),
+                'userType' => $targetUser->getUserType(),
+            ],
+            'mandatoryQuestionsAnswers' => $mandatoryQuestionsData,
+            'userQuestionsAnswers' => $userQuestionsData,
+            'taggableQuestionsAnswers' => $taggableQuestionsData,
+        ]);
     }
 
 }
