@@ -2,8 +2,15 @@
 
 namespace App\Controller\Api;
 
+use App\Entity\Comment;
 use App\Entity\DataAccessRequest;
+use App\Entity\Notification;
+use App\Entity\PasswordResetToken;
+use App\Entity\Post;
+use App\Entity\PostLike;
+use App\Entity\Report;
 use App\Entity\User;
+use App\Entity\UserLike;
 use App\Entity\UserQuestions;
 use App\Repository\DataAccessRequestRepository;
 use App\Repository\UserRepository;
@@ -12,6 +19,7 @@ use App\Service\DataExportService;
 use App\Service\EmailService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -430,7 +438,7 @@ class UserApiController extends AbstractController
      * Delete user account
      */
     #[Route('/profile', name: 'api_user_delete_account', methods: ['DELETE'])]
-    public function deleteAccount(EntityManagerInterface $entityManager): JsonResponse
+    public function deleteAccount(Request $request, EntityManagerInterface $entityManager, Security $security): JsonResponse
     {
         /** @var User|null $user */
         $user = $this->getUser();
@@ -439,11 +447,59 @@ class UserApiController extends AbstractController
             return $this->json(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
+        foreach ($entityManager->getRepository(UserLike::class)->findBy(['user' => $user]) as $userLike) {
+            $entityManager->remove($userLike);
+        }
+
+        foreach ($entityManager->getRepository(PostLike::class)->findBy(['user' => $user]) as $postLike) {
+            $entityManager->remove($postLike);
+        }
+
+        foreach ($entityManager->getRepository(UserQuestions::class)->findBy(['user' => $user]) as $userQuestion) {
+            $entityManager->remove($userQuestion);
+        }
+
+        foreach ($entityManager->getRepository(Comment::class)->findBy(['user' => $user]) as $comment) {
+            $entityManager->remove($comment);
+        }
+
+        foreach ($entityManager->getRepository(Report::class)->findBy(['reporter' => $user]) as $report) {
+            $entityManager->remove($report);
+        }
+
+        foreach ($entityManager->getRepository(PasswordResetToken::class)->findBy(['user' => $user]) as $passwordResetToken) {
+            $entityManager->remove($passwordResetToken);
+        }
+
+        foreach ($entityManager->getRepository(DataAccessRequest::class)->findBy(['requester' => $user]) as $dataAccessRequest) {
+            $entityManager->remove($dataAccessRequest);
+        }
+
+        foreach ($entityManager->getRepository(Notification::class)->findBy(['recipient' => $user]) as $notification) {
+            $entityManager->remove($notification);
+        }
+
+        $userPosts = $entityManager->getRepository(Post::class)->findBy(['user' => $user]);
+        foreach ($userPosts as $post) {
+            foreach ($post->getSubscribedUsers()->toArray() as $subscribedUser) {
+                $post->removeSubscribedUser($subscribedUser);
+            }
+
+            $entityManager->remove($post);
+        }
+
+        foreach ($user->getSubscribedPosts()->toArray() as $subscribedPost) {
+            $user->removeSubscribedPost($subscribedPost);
+        }
+
         $entityManager->remove($user);
         $entityManager->flush();
 
-        // Invalider la session
-        $this->container->get('session')->invalidate();
+        $security->logout(false);
+
+        if ($request->hasSession()) {
+            $request->getSession()->invalidate();
+        }
 
         return $this->json(['message' => 'Compte supprimé avec succès']);
     }
