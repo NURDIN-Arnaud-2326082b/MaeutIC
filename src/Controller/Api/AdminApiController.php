@@ -1178,6 +1178,12 @@ class AdminApiController extends AbstractController
         }
 
         $newUserType = (int)$data['userType'];
+        if (!in_array($newUserType, [0, 1], true)) {
+            return $this->json([
+                'error' => 'Le type d\'utilisateur doit être 0 (utilisateur) ou 1 (administrateur)'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
         $targetUser->setUserType($newUserType);
         $entityManager->flush();
 
